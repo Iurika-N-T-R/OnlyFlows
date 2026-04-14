@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Placeholder – real colors live in Compose theme -->
+    <color name="flow_blue">#4A90D9</color>
+    <color name="flow_surface">#FFFFFF</color>
+    <color name="flow_surface_dark">#161B22</color>
+</resources>

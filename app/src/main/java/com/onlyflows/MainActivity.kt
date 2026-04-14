@@ -1,0 +1,101 @@
+package com.onlyflows
+
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
+import android.os.Bundle
+import android.os.PowerManager
+import android.provider.Settings
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.compose.rememberNavController
+import androidx.window.core.layout.WindowWidthSizeClass
+import com.onlyflows.data.preferences.ThemeMode
+import com.onlyflows.ui.layout.AdaptiveAppLayout
+import com.onlyflows.ui.theme.LocalUse24hFormat
+import com.onlyflows.ui.theme.OnlyFlowsTheme
+
+class MainActivity : ComponentActivity() {
+
+    private val requestNotificationPermission =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* no-op */ }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        requestPostNotificationsIfNeeded()
+        requestBatteryOptimizationExemption()
+        enableEdgeToEdge()
+        setContent {
+            val app = application as OnlyFlowsApp
+            val themeMode by app.container.appPreferences.themeMode
+                .collectAsStateWithLifecycle(initialValue = ThemeMode.SYSTEM)
+            val use24hFormat by app.container.appPreferences.use24hFormat
+                .collectAsStateWithLifecycle(initialValue = true)
+            val systemDark = isSystemInDarkTheme()
+            val darkTheme = when (themeMode) {
+                ThemeMode.LIGHT  -> false
+                ThemeMode.DARK   -> true
+                ThemeMode.SYSTEM -> systemDark
+            }
+
+            OnlyFlowsTheme(darkTheme = darkTheme) {
+                androidx.compose.runtime.CompositionLocalProvider(
+                    LocalUse24hFormat provides use24hFormat,
+                ) {
+                val navController = rememberNavController()
+                val windowInfo = currentWindowAdaptiveInfo()
+                val isTablet = windowInfo.windowSizeClass.windowWidthSizeClass ==
+                        WindowWidthSizeClass.EXPANDED
+
+                    AdaptiveAppLayout(
+                        navController = navController,
+                        isTablet      = isTablet,
+                        modifier      = Modifier.fillMaxSize(),
+                    )
+                }
+            }
+        }
+    }
+
+    private fun requestPostNotificationsIfNeeded() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED
+        ) {
+            requestNotificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
+    /**
+     * Ask Android to exclude this app from battery optimization.
+     * Without this, alarms set via AlarmManager can be deferred or cancelled
+     * when the app is in the background / "closed" by the user.
+     *
+     * The system shows a one-time dialog; the user can deny it.
+     * We only request if not already exempted.
+     */
+    private fun requestBatteryOptimizationExemption() {
+        val pm = getSystemService(PowerManager::class.java) ?: return
+        if (pm.isIgnoringBatteryOptimizations(packageName)) return  // already exempted
+
+        try {
+            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                data = Uri.fromParts("package", packageName, null)
+            }
+            startActivity(intent)
+        } catch (e: Exception) {
+            // Some OEMs don't support this intent — fail silently
+        }
+    }
+}

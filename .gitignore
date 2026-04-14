@@ -1,0 +1,22 @@
+# Android / Gradle
+*.iml
+.gradle/
+local.properties
+/build/
+**/build/
+/captures/
+.externalNativeBuild/
+.cxx/
+
+# IDE
+/.idea/
+*.DS_Store
+
+# Project-specific exclusions
+Screenshot/
+.claude/
+
+# Keystore / secrets
+*.jks
+*.keystore
+*.p12

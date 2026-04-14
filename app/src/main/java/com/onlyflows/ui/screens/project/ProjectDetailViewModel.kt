@@ -1,0 +1,467 @@
+package com.onlyflows.ui.screens.project
+
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.onlyflows.OnlyFlowsApp
+import com.onlyflows.domain.model.Note
+import com.onlyflows.domain.model.Project
+import com.onlyflows.domain.model.ProjectStatus
+import com.onlyflows.domain.model.ProjectType
+import com.onlyflows.domain.model.Section
+import com.onlyflows.domain.model.StatusLogEntry
+import com.onlyflows.domain.model.Tag
+import com.onlyflows.domain.model.Task
+import com.onlyflows.domain.model.TaskPriority
+import com.onlyflows.domain.model.Comment
+import com.onlyflows.domain.repository.CommentRepository
+import com.onlyflows.domain.repository.NoteRepository
+import com.onlyflows.domain.repository.ProjectRepository
+import com.onlyflows.domain.repository.TagRepository
+import com.onlyflows.domain.repository.TaskRepository
+import com.onlyflows.domain.repository.TimeEntryRepository
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import java.time.LocalDateTime
+
+data class ProjectDetailUiState(
+    val project: Project?                        = null,
+    val tasksBySection: Map<String?, List<Task>> = emptyMap(),
+    val tags: List<Tag>                          = emptyList(),
+    val allProjects: List<Project>               = emptyList(),
+    val childLists: List<Project>                = emptyList(),
+    val selectedTaskIds: Set<String>             = emptySet(),
+    val movingToCompletedIds: Set<String>        = emptySet(),
+    val showAddTask: Boolean                     = false,
+    val showMoveSheet: Boolean                   = false,
+    val addTaskSectionId: String?                = null,
+    val isLoading: Boolean                       = true,
+    val statusLog: List<StatusLogEntry>          = emptyList(),
+    val activeTagFilter: Set<String>             = emptySet(),
+    val activePriorityFilter: TaskPriority?      = null,
+    val notes: List<Note>                        = emptyList(),
+    val editingNote: Note?                       = null,
+    val isAddingNote: Boolean                    = false,
+    val archivedTasks: List<Task>                = emptyList(),
+    val totalTrackedSeconds: Long                = 0L,
+    val comments: List<Comment>                  = emptyList(),
+    val showBulkMore: Boolean                    = false,
+)
+
+sealed interface ProjectDetailEvent {
+    data class ToggleComplete(val taskId: String, val current: Boolean) : ProjectDetailEvent
+    data class ToggleSelect(val taskId: String)                         : ProjectDetailEvent
+    data object ClearSelection                                          : ProjectDetailEvent
+    data class ShowAddTask(val sectionId: String?)                      : ProjectDetailEvent
+    data object HideAddTask                                             : ProjectDetailEvent
+    data class AddTask(val title: String, val sectionId: String?, val priority: TaskPriority = TaskPriority.NONE) : ProjectDetailEvent
+    data class DeleteSelected(val ids: Set<String>)                     : ProjectDetailEvent
+    data class ReorderTasks(val idsInOrder: List<String>)                        : ProjectDetailEvent
+    data class ToggleChecklistItem(val itemId: String, val completed: Boolean)   : ProjectDetailEvent
+    data class UpdateStatus(val status: ProjectStatus)                           : ProjectDetailEvent
+    data class UpdateProject(
+        val title: String,
+        val note: String,
+        val colorHex: String,
+        val dueDate: java.time.LocalDate?,
+    ) : ProjectDetailEvent
+    data class AddSection(val title: String)                                    : ProjectDetailEvent
+    data class RenameSection(val sectionId: String, val title: String)         : ProjectDetailEvent
+    data class DeleteSection(val sectionId: String)                             : ProjectDetailEvent
+    data class ReorderSections(val orderedIds: List<String>)                    : ProjectDetailEvent
+    data class ToggleTagFilter(val tagId: String)                  : ProjectDetailEvent
+    data class SetPriorityFilter(val priority: TaskPriority?)  : ProjectDetailEvent
+    data object Archive                                        : ProjectDetailEvent
+    data object ShowMoveSheet                                                  : ProjectDetailEvent
+    data object HideMoveSheet                                                  : ProjectDetailEvent
+    data class MoveSelected(val projectId: String?, val sectionId: String?)    : ProjectDetailEvent
+    data class MoveTaskToSection(val taskId: String, val sectionId: String?)   : ProjectDetailEvent
+    data class MoveSelectedToSection(val sectionId: String?)                   : ProjectDetailEvent
+    data class ArchiveSelected(val ids: Set<String>)                           : ProjectDetailEvent
+    data class UnarchiveTask(val taskId: String)                               : ProjectDetailEvent
+    data class CreateChildList(val title: String)                             : ProjectDetailEvent
+    data class UpdateNote(val note: String)                                   : ProjectDetailEvent
+    // ── Note-list CRUD (NOTE-type projects) ──
+    data object ShowNewNoteEditor                                             : ProjectDetailEvent
+    data class  OpenNoteEditor(val note: Note)                               : ProjectDetailEvent
+    data object HideNoteEditor                                                : ProjectDetailEvent
+    data class  SaveNote(val id: String?, val title: String, val content: String) : ProjectDetailEvent
+    data class  DeleteNoteItem(val noteId: String)                           : ProjectDetailEvent
+    data class AddComment(val content: String)                               : ProjectDetailEvent
+    data class EditComment(val id: String, val content: String)             : ProjectDetailEvent
+    data class DeleteComment(val id: String)                                 : ProjectDetailEvent
+    data object ShowBulkMore                                                : ProjectDetailEvent
+    data object HideBulkMore                                                : ProjectDetailEvent
+    data class BulkStar(val starred: Boolean)                               : ProjectDetailEvent
+    data class BulkSetPriority(val priority: TaskPriority)                  : ProjectDetailEvent
+    data class BulkAddTag(val tagId: String)                                : ProjectDetailEvent
+    data class BulkSchedule(val date: java.time.LocalDate?)                 : ProjectDetailEvent
+    data object StartTimerForSelected                                       : ProjectDetailEvent
+}
+
+class ProjectDetailViewModel(app: Application) : AndroidViewModel(app) {
+
+    private val container     = (app as OnlyFlowsApp).container
+    private val taskRepo: TaskRepository             = container.taskRepository
+    private val projectRepo: ProjectRepository       = container.projectRepository
+    private val tagRepo: TagRepository               = container.tagRepository
+    private val noteRepo: NoteRepository             = container.noteRepository
+    private val timeRepo: TimeEntryRepository        = container.timeEntryRepository
+    private val commentRepo: CommentRepository       = container.commentRepository
+
+    private val _uiState = MutableStateFlow(ProjectDetailUiState())
+    val uiState: StateFlow<ProjectDetailUiState> = _uiState.asStateFlow()
+
+    fun loadProject(projectId: String) {
+        // Load total tracked time for this project (one-shot, refreshed on load)
+        viewModelScope.launch {
+            val secs = timeRepo.getTotalSecondsForProject(projectId)
+            _uiState.update { it.copy(totalTrackedSeconds = secs) }
+        }
+        // Observe comments
+        viewModelScope.launch {
+            commentRepo.observeByProject(projectId).collect { comments ->
+                _uiState.update { it.copy(comments = comments) }
+            }
+        }
+        viewModelScope.launch {
+            val projectAndChildrenFlow = combine(
+                projectRepo.observeById(projectId),
+                projectRepo.observeChildren(projectId),
+            ) { project, children -> Pair(project, children) }
+
+            val coreFlow = combine(
+                projectAndChildrenFlow,
+                taskRepo.observeByProject(projectId),
+                tagRepo.observeAll(),
+                projectRepo.observeStatusLog(projectId),
+                projectRepo.observeAll(),
+            ) { projAndChildren, tasks, tags, statusLog, allProjects ->
+                arrayOf<Any?>(projAndChildren, tasks, tags, statusLog, allProjects)
+            }
+
+            val noteAndArchiveFlow = combine(
+                noteRepo.observeByProject(projectId),
+                taskRepo.observeArchivedByProject(projectId),
+            ) { notes, archived -> Pair(notes, archived) }
+
+            @Suppress("UNCHECKED_CAST")
+            combine(coreFlow, noteAndArchiveFlow) { packed, noteAndArchive ->
+                val projAndChildren = packed[0] as Pair<*, *>
+                val project     = projAndChildren.first as Project?
+                val childLists  = projAndChildren.second as List<Project>
+                val tasks       = packed[1] as List<Task>
+                val tags        = packed[2] as List<Tag>
+                val statusLog   = packed[3] as List<StatusLogEntry>
+                val allProjects = packed[4] as List<Project>
+                val notes       = noteAndArchive.first
+                val archived    = noteAndArchive.second
+
+                ProjectDetailUiState(
+                    project        = project,
+                    tasksBySection = tasks.groupBy { it.sectionId },
+                    tags           = tags,
+                    statusLog      = statusLog,
+                    allProjects    = allProjects,
+                    childLists     = childLists,
+                    notes          = notes,
+                    archivedTasks  = archived,
+                    isLoading      = false,
+                )
+            }.collect { newState ->
+                _uiState.update { state ->
+                    newState.copy(
+                        selectedTaskIds      = state.selectedTaskIds,
+                        movingToCompletedIds = state.movingToCompletedIds,
+                        showAddTask          = state.showAddTask,
+                        showMoveSheet        = state.showMoveSheet,
+                        addTaskSectionId     = state.addTaskSectionId,
+                        activeTagFilter      = state.activeTagFilter,
+                        activePriorityFilter = state.activePriorityFilter,
+                        editingNote          = state.editingNote,
+                        isAddingNote         = state.isAddingNote,
+                    )
+                }
+            }
+        }
+    }
+
+    fun onEvent(event: ProjectDetailEvent) {
+        when (event) {
+            is ProjectDetailEvent.ToggleComplete -> viewModelScope.launch {
+                val newCompleted = !event.current
+                val task = _uiState.value.tasksBySection.values.flatten().find { it.id == event.taskId }
+                if (newCompleted && task?.recurrence != null) {
+                    taskRepo.completeRecurring(event.taskId)
+                } else {
+                    taskRepo.setCompleted(event.taskId, newCompleted)
+                }
+
+                val project = _uiState.value.project ?: return@launch
+                val allTasks = _uiState.value.tasksBySection.values.flatten()
+                val updatedTasks = allTasks.map { t ->
+                    if (t.id == event.taskId) t.copy(isCompleted = newCompleted) else t
+                }
+
+                if (newCompleted) {
+                    // Task was just marked complete — check if all tasks are now done
+                    if (updatedTasks.isNotEmpty() && updatedTasks.all { it.isCompleted }
+                        && project.status != ProjectStatus.DONE
+                    ) {
+                        projectRepo.updateStatus(project.id, ProjectStatus.DONE)
+                    }
+                } else {
+                    // Task was unchecked — if project was DONE, revert to IN_PROGRESS
+                    if (project.status == ProjectStatus.DONE) {
+                        projectRepo.updateStatus(project.id, ProjectStatus.IN_PROGRESS)
+                    }
+                }
+            }
+            is ProjectDetailEvent.ToggleSelect   -> toggleSelect(event.taskId)
+            is ProjectDetailEvent.ClearSelection -> _uiState.update { it.copy(selectedTaskIds = emptySet()) }
+            is ProjectDetailEvent.ShowAddTask    -> _uiState.update { it.copy(showAddTask = true, addTaskSectionId = event.sectionId) }
+            is ProjectDetailEvent.HideAddTask    -> _uiState.update { it.copy(showAddTask = false) }
+            is ProjectDetailEvent.AddTask        -> addTask(event.title, event.sectionId, event.priority)
+            is ProjectDetailEvent.DeleteSelected -> deleteSelected(event.ids)
+            is ProjectDetailEvent.ReorderTasks          -> viewModelScope.launch {
+                taskRepo.reorderTasks(event.idsInOrder)
+            }
+            is ProjectDetailEvent.ToggleChecklistItem -> viewModelScope.launch {
+                taskRepo.toggleChecklistItem(event.itemId, event.completed)
+                // Auto-complete: find parent task, check if all items now done
+                val task = _uiState.value.tasksBySection.values.flatten()
+                    .find { t -> t.checklistItems.any { it.id == event.itemId } }
+                if (task != null) {
+                    val updatedItems = task.checklistItems.map {
+                        if (it.id == event.itemId) it.copy(isCompleted = event.completed) else it
+                    }
+                    if (updatedItems.isNotEmpty() && updatedItems.all { it.isCompleted }) {
+                        if (task.recurrence != null) taskRepo.completeRecurring(task.id)
+                        else taskRepo.setCompleted(task.id, true)
+                        _uiState.update { it.copy(movingToCompletedIds = it.movingToCompletedIds + task.id) }
+                        delay(800)
+                        _uiState.update { it.copy(movingToCompletedIds = it.movingToCompletedIds - task.id) }
+                    }
+                }
+            }
+            is ProjectDetailEvent.UpdateStatus -> viewModelScope.launch {
+                val project = _uiState.value.project ?: return@launch
+                projectRepo.updateStatus(project.id, event.status)
+            }
+            is ProjectDetailEvent.UpdateProject -> viewModelScope.launch {
+                val p = _uiState.value.project ?: return@launch
+                projectRepo.update(p.copy(
+                    title    = event.title,
+                    note     = event.note,
+                    colorHex = event.colorHex,
+                    dueDate  = event.dueDate,
+                ))
+            }
+            is ProjectDetailEvent.AddSection -> viewModelScope.launch {
+                val project = _uiState.value.project ?: return@launch
+                projectRepo.insertSection(
+                    Section(
+                        id        = "section_${System.currentTimeMillis()}",
+                        projectId = project.id,
+                        title     = event.title,
+                        sortOrder = project.sections.size,
+                    )
+                )
+            }
+            is ProjectDetailEvent.RenameSection -> viewModelScope.launch {
+                val project = _uiState.value.project ?: return@launch
+                val section = project.sections.find { it.id == event.sectionId } ?: return@launch
+                projectRepo.updateSection(section.copy(title = event.title))
+            }
+            is ProjectDetailEvent.DeleteSection -> viewModelScope.launch {
+                projectRepo.deleteSection(event.sectionId)
+            }
+            is ProjectDetailEvent.ReorderSections -> viewModelScope.launch {
+                val sections = _uiState.value.project?.sections ?: return@launch
+                val sectionMap = sections.associateBy { it.id }
+                event.orderedIds.forEachIndexed { index, id ->
+                    val section = sectionMap[id] ?: return@forEachIndexed
+                    if (section.sortOrder != index) {
+                        projectRepo.updateSection(section.copy(sortOrder = index))
+                    }
+                }
+            }
+            is ProjectDetailEvent.ToggleTagFilter -> _uiState.update { state ->
+                val current = state.activeTagFilter
+                val tagId   = event.tagId
+                state.copy(activeTagFilter = if (tagId in current) current - tagId else current + tagId)
+            }
+            is ProjectDetailEvent.SetPriorityFilter -> _uiState.update {
+                it.copy(activePriorityFilter = event.priority)
+            }
+            is ProjectDetailEvent.Archive -> viewModelScope.launch {
+                val project = _uiState.value.project ?: return@launch
+                projectRepo.archive(project.id)
+            }
+            ProjectDetailEvent.ShowMoveSheet -> _uiState.update { it.copy(showMoveSheet = true) }
+            ProjectDetailEvent.HideMoveSheet -> _uiState.update { it.copy(showMoveSheet = false) }
+            is ProjectDetailEvent.MoveSelected -> viewModelScope.launch {
+                val ids = _uiState.value.selectedTaskIds.toList()
+                ids.forEach { taskId ->
+                    taskRepo.moveTask(taskId, event.projectId, event.sectionId)
+                }
+                _uiState.update { it.copy(selectedTaskIds = emptySet(), showMoveSheet = false) }
+            }
+            is ProjectDetailEvent.MoveTaskToSection -> viewModelScope.launch {
+                val project = _uiState.value.project ?: return@launch
+                taskRepo.moveTask(event.taskId, project.id, event.sectionId)
+            }
+            is ProjectDetailEvent.MoveSelectedToSection -> viewModelScope.launch {
+                val project = _uiState.value.project ?: return@launch
+                val ids = _uiState.value.selectedTaskIds.toList()
+                ids.forEach { taskId -> taskRepo.moveTask(taskId, project.id, event.sectionId) }
+                _uiState.update { it.copy(selectedTaskIds = emptySet(), showMoveSheet = false) }
+            }
+            is ProjectDetailEvent.ArchiveSelected -> viewModelScope.launch {
+                event.ids.forEach { taskRepo.setArchived(it, true) }
+                _uiState.update { it.copy(selectedTaskIds = emptySet()) }
+            }
+            is ProjectDetailEvent.UnarchiveTask -> viewModelScope.launch {
+                taskRepo.setArchived(event.taskId, false)
+            }
+            is ProjectDetailEvent.UpdateNote -> viewModelScope.launch {
+                val p = _uiState.value.project ?: return@launch
+                projectRepo.update(p.copy(note = event.note))
+            }
+            is ProjectDetailEvent.CreateChildList -> viewModelScope.launch {
+                val project = _uiState.value.project ?: return@launch
+                val child = Project(
+                    id              = "project_${System.currentTimeMillis()}",
+                    title           = event.title,
+                    colorHex        = project.colorHex,
+                    type            = ProjectType.LIST,
+                    parentProjectId = project.id,
+                )
+                projectRepo.insert(child)
+            }
+            // ── Note-list events ──────────────────────────────────────────────
+            is ProjectDetailEvent.ShowNewNoteEditor -> _uiState.update { it.copy(isAddingNote = true, editingNote = null) }
+            is ProjectDetailEvent.OpenNoteEditor    -> _uiState.update { it.copy(editingNote = event.note, isAddingNote = false) }
+            is ProjectDetailEvent.HideNoteEditor    -> _uiState.update { it.copy(editingNote = null, isAddingNote = false) }
+            is ProjectDetailEvent.SaveNote -> viewModelScope.launch {
+                val projectId = _uiState.value.project?.id ?: return@launch
+                val now = LocalDateTime.now()
+                if (event.id == null) {
+                    noteRepo.insert(Note(
+                        id        = "note_${System.currentTimeMillis()}",
+                        projectId = projectId,
+                        title     = event.title,
+                        content   = event.content,
+                        createdAt = now,
+                        updatedAt = now,
+                    ))
+                } else {
+                    val existing = _uiState.value.notes.find { it.id == event.id } ?: return@launch
+                    noteRepo.update(existing.copy(
+                        title     = event.title,
+                        content   = event.content,
+                        updatedAt = now,
+                    ))
+                }
+                _uiState.update { it.copy(editingNote = null, isAddingNote = false) }
+            }
+            is ProjectDetailEvent.DeleteNoteItem -> viewModelScope.launch {
+                noteRepo.delete(event.noteId)
+            }
+            is ProjectDetailEvent.AddComment -> viewModelScope.launch {
+                val projectId = _uiState.value.project?.id ?: return@launch
+                if (event.content.isBlank()) return@launch
+                commentRepo.add(Comment(
+                    id        = "cmt_${System.currentTimeMillis()}",
+                    projectId = projectId,
+                    content   = event.content.trim(),
+                ))
+            }
+            is ProjectDetailEvent.EditComment -> viewModelScope.launch {
+                commentRepo.edit(event.id, event.content.trim())
+            }
+            is ProjectDetailEvent.DeleteComment -> viewModelScope.launch {
+                commentRepo.delete(event.id)
+            }
+            ProjectDetailEvent.ShowBulkMore -> _uiState.update { it.copy(showBulkMore = true) }
+            ProjectDetailEvent.HideBulkMore -> _uiState.update { it.copy(showBulkMore = false) }
+            is ProjectDetailEvent.BulkStar -> viewModelScope.launch {
+                val ids = _uiState.value.selectedTaskIds.toList()
+                ids.forEach { taskRepo.setStarred(it, event.starred) }
+                _uiState.update { it.copy(showBulkMore = false, selectedTaskIds = emptySet()) }
+            }
+            is ProjectDetailEvent.BulkSetPriority -> viewModelScope.launch {
+                val ids = _uiState.value.selectedTaskIds.toList()
+                _uiState.value.tasksBySection.values.flatten().filter { it.id in ids }.forEach { task ->
+                    taskRepo.update(task.copy(priority = event.priority, updatedAt = LocalDateTime.now()))
+                }
+                _uiState.update { it.copy(showBulkMore = false, selectedTaskIds = emptySet()) }
+            }
+            is ProjectDetailEvent.BulkAddTag -> viewModelScope.launch {
+                val ids = _uiState.value.selectedTaskIds.toList()
+                _uiState.value.tasksBySection.values.flatten().filter { it.id in ids }.forEach { task ->
+                    if (event.tagId !in task.tagIds)
+                        taskRepo.update(task.copy(tagIds = task.tagIds + event.tagId, updatedAt = LocalDateTime.now()))
+                }
+                _uiState.update { it.copy(showBulkMore = false) }
+            }
+            is ProjectDetailEvent.BulkSchedule -> viewModelScope.launch {
+                val ids = _uiState.value.selectedTaskIds.toList()
+                _uiState.value.tasksBySection.values.flatten().filter { it.id in ids }.forEach { task ->
+                    taskRepo.update(task.copy(dueDate = event.date, updatedAt = LocalDateTime.now()))
+                }
+                _uiState.update { it.copy(showBulkMore = false, selectedTaskIds = emptySet()) }
+            }
+            ProjectDetailEvent.StartTimerForSelected -> viewModelScope.launch {
+                val taskId = _uiState.value.selectedTaskIds.firstOrNull() ?: return@launch
+                timeRepo.getActiveEntry(taskId)?.let { timeRepo.stopEntry(it.id) }
+                timeRepo.insert(
+                    com.onlyflows.domain.model.TimeEntry(
+                        id        = "te_${System.currentTimeMillis()}",
+                        taskId    = taskId,
+                        startedAt = LocalDateTime.now(),
+                    )
+                )
+                _uiState.update { it.copy(selectedTaskIds = emptySet(), showBulkMore = false) }
+            }
+        }
+    }
+
+    private fun toggleSelect(taskId: String) {
+        _uiState.update { state ->
+            val selected = state.selectedTaskIds.toMutableSet()
+            if (taskId in selected) selected.remove(taskId) else selected.add(taskId)
+            state.copy(selectedTaskIds = selected)
+        }
+    }
+
+    private fun addTask(title: String, sectionId: String?, priority: TaskPriority = TaskPriority.NONE) {
+        if (title.isBlank()) return
+        viewModelScope.launch {
+            val projectId = _uiState.value.project?.id ?: return@launch
+            val newTask = Task(
+                id        = "task_${System.currentTimeMillis()}",
+                title     = title,
+                priority  = priority,
+                projectId = projectId,
+                sectionId = sectionId,
+                createdAt = LocalDateTime.now(),
+                updatedAt = LocalDateTime.now(),
+            )
+            taskRepo.insert(newTask)
+            _uiState.update { it.copy(showAddTask = false) }
+        }
+    }
+
+    private fun deleteSelected(ids: Set<String>) {
+        viewModelScope.launch {
+            ids.forEach { taskRepo.softDelete(it) }
+            _uiState.update { it.copy(selectedTaskIds = emptySet()) }
+        }
+    }
+}
