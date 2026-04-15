@@ -11,6 +11,23 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.19.0] — 2026-04-15 · Temps total projet — réactif + ticker live
+
+### Ajouté
+
+- **`TimeEntryDao.observeByProject()`** — variante Flow de `getByProject()` ; Room émet automatiquement à chaque insert/update/delete dans `time_entries` pour les tâches du projet.
+- **`TimeEntryRepository.observeByProject()`** — interface + implémentation (`map { toDomain() }`).
+
+### Modifié
+
+- **`ProjectDetailViewModel`** :
+  - Remplace le chargement one-shot `getTotalSecondsForProject()` par une collecte réactive de `observeByProject()` : le total se met à jour immédiatement lorsqu'un chronomètre démarre ou s'arrête depuis n'importe quel écran.
+  - Ajoute un **ticker 1 s** en `init {}` (même pattern que `TaskDetailViewModel`) : `totalTrackedSeconds = totalCompletedSeconds + elapsed` tant qu'une entrée active existe.
+  - `totalCompletedSeconds` et `activeProjectEntry` préservés dans le `combine` collect pour ne pas être écrasés par les mises à jour du graphe de tâches.
+- **`ProjectDetailUiState`** : nouveaux champs `totalCompletedSeconds: Long` et `activeProjectEntry: TimeEntry?`.
+
+---
+
 ## [0.18.0] — 2026-04-15 · Démarrer le minuteur depuis la sélection multiple
 
 ### Ajouté
