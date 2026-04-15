@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.Flow
 
 interface TimeEntryRepository {
     fun observeByTask(taskId: String): Flow<List<TimeEntry>>
+    fun observeByProject(projectId: String): Flow<List<TimeEntry>>
     suspend fun getActiveEntry(taskId: String): TimeEntry?
     suspend fun insert(entry: TimeEntry)
     suspend fun stopEntry(id: String)           // sets endedAt = now

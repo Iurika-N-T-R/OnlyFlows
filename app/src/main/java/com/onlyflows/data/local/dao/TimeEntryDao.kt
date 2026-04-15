@@ -28,6 +28,9 @@ interface TimeEntryDao {
     @Query("SELECT * FROM time_entries WHERE taskId IN (SELECT id FROM tasks WHERE projectId = :projectId) ORDER BY startedAt ASC")
     suspend fun getByProject(projectId: String): List<TimeEntryEntity>
 
+    @Query("SELECT * FROM time_entries WHERE taskId IN (SELECT id FROM tasks WHERE projectId = :projectId) ORDER BY startedAt ASC")
+    fun observeByProject(projectId: String): Flow<List<TimeEntryEntity>>
+
     @Query("DELETE FROM time_entries WHERE taskId = :taskId")
     suspend fun deleteByTask(taskId: String)
 }

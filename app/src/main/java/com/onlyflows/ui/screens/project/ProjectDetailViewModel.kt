@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
+import java.time.temporal.ChronoUnit
 
 data class ProjectDetailUiState(
     val project: Project?                        = null,
@@ -48,7 +49,9 @@ data class ProjectDetailUiState(
     val editingNote: Note?                       = null,
     val isAddingNote: Boolean                    = false,
     val archivedTasks: List<Task>                = emptyList(),
-    val totalTrackedSeconds: Long                = 0L,
+    val totalCompletedSeconds: Long              = 0L,   // sum of finished entries (from DB)
+    val activeProjectEntry: com.onlyflows.domain.model.TimeEntry? = null, // running entry if any
+    val totalTrackedSeconds: Long                = 0L,   // display value = completed + elapsed (ticked)
     val comments: List<Comment>                  = emptyList(),
     val showBulkMore: Boolean                    = false,
 )
@@ -117,11 +120,38 @@ class ProjectDetailViewModel(app: Application) : AndroidViewModel(app) {
     private val _uiState = MutableStateFlow(ProjectDetailUiState())
     val uiState: StateFlow<ProjectDetailUiState> = _uiState.asStateFlow()
 
-    fun loadProject(projectId: String) {
-        // Load total tracked time for this project (one-shot, refreshed on load)
+    init {
+        // Ticker: updates totalTrackedSeconds every second when a project timer is running
         viewModelScope.launch {
-            val secs = timeRepo.getTotalSecondsForProject(projectId)
-            _uiState.update { it.copy(totalTrackedSeconds = secs) }
+            while (true) {
+                delay(1000)
+                _uiState.update { state ->
+                    val elapsed = state.activeProjectEntry?.startedAt?.let {
+                        ChronoUnit.SECONDS.between(it, LocalDateTime.now())
+                    } ?: 0L
+                    state.copy(totalTrackedSeconds = state.totalCompletedSeconds + elapsed)
+                }
+            }
+        }
+    }
+
+    fun loadProject(projectId: String) {
+        // Observe time entries reactively — updates totalCompletedSeconds + activeProjectEntry
+        viewModelScope.launch {
+            timeRepo.observeByProject(projectId).collect { entries ->
+                val completed = entries
+                    .filter { it.endedAt != null }
+                    .sumOf { ChronoUnit.SECONDS.between(it.startedAt, it.endedAt!!) }
+                val active = entries.firstOrNull { it.endedAt == null }
+                val elapsed = active?.startedAt?.let {
+                    ChronoUnit.SECONDS.between(it, LocalDateTime.now())
+                } ?: 0L
+                _uiState.update { it.copy(
+                    totalCompletedSeconds = completed,
+                    activeProjectEntry    = active,
+                    totalTrackedSeconds   = completed + elapsed,
+                ) }
+            }
         }
         // Observe comments
         viewModelScope.launch {
@@ -176,15 +206,19 @@ class ProjectDetailViewModel(app: Application) : AndroidViewModel(app) {
             }.collect { newState ->
                 _uiState.update { state ->
                     newState.copy(
-                        selectedTaskIds      = state.selectedTaskIds,
-                        movingToCompletedIds = state.movingToCompletedIds,
-                        showAddTask          = state.showAddTask,
-                        showMoveSheet        = state.showMoveSheet,
-                        addTaskSectionId     = state.addTaskSectionId,
-                        activeTagFilter      = state.activeTagFilter,
-                        activePriorityFilter = state.activePriorityFilter,
-                        editingNote          = state.editingNote,
-                        isAddingNote         = state.isAddingNote,
+                        selectedTaskIds       = state.selectedTaskIds,
+                        movingToCompletedIds  = state.movingToCompletedIds,
+                        showAddTask           = state.showAddTask,
+                        showMoveSheet         = state.showMoveSheet,
+                        addTaskSectionId      = state.addTaskSectionId,
+                        activeTagFilter       = state.activeTagFilter,
+                        activePriorityFilter  = state.activePriorityFilter,
+                        editingNote           = state.editingNote,
+                        isAddingNote          = state.isAddingNote,
+                        // Preserve timer state managed by the time-entries flow + ticker
+                        totalCompletedSeconds = state.totalCompletedSeconds,
+                        activeProjectEntry    = state.activeProjectEntry,
+                        totalTrackedSeconds   = state.totalTrackedSeconds,
                     )
                 }
             }

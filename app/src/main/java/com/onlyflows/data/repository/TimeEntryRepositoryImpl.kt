@@ -15,6 +15,9 @@ class TimeEntryRepositoryImpl(private val dao: TimeEntryDao) : TimeEntryReposito
     override fun observeByTask(taskId: String): Flow<List<TimeEntry>> =
         dao.observeByTask(taskId).map { list -> list.map { it.toDomain() } }
 
+    override fun observeByProject(projectId: String): Flow<List<TimeEntry>> =
+        dao.observeByProject(projectId).map { list -> list.map { it.toDomain() } }
+
     override suspend fun getActiveEntry(taskId: String): TimeEntry? =
         dao.getActiveEntry(taskId)?.toDomain()
 
