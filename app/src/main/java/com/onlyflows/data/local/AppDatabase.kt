@@ -7,9 +7,13 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.onlyflows.data.local.dao.*
+import com.onlyflows.data.local.dao.ActionLogDao
+import com.onlyflows.data.local.dao.SavedLocationDao
 import com.onlyflows.data.local.dao.ReminderDao
 import com.onlyflows.data.local.dao.AttachmentDao
 import com.onlyflows.data.local.entity.*
+import com.onlyflows.data.local.entity.ActionLogEntity
+import com.onlyflows.data.local.entity.SavedLocationEntity
 import com.onlyflows.data.local.entity.NoteEntity
 import com.onlyflows.data.local.entity.StatusLogEntity
 import com.onlyflows.data.local.entity.CommentEntity
@@ -35,8 +39,10 @@ import kotlinx.coroutines.launch
         CommentEntity::class,
         ReminderEntity::class,
         AttachmentEntity::class,
+        ActionLogEntity::class,
+        SavedLocationEntity::class,
     ],
-    version = 20,
+    version = 23,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -54,6 +60,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun commentDao(): CommentDao
     abstract fun reminderDao(): ReminderDao
     abstract fun attachmentDao(): AttachmentDao
+    abstract fun actionLogDao(): ActionLogDao
+    abstract fun savedLocationDao(): SavedLocationDao
 
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null

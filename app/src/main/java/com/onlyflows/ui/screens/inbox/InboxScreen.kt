@@ -126,7 +126,9 @@ fun InboxScreen(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
     ) { padding ->
 
-        val visibleTasks = state.tasks.filter { it.id != state.pendingDeleteTask?.id }
+        val visibleTasks = remember(state.tasks, state.pendingDeleteTask?.id) {
+            state.tasks.filter { it.id != state.pendingDeleteTask?.id }
+        }
         if (!state.isLoading && visibleTasks.isEmpty()) {
             Box(
                 contentAlignment = Alignment.Center,

@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -107,7 +108,7 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
                 projectRepo.observeAll(),
             ) { tasks, overdue, tags, projects ->
                 listOf<Any>(tasks, overdue, tags, projects)
-            }.collect { args ->
+            }.distinctUntilChanged().collect { args ->
                 @Suppress("UNCHECKED_CAST")
                 val tasks    = args[0] as List<Task>
                 @Suppress("UNCHECKED_CAST")

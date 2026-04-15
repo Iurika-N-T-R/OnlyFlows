@@ -83,10 +83,18 @@ fun TodayScreen(
         (state.activePriorityFilter == null || task.priority == state.activePriorityFilter)
     }
 
-    val pendingToday   = state.todayTasks.applyFilters().filter { !it.isCompleted || it.id in state.movingToCompletedIds }
-    val pendingEvening = state.eveningTasks.applyFilters().filter { !it.isCompleted || it.id in state.movingToCompletedIds }
-    val filteredOverdue = state.overdueTasks.applyFilters()
-    val completedTasks = (state.todayTasks + state.eveningTasks).applyFilters().filter { it.isCompleted && it.id !in state.movingToCompletedIds }
+    val pendingToday = remember(state.todayTasks, state.pendingDeleteTask?.id, state.activeTagFilter, state.activePriorityFilter, state.movingToCompletedIds) {
+        state.todayTasks.applyFilters().filter { !it.isCompleted || it.id in state.movingToCompletedIds }
+    }
+    val pendingEvening = remember(state.eveningTasks, state.pendingDeleteTask?.id, state.activeTagFilter, state.activePriorityFilter, state.movingToCompletedIds) {
+        state.eveningTasks.applyFilters().filter { !it.isCompleted || it.id in state.movingToCompletedIds }
+    }
+    val filteredOverdue = remember(state.overdueTasks, state.pendingDeleteTask?.id, state.activeTagFilter, state.activePriorityFilter) {
+        state.overdueTasks.applyFilters()
+    }
+    val completedTasks = remember(state.todayTasks, state.eveningTasks, state.pendingDeleteTask?.id, state.activeTagFilter, state.activePriorityFilter, state.movingToCompletedIds) {
+        (state.todayTasks + state.eveningTasks).applyFilters().filter { it.isCompleted && it.id !in state.movingToCompletedIds }
+    }
 
     Scaffold(
         topBar = {

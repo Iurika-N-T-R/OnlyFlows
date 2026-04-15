@@ -24,7 +24,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
@@ -121,17 +124,19 @@ class ProjectDetailViewModel(app: Application) : AndroidViewModel(app) {
     val uiState: StateFlow<ProjectDetailUiState> = _uiState.asStateFlow()
 
     init {
-        // Ticker: updates totalTrackedSeconds every second when a project timer is running
+        // Ticker: only runs while a project timer is active; stops automatically when idle
         viewModelScope.launch {
-            while (true) {
-                delay(1000)
-                _uiState.update { state ->
-                    val elapsed = state.activeProjectEntry?.startedAt?.let {
-                        ChronoUnit.SECONDS.between(it, LocalDateTime.now())
-                    } ?: 0L
-                    state.copy(totalTrackedSeconds = state.totalCompletedSeconds + elapsed)
+            _uiState
+                .map { it.activeProjectEntry }
+                .distinctUntilChanged()
+                .collectLatest { activeEntry ->
+                    if (activeEntry == null) return@collectLatest
+                    while (true) {
+                        delay(1000)
+                        val elapsed = ChronoUnit.SECONDS.between(activeEntry.startedAt, LocalDateTime.now())
+                        _uiState.update { it.copy(totalTrackedSeconds = it.totalCompletedSeconds + elapsed) }
+                    }
                 }
-            }
         }
     }
 

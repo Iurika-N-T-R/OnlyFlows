@@ -2,17 +2,18 @@ package com.onlyflows.data.repository
 
 import com.onlyflows.data.local.dao.ChecklistItemDao
 import com.onlyflows.data.local.dao.TaskDao
+import com.onlyflows.data.local.entity.TaskWithChecklistItems
 import com.onlyflows.data.local.entity.toDomain
 import com.onlyflows.data.local.entity.toEntity
+import com.onlyflows.domain.model.ActionLog
+import com.onlyflows.domain.model.ActionType
 import com.onlyflows.domain.model.ChecklistItem
 import com.onlyflows.domain.model.Task
 import com.onlyflows.domain.nextDueDate
+import com.onlyflows.domain.repository.ActionLogRepository
 import com.onlyflows.domain.repository.TaskRepository
 import java.time.LocalDate
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import java.time.LocalDateTime
@@ -20,173 +21,81 @@ import java.time.LocalDateTime
 class TaskRepositoryImpl(
     private val taskDao: TaskDao,
     private val checklistDao: ChecklistItemDao,
+    private val actionLog: ActionLogRepository? = null,
 ) : TaskRepository {
 
-    @OptIn(ExperimentalCoroutinesApi::class)
+    private suspend fun log(type: ActionType, taskId: String, label: String, extra: String? = null) {
+        actionLog?.insert(
+            ActionLog(
+                id         = "al_${System.currentTimeMillis()}_${type.name}",
+                actionType = type,
+                entityId   = taskId,
+                entityType = "task",
+                label      = label,
+                extra      = extra,
+                occurredAt = LocalDateTime.now(),
+            )
+        )
+    }
+
     override fun observeAll(): Flow<List<Task>> =
-        taskDao.observeAll().flatMapLatest { entities ->
-            val flows = entities.map { entity ->
-                checklistDao.observeByTask(entity.id).map { items -> entity.toDomain(items) }
-            }
-            if (flows.isEmpty()) flowOf(emptyList())
-            else combine(flows) { it.toList() }
-        }
+        taskDao.observeAllWithItems().map { list -> list.map { it.toDomain() } }
 
-    @OptIn(ExperimentalCoroutinesApi::class)
     override fun observeUpcoming(): Flow<List<Task>> =
-        taskDao.observeUpcoming().flatMapLatest { entities ->
-            val flows = entities.map { entity ->
-                checklistDao.observeByTask(entity.id).map { items -> entity.toDomain(items) }
-            }
-            if (flows.isEmpty()) kotlinx.coroutines.flow.flowOf(emptyList())
-            else combine(flows) { it.toList() }
-        }
+        taskDao.observeUpcomingWithItems().map { list -> list.map { it.toDomain() } }
 
-    @OptIn(ExperimentalCoroutinesApi::class)
     override fun observeOverdue(): Flow<List<Task>> =
-        taskDao.observeOverdueTasks(java.time.LocalDate.now().toString()).flatMapLatest { entities ->
-            val flows = entities.map { entity ->
-                checklistDao.observeByTask(entity.id).map { items -> entity.toDomain(items) }
-            }
-            if (flows.isEmpty()) kotlinx.coroutines.flow.flowOf(emptyList())
-            else combine(flows) { it.toList() }
-        }
+        taskDao.observeOverdueWithItems(java.time.LocalDate.now().toString()).map { list -> list.map { it.toDomain() } }
 
-    @OptIn(ExperimentalCoroutinesApi::class)
     override fun observeInbox(): Flow<List<Task>> =
-        taskDao.observeInbox().flatMapLatest { entities ->
-            val flows = entities.map { entity ->
-                checklistDao.observeByTask(entity.id).map { items -> entity.toDomain(items) }
-            }
-            if (flows.isEmpty()) kotlinx.coroutines.flow.flowOf(emptyList())
-            else combine(flows) { it.toList() }
-        }
+        taskDao.observeInboxWithItems().map { list -> list.map { it.toDomain() } }
 
-    @OptIn(ExperimentalCoroutinesApi::class)
     override fun observeByGroup(group: com.onlyflows.domain.model.TaskGroup): Flow<List<Task>> =
-        taskDao.observeByGroup(group.name).flatMapLatest { entities ->
-            val flows = entities.map { entity ->
-                checklistDao.observeByTask(entity.id).map { items -> entity.toDomain(items) }
-            }
-            if (flows.isEmpty()) kotlinx.coroutines.flow.flowOf(emptyList())
-            else combine(flows) { it.toList() }
-        }
+        taskDao.observeByGroupWithItems(group.name).map { list -> list.map { it.toDomain() } }
 
-    @OptIn(ExperimentalCoroutinesApi::class)
     override fun observeToday(): Flow<List<Task>> =
-        taskDao.observeToday().flatMapLatest { entities ->
-            // For each task, also observe its checklist items
-            val flows = entities.map { entity ->
-                checklistDao.observeByTask(entity.id).map { items ->
-                    entity.toDomain(items)
-                }
-            }
-            if (flows.isEmpty()) {
-                kotlinx.coroutines.flow.flowOf(emptyList())
-            } else {
-                combine(flows) { it.toList() }
-            }
-        }
+        taskDao.observeTodayWithItems().map { list -> list.map { it.toDomain() } }
 
-    @OptIn(ExperimentalCoroutinesApi::class)
     override fun observeByProject(projectId: String): Flow<List<Task>> =
-        taskDao.observeByProject(projectId).flatMapLatest { entities ->
-            val flows = entities.map { entity ->
-                checklistDao.observeByTask(entity.id).map { items -> entity.toDomain(items) }
-            }
-            if (flows.isEmpty()) kotlinx.coroutines.flow.flowOf(emptyList())
-            else combine(flows) { it.toList() }
-        }
+        taskDao.observeByProjectWithItems(projectId).map { list -> list.map { it.toDomain() } }
 
-    @OptIn(ExperimentalCoroutinesApi::class)
     override fun observeArchivedByProject(projectId: String): Flow<List<Task>> =
-        taskDao.observeArchivedByProject(projectId).flatMapLatest { entities ->
-            val flows = entities.map { entity ->
-                checklistDao.observeByTask(entity.id).map { items -> entity.toDomain(items) }
-            }
-            if (flows.isEmpty()) kotlinx.coroutines.flow.flowOf(emptyList())
-            else combine(flows) { it.toList() }
-        }
+        taskDao.observeArchivedByProjectWithItems(projectId).map { list -> list.map { it.toDomain() } }
 
-    @OptIn(ExperimentalCoroutinesApi::class)
     override fun observeAllArchived(): Flow<List<Task>> =
-        taskDao.observeAllArchived().flatMapLatest { entities ->
-            val flows = entities.map { entity ->
-                checklistDao.observeByTask(entity.id).map { items -> entity.toDomain(items) }
-            }
-            if (flows.isEmpty()) kotlinx.coroutines.flow.flowOf(emptyList())
-            else combine(flows) { it.toList() }
-        }
+        taskDao.observeAllArchivedWithItems().map { list -> list.map { it.toDomain() } }
 
-    @OptIn(ExperimentalCoroutinesApi::class)
     override fun observeById(id: String): Flow<Task?> =
-        taskDao.observeById(id).flatMapLatest { entity ->
-            if (entity == null) {
-                kotlinx.coroutines.flow.flowOf(null)
-            } else {
-                checklistDao.observeByTask(id).map { items ->
-                    entity.toDomain(items)
-                }
-            }
-        }
+        taskDao.observeByIdWithItems(id).map { it?.toDomain() }
 
-    @OptIn(ExperimentalCoroutinesApi::class)
     override fun observeDependents(taskId: String): Flow<List<Task>> =
-        taskDao.observeDependents(taskId).flatMapLatest { entities ->
-            if (entities.isEmpty()) flowOf(emptyList())
-            else combine(entities.map { e ->
-                checklistDao.observeByTask(e.id).map { items -> e.toDomain(items) }
-            }) { it.toList() }
-        }
+        taskDao.observeDependentsWithItems(taskId).map { list -> list.map { it.toDomain() } }
 
     override suspend fun setDependsOn(id: String, dependsOnId: String?) {
         taskDao.setDependsOn(id, dependsOnId, LocalDateTime.now().toString())
     }
 
-    @OptIn(ExperimentalCoroutinesApi::class)
     override fun observeAnytime(): Flow<List<Task>> =
-        taskDao.observeAnytime().flatMapLatest { entities ->
-            if (entities.isEmpty()) flowOf(emptyList())
-            else combine(entities.map { entity ->
-                checklistDao.observeByTask(entity.id).map { items -> entity.toDomain(items) }
-            }) { it.toList() }
-        }
+        taskDao.observeAnytimeWithItems().map { list -> list.map { it.toDomain() } }
 
-    @OptIn(ExperimentalCoroutinesApi::class)
     override fun observeSomeday(): Flow<List<Task>> =
-        taskDao.observeSomeday().flatMapLatest { entities ->
-            if (entities.isEmpty()) flowOf(emptyList())
-            else combine(entities.map { entity ->
-                checklistDao.observeByTask(entity.id).map { items -> entity.toDomain(items) }
-            }) { it.toList() }
-        }
+        taskDao.observeSomedayWithItems().map { list -> list.map { it.toDomain() } }
 
     override suspend fun setScheduledGroup(id: String, group: com.onlyflows.domain.model.TaskGroup?) {
         taskDao.setScheduledGroup(id, group?.name, LocalDateTime.now().toString())
     }
 
-    @OptIn(ExperimentalCoroutinesApi::class)
     override fun search(query: String): Flow<List<Task>> =
         if (query.isBlank()) flowOf(emptyList())
-        else taskDao.search(query).flatMapLatest { entities ->
-            if (entities.isEmpty()) flowOf(emptyList())
-            else combine(entities.map { entity ->
-                checklistDao.observeByTask(entity.id).map { items -> entity.toDomain(items) }
-            }) { it.toList() }
-        }
+        else taskDao.searchWithItems(query).map { list -> list.map { it.toDomain() } }
 
-    @OptIn(ExperimentalCoroutinesApi::class)
     override fun searchByDate(date: java.time.LocalDate): Flow<List<Task>> =
-        taskDao.searchByDate(date.toString()).flatMapLatest { entities ->
-            if (entities.isEmpty()) flowOf(emptyList())
-            else combine(entities.map { entity ->
-                checklistDao.observeByTask(entity.id).map { items -> entity.toDomain(items) }
-            }) { it.toList() }
-        }
+        taskDao.searchByDateWithItems(date.toString()).map { list -> list.map { it.toDomain() } }
 
     override suspend fun insert(task: Task) {
         taskDao.insert(task.toEntity())
         checklistDao.insertAll(task.checklistItems.map { it.toEntity() })
+        log(ActionType.TASK_CREATED, task.id, task.title)
     }
 
     override suspend fun update(task: Task) {
@@ -195,10 +104,14 @@ class TaskRepositoryImpl(
 
     override suspend fun setCompleted(id: String, completed: Boolean) {
         taskDao.setCompleted(id, completed, LocalDateTime.now().toString())
+        val label = taskDao.getById(id)?.title ?: id
+        log(if (completed) ActionType.TASK_COMPLETED else ActionType.TASK_UNCOMPLETED, id, label)
     }
 
     override suspend fun setArchived(id: String, archived: Boolean) {
         taskDao.setArchived(id, archived, LocalDateTime.now().toString())
+        val label = taskDao.getById(id)?.title ?: id
+        log(if (archived) ActionType.TASK_ARCHIVED else ActionType.TASK_RESTORED, id, label)
     }
 
     override suspend fun completeRecurring(id: String) {
@@ -259,20 +172,18 @@ class TaskRepositoryImpl(
     }
 
     override suspend fun softDelete(id: String) {
+        val label = taskDao.getById(id)?.title ?: id
         taskDao.softDelete(id, LocalDateTime.now().toString())
+        log(ActionType.TASK_DELETED, id, label)
     }
 
-    @OptIn(ExperimentalCoroutinesApi::class)
     override fun observeTrash(): Flow<List<Task>> =
-        taskDao.observeTrash().flatMapLatest { entities ->
-            if (entities.isEmpty()) flowOf(emptyList())
-            else combine(entities.map { entity ->
-                checklistDao.observeByTask(entity.id).map { items -> entity.toDomain(items) }
-            }) { it.toList() }
-        }
+        taskDao.observeTrashWithItems().map { list -> list.map { it.toDomain() } }
 
     override suspend fun restoreFromTrash(id: String) {
         taskDao.restoreFromTrash(id)
+        val label = taskDao.getById(id)?.title ?: id
+        log(ActionType.TASK_RESTORED, id, label)
     }
 
     override suspend fun emptyTrash() {
@@ -306,4 +217,8 @@ class TaskRepositoryImpl(
     override fun observeOverdueCount(): Flow<Int> = taskDao.observeOverdueCount(java.time.LocalDate.now().toString())
     override fun observeAllCount(projectId: String): Flow<Int>       = taskDao.observeAllCount(projectId)
     override fun observeCompletedCount(projectId: String): Flow<Int> = taskDao.observeCompletedCount(projectId)
+    override fun observeAllProjectProgress(): Flow<List<com.onlyflows.domain.model.ProjectTaskProgress>> =
+        taskDao.observeAllProjectProgress().map { list ->
+            list.map { com.onlyflows.domain.model.ProjectTaskProgress(it.projectId, it.total, it.completed) }
+        }
 }

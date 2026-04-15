@@ -79,10 +79,12 @@ fun AnytimeScreen(
         else viewModel.confirmDelete()
     }
 
-    val filteredTasks = state.tasks.filter { task ->
-        task.id != state.pendingDeleteTask?.id &&
-        (state.activeTagFilter.isEmpty() || task.tagIds.any { it in state.activeTagFilter }) &&
-        (state.activePriorityFilter == null || task.priority == state.activePriorityFilter)
+    val filteredTasks = remember(state.tasks, state.pendingDeleteTask?.id, state.activeTagFilter, state.activePriorityFilter) {
+        state.tasks.filter { task ->
+            task.id != state.pendingDeleteTask?.id &&
+            (state.activeTagFilter.isEmpty() || task.tagIds.any { it in state.activeTagFilter }) &&
+            (state.activePriorityFilter == null || task.priority == state.activePriorityFilter)
+        }
     }
 
     Scaffold(

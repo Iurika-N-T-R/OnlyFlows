@@ -11,6 +11,74 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.22.0] — 2026-04-15 · Deprecation fixes + Performance pass
+
+### Modifié
+
+- **`@Immutable`** ajouté sur tous les modèles domaine (`Task`, `Project`, `Section`, `Tag`, `Reminder`, `ChecklistItem`, `Folder`, `Comment`, `Attachment`, `TimeEntry`, `Note`, `AgendaEvent`, `CalendarAccount`, `RecurrenceRule`, `SavedLocation`, `ActionLog`, `StatusLogEntry`, `FilterPreset`, `ProjectTaskProgress`) → Compose peut maintenant sauter les recompositions inutiles.
+- **`SimpleDateFormat` / `java.util.Date` supprimés** dans `BackupManager` et `BackupSettingsScreen` → remplacés par `DateTimeFormatter` / `LocalDateTime` / `Instant` (`java.time.*`), thread-safe.
+- **Filtres mémoïsés** dans `AnytimeScreen`, `TodayScreen`, `InboxScreen` — les blocs `state.tasks.filter{}` sont maintenant dans `remember(...)` et ne recalculent que si leurs entrées changent.
+- **Boucle ticker infinie corrigée** (`ProjectDetailViewModel`) — le `while(true)` tournait en permanence même sans timer actif (fuite CPU/mémoire) ; remplacé par un `collectLatest` sur `activeProjectEntry` qui ne tick que pendant l'exécution d'un chrono.
+- **`distinctUntilChanged()`** ajouté sur les chaînes `combine(...)` dans `TodayViewModel`, `InboxViewModel`, `ProjectsViewModel` → évite les mises à jour d'état redondantes.
+- **Indices Room** ajoutés sur `tasks` (`projectId`, `scheduledGroup`, `dueDate`, `isCompleted`, `deletedAt`, indices composites) → requêtes filtrées 10–100× plus rapides ; DB version 22 → **23**.
+- **Requêtes N+1 éliminées** (`TaskRepositoryImpl`) — les 14 patterns `flatMapLatest + combine` (1 requête par tâche pour ses items de checklist) remplacés par des méthodes `@Transaction @Relation` Room → 50 tâches = 2 requêtes au lieu de 51.
+- **Fan-out de flows par projet supprimé** (`ProjectsViewModel`) — les `2 × N` observers live (un `COUNT` complété + un `COUNT` total par projet) remplacés par une seule requête agrégée `GROUP BY projectId` → 100+ observers → 1 pour 50 projets.
+
+---
+
+## [0.21.0] — 2026-04-15 · Location-based reminders (GPS offline)
+
+### Ajouté
+
+- **`SavedLocationEntity`** — entité Room `saved_locations` (`id`, `label`, `latitude`, `longitude`, `radiusMeters`).
+- **`SavedLocationDao`** — `observeAll`, `getAll`, `getById`, `insert`, `delete`.
+- **`SavedLocationRepository`** + **`SavedLocationRepositoryImpl`** — couche domaine + implémentation.
+- **`SavedLocation`** — modèle domaine dans `Models.kt`.
+- **`GeofenceManager`** — wraps Android `GeofencingClient` (offline GPS) : `register(locationId, lat, lng, radius)` ENTER transition, `unregister`, `unregisterAll`.
+- **`GeofenceReceiver`** — `BroadcastReceiver` qui reçoit les événements geofence et poste une notification de rappel pour chaque reminder lié à la location.
+- **`LocationsSettingsScreen`** — nouvel écran `settings/locations` : liste des locations sauvegardées, FAB → dialog d'ajout (label + lat/lng + rayon), suppression avec désenregistrement du geofence.
+- **Permissions** — `ACCESS_FINE_LOCATION` + `ACCESS_BACKGROUND_LOCATION` dans `AndroidManifest.xml` ; flow de demande de permission dans `LocationsSettingsScreen`.
+- **Entrée "Locations"** dans `SettingsScreen` (icône `LocationOn`).
+- **Location picker dans `ReminderPickerSheet`** — dropdown des locations sauvegardées (affiché uniquement si ≥ 1 location existe) ; sélectionner une location enregistre un geofence au moment de la sauvegarde du rappel.
+- Route `Screen.LocationsSettings` câblée dans `AppNavigation`.
+
+### Modifié
+
+- **`ReminderEntity`** — champ `locationId: String? = null` ajouté ; `toDomain()` / `toEntity()` mis à jour.
+- **`Reminder`** — champ `locationId: String? = null` ajouté.
+- **`TaskDetailEvent.AddReminder`** — paramètre `locationId: String? = null` ajouté.
+- **`TaskDetailViewModel`** — `locationRepo` + `geofenceManager` injectés ; enregistre le geofence à l'ajout du rappel si `locationId` renseigné.
+- **`BootReceiver`** — ré-enregistre les geofences des reminders avec `locationId` au démarrage.
+- **`AppContainer`** — `savedLocationRepository`, `geofenceManager` ajoutés ; dépendance Gradle `play-services-location:21.3.0`.
+- **`AppDatabase`** — version 21 → **22** (`SavedLocationEntity` + `savedLocationDao()`).
+
+---
+
+## [0.20.0] — 2026-04-15 · Logbook étendu — Journal d'actions
+
+### Ajouté
+
+- **`ActionLogEntity`** — entité Room `action_log` (`id`, `actionType`, `entityId`, `entityType`, `label`, `extra`, `occurredAt`).
+- **`ActionLogDao`** — `insert`, `observeAll`, `observeByEntity`, `deleteOlderThan`.
+- **`ActionLogRepository`** + **`ActionLogRepositoryImpl`** — couche domaine + implémentation.
+- **`ActionType`** enum — `TASK_CREATED`, `TASK_COMPLETED`, `TASK_UNCOMPLETED`, `TASK_ARCHIVED`, `TASK_DELETED`, `TASK_RESTORED`, `TIMER_STARTED`, `TIMER_STOPPED`, `PROJECT_STATUS_CHANGED`, `COMMENT_ADDED`.
+- **`ActionLog`** — modèle domaine dans `Models.kt`.
+- **Instrumentation des repositories** — chaque action significative écrit une entrée dans `action_log` :
+  - `TaskRepositoryImpl` : create, complete/uncomplete, archive/restore, soft-delete, restore from trash.
+  - `TimeEntryRepositoryImpl` : timer start, timer stop (avec durée en `extra`).
+  - `ProjectRepositoryImpl` : changement de statut.
+  - `CommentRepositoryImpl` : commentaire ajouté.
+- **Onglet "Journal" dans `LogbookScreen`** — `TabRow` avec deux onglets : **Archived** (existant, inchangé) + **Journal** (log chronologique groupé par jour, icône+libellé par type d'action).
+
+### Modifié
+
+- **`LogbookUiState`** — champs `journalEntries: List<ActionLog>`, `selectedTab: Int` ajoutés.
+- **`LogbookViewModel`** — collecte `actionLogRepo.observeAll()` en plus des archives ; `selectTab()`.
+- **`AppContainer`** — `actionLogRepository` instancié ; injecté dans `TaskRepositoryImpl`, `TimeEntryRepositoryImpl`, `ProjectRepositoryImpl`, `CommentRepositoryImpl`.
+- **`AppDatabase`** — version 20 → **21** (`ActionLogEntity` + `actionLogDao()`).
+
+---
+
 ## [0.19.0] — 2026-04-15 · Temps total projet — réactif + ticker live
 
 ### Ajouté

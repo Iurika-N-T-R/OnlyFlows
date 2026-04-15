@@ -1,6 +1,7 @@
 package com.onlyflows.domain.model
 
 import android.os.Parcelable
+import androidx.compose.runtime.Immutable
 import kotlinx.parcelize.IgnoredOnParcel
 import kotlinx.parcelize.Parcelize
 import java.time.LocalDate
@@ -13,6 +14,7 @@ import java.time.LocalTime
 enum class RecurrenceType { HOURLY, DAILY, WEEKLY, MONTHLY, YEARLY, WEEKDAYS }
 enum class RecurrenceBasis { COMPLETION_DATE, DUE_DATE, SPECIFIC_DATE }
 
+@Immutable
 data class RecurrenceRule(
     val type: RecurrenceType,
     val interval: Int = 1,
@@ -29,11 +31,44 @@ enum class ProjectStatus { NOT_STARTED, IN_PROGRESS, WAITING, DONE }
 
 enum class ProjectType { PROJECT, LIST, NOTE }
 
+// ── SavedLocation ─────────────────────────────────────────────────────────────
+
+@Immutable
+data class SavedLocation(
+    val id: String,
+    val label: String,
+    val latitude: Double,
+    val longitude: Double,
+    val radiusMeters: Float = 100f,
+)
+
+// ── ActionLog ────────────────────────────────────────────────────────────────
+
+enum class ActionType {
+    TASK_CREATED, TASK_COMPLETED, TASK_UNCOMPLETED,
+    TASK_ARCHIVED, TASK_DELETED, TASK_RESTORED,
+    TIMER_STARTED, TIMER_STOPPED,
+    PROJECT_STATUS_CHANGED,
+    COMMENT_ADDED,
+}
+
+@Immutable
+data class ActionLog(
+    val id: String,
+    val actionType: ActionType,
+    val entityId: String,
+    val entityType: String,
+    val label: String,
+    val extra: String? = null,
+    val occurredAt: LocalDateTime,
+)
+
 // ── Task ────────────────────────────────────────────────────────────────────
 
 enum class TaskGroup { TODAY, THIS_EVENING, SOMEDAY, ANYTIME }
 enum class TaskPriority { NONE, LOW, MEDIUM, HIGH }
 
+@Immutable
 @Parcelize
 data class Task(
     val id: String,
@@ -68,6 +103,7 @@ data class Task(
 
 // ── ChecklistItem ────────────────────────────────────────────────────────────
 
+@Immutable
 @Parcelize
 data class ChecklistItem(
     val id: String,
@@ -81,6 +117,7 @@ data class ChecklistItem(
 
 // ── Folder (area grouping projects) ─────────────────────────────────────────
 
+@Immutable
 @Parcelize
 data class Folder(
     val id: String,
@@ -90,6 +127,7 @@ data class Folder(
 
 // ── Project ──────────────────────────────────────────────────────────────────
 
+@Immutable
 @Parcelize
 data class Project(
     val id: String,
@@ -112,6 +150,7 @@ data class Project(
 
 // ── StatusLogEntry ────────────────────────────────────────────────────────────
 
+@Immutable
 data class StatusLogEntry(
     val status: ProjectStatus,
     val changedAt: LocalDateTime,
@@ -119,6 +158,7 @@ data class StatusLogEntry(
 
 // ── Section ──────────────────────────────────────────────────────────────────
 
+@Immutable
 @Parcelize
 data class Section(
     val id: String,
@@ -129,6 +169,7 @@ data class Section(
 
 // ── Tag ──────────────────────────────────────────────────────────────────────
 
+@Immutable
 @Parcelize
 data class Tag(
     val id: String,
@@ -138,15 +179,18 @@ data class Tag(
 
 // ── Reminder ─────────────────────────────────────────────────────────────────
 
+@Immutable
 @Parcelize
 data class Reminder(
     val id: String,
     val taskId: String,
     val scheduledAt: LocalDateTime,
+    val locationId: String? = null,
 ) : Parcelable
 
 // ── AgendaEvent ──────────────────────────────────────────────────────────────
 
+@Immutable
 data class AgendaEvent(
     val title: String,
     val time: String?,
@@ -158,6 +202,7 @@ data class AgendaEvent(
     val calendarId: String = "",
 )
 
+@Immutable
 data class CalendarAccount(
     val id: String,
     val displayName: String,
@@ -167,6 +212,7 @@ data class CalendarAccount(
 
 // ── Comment ───────────────────────────────────────────────────────────────────
 
+@Immutable
 data class Comment(
     val id: String,
     val taskId: String? = null,
@@ -178,6 +224,7 @@ data class Comment(
 
 // ── Attachment ────────────────────────────────────────────────────────────────
 
+@Immutable
 data class Attachment(
     val id: String,
     val taskId: String,
@@ -190,6 +237,7 @@ data class Attachment(
 
 // ── TimeEntry ─────────────────────────────────────────────────────────────────
 
+@Immutable
 data class TimeEntry(
     val id: String,
     val taskId: String,
@@ -199,6 +247,7 @@ data class TimeEntry(
 
 // ── Note (item in a NOTE-type project) ───────────────────────────────────────
 
+@Immutable
 data class Note(
     val id: String,
     val projectId: String,
@@ -210,6 +259,16 @@ data class Note(
 
 // ── FilterPreset ─────────────────────────────────────────────────────────────
 
+// ── ProjectTaskProgress ───────────────────────────────────────────────────────
+
+@Immutable
+data class ProjectTaskProgress(
+    val projectId: String,
+    val total: Int,
+    val completed: Int,
+)
+
+@Immutable
 data class FilterPreset(
     val id: String,
     val name: String,

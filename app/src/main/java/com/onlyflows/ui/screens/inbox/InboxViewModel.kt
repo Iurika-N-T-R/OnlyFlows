@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.UUID
@@ -78,6 +79,7 @@ class InboxViewModel(app: Application) : AndroidViewModel(app) {
                 tagRepo.observeAll(),
                 projectRepo.observeAll(),
             ) { tasks, tags, projects -> Triple(tasks, tags, projects) }
+            .distinctUntilChanged()
             .collect { (tasks, tags, projects) ->
                 _uiState.update { it.copy(tasks = tasks, tags = tags, projects = projects, isLoading = false) }
             }

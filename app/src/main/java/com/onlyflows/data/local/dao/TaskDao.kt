@@ -1,7 +1,9 @@
 package com.onlyflows.data.local.dao
 
 import androidx.room.*
+import com.onlyflows.data.local.entity.ProjectTaskCount
 import com.onlyflows.data.local.entity.TaskEntity
+import com.onlyflows.data.local.entity.TaskWithChecklistItems
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -101,6 +103,17 @@ interface TaskDao {
     @Query("SELECT COUNT(*) FROM tasks WHERE projectId = :projectId AND isArchived = 0 AND deletedAt IS NULL")
     fun observeAllCount(projectId: String): Flow<Int>
 
+    /** Aggregate progress for all projects in one query */
+    @Query("""
+        SELECT projectId,
+               COUNT(*) AS total,
+               SUM(CASE WHEN isCompleted = 1 THEN 1 ELSE 0 END) AS completed
+        FROM tasks
+        WHERE isArchived = 0 AND deletedAt IS NULL AND projectId IS NOT NULL
+        GROUP BY projectId
+    """)
+    fun observeAllProjectProgress(): Flow<List<ProjectTaskCount>>
+
     /** Count inbox tasks (unprocessed: no project, no scheduled group, not completed) */
     @Query("SELECT COUNT(*) FROM tasks WHERE projectId IS NULL AND scheduledGroup IS NULL AND isCompleted = 0 AND isArchived = 0 AND deletedAt IS NULL")
     fun observeInboxCount(): Flow<Int>
@@ -156,5 +169,85 @@ interface TaskDao {
 
     @Query("UPDATE tasks SET sortOrder = :sortOrder WHERE id = :id")
     suspend fun updateSortOrder(id: String, sortOrder: Int)
+
+    // ── @Relation queries (single-join, no N+1) ───────────────────────────────
+
+    @Transaction
+    @Query("SELECT * FROM tasks WHERE deletedAt IS NULL ORDER BY sortOrder ASC")
+    fun observeAllWithItems(): Flow<List<TaskWithChecklistItems>>
+
+    @Transaction
+    @Query("SELECT * FROM tasks WHERE projectId IS NULL AND scheduledGroup IS NULL AND isCompleted = 0 AND isArchived = 0 AND deletedAt IS NULL ORDER BY sortOrder ASC")
+    fun observeInboxWithItems(): Flow<List<TaskWithChecklistItems>>
+
+    @Transaction
+    @Query("SELECT * FROM tasks WHERE scheduledGroup = :group AND deletedAt IS NULL ORDER BY sortOrder ASC")
+    fun observeByGroupWithItems(group: String): Flow<List<TaskWithChecklistItems>>
+
+    @Transaction
+    @Query("SELECT * FROM tasks WHERE projectId = :projectId AND isArchived = 0 AND deletedAt IS NULL ORDER BY sortOrder ASC")
+    fun observeByProjectWithItems(projectId: String): Flow<List<TaskWithChecklistItems>>
+
+    @Transaction
+    @Query("SELECT * FROM tasks WHERE projectId = :projectId AND isArchived = 1 AND deletedAt IS NULL ORDER BY updatedAt DESC")
+    fun observeArchivedByProjectWithItems(projectId: String): Flow<List<TaskWithChecklistItems>>
+
+    @Transaction
+    @Query("SELECT * FROM tasks WHERE isArchived = 1 AND deletedAt IS NULL ORDER BY updatedAt DESC")
+    fun observeAllArchivedWithItems(): Flow<List<TaskWithChecklistItems>>
+
+    @Transaction
+    @Query("SELECT * FROM tasks WHERE id = :id")
+    fun observeByIdWithItems(id: String): Flow<TaskWithChecklistItems?>
+
+    @Transaction
+    @Query("SELECT * FROM tasks WHERE dependsOnTaskId = :taskId")
+    fun observeDependentsWithItems(taskId: String): Flow<List<TaskWithChecklistItems>>
+
+    @Transaction
+    @Query("SELECT * FROM tasks WHERE scheduledGroup IN ('TODAY', 'THIS_EVENING') AND isArchived = 0 AND deletedAt IS NULL ORDER BY scheduledGroup ASC, sortOrder ASC")
+    fun observeTodayWithItems(): Flow<List<TaskWithChecklistItems>>
+
+    @Transaction
+    @Query("SELECT * FROM tasks WHERE dueDate < :today AND isCompleted = 0 AND isArchived = 0 AND deletedAt IS NULL ORDER BY dueDate ASC, sortOrder ASC")
+    fun observeOverdueWithItems(today: String): Flow<List<TaskWithChecklistItems>>
+
+    @Transaction
+    @Query("SELECT * FROM tasks WHERE dueDate IS NOT NULL AND isCompleted = 0 AND isArchived = 0 AND deletedAt IS NULL ORDER BY dueDate ASC, sortOrder ASC")
+    fun observeUpcomingWithItems(): Flow<List<TaskWithChecklistItems>>
+
+    @Transaction
+    @Query("""
+        SELECT * FROM tasks
+        WHERE isCompleted = 0 AND isArchived = 0 AND dueDate IS NULL AND deletedAt IS NULL
+          AND (scheduledGroup = 'ANYTIME'
+            OR (projectId IS NOT NULL AND priority != 'NONE' AND scheduledGroup IS NULL))
+        ORDER BY
+          CASE priority WHEN 'HIGH' THEN 1 WHEN 'MEDIUM' THEN 2 WHEN 'LOW' THEN 3 ELSE 4 END,
+          sortOrder ASC
+    """)
+    fun observeAnytimeWithItems(): Flow<List<TaskWithChecklistItems>>
+
+    @Transaction
+    @Query("""
+        SELECT * FROM tasks
+        WHERE isCompleted = 0 AND isArchived = 0 AND dueDate IS NULL AND deletedAt IS NULL
+          AND (scheduledGroup = 'SOMEDAY'
+            OR (projectId IS NOT NULL AND priority = 'NONE' AND scheduledGroup IS NULL))
+        ORDER BY sortOrder ASC
+    """)
+    fun observeSomedayWithItems(): Flow<List<TaskWithChecklistItems>>
+
+    @Transaction
+    @Query("SELECT * FROM tasks WHERE (title LIKE '%' || :query || '%' OR note LIKE '%' || :query || '%') AND deletedAt IS NULL ORDER BY updatedAt DESC LIMIT 50")
+    fun searchWithItems(query: String): Flow<List<TaskWithChecklistItems>>
+
+    @Transaction
+    @Query("SELECT * FROM tasks WHERE (dueDate = :date OR startDate = :date) AND deletedAt IS NULL ORDER BY updatedAt DESC LIMIT 30")
+    fun searchByDateWithItems(date: String): Flow<List<TaskWithChecklistItems>>
+
+    @Transaction
+    @Query("SELECT * FROM tasks WHERE deletedAt IS NOT NULL ORDER BY deletedAt DESC")
+    fun observeTrashWithItems(): Flow<List<TaskWithChecklistItems>>
 
 }

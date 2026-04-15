@@ -7,9 +7,8 @@ import com.onlyflows.data.local.AppDatabase
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
 class BackupManager(private val context: Context) {
 
@@ -28,7 +27,7 @@ class BackupManager(private val context: Context) {
         // 3. Create destination file in the SAF folder
         val folder = DocumentFile.fromTreeUri(context, folderUri)
             ?: error("Cannot open backup folder")
-        val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+        val timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"))
         val fileName  = "onlyflows_backup_$timestamp.db"
 
         // Delete existing file with same name if any (shouldn't happen with timestamps)

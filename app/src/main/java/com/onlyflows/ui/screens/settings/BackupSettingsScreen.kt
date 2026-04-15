@@ -32,8 +32,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.text.SimpleDateFormat
-import java.util.*
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -311,8 +312,9 @@ fun BackupSettingsScreen(
 
             val lastFmt = remember(state.lastBackupMs) {
                 if (state.lastBackupMs == 0L) "Jamais"
-                else SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
-                    .format(Date(state.lastBackupMs))
+                else Instant.ofEpochMilli(state.lastBackupMs)
+                    .atZone(ZoneId.systemDefault())
+                    .format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
             }
 
             Row(

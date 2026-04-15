@@ -1,6 +1,7 @@
 package com.onlyflows.domain.repository
 
 import com.onlyflows.domain.model.ChecklistItem
+import com.onlyflows.domain.model.ProjectTaskProgress
 import com.onlyflows.domain.model.Task
 import com.onlyflows.domain.model.TaskGroup
 import kotlinx.coroutines.flow.Flow
@@ -53,4 +54,5 @@ interface TaskRepository {
     fun observeOverdueCount(): Flow<Int>
     fun observeAllCount(projectId: String): Flow<Int>
     fun observeCompletedCount(projectId: String): Flow<Int>
+    fun observeAllProjectProgress(): Flow<List<ProjectTaskProgress>>
 }

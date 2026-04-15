@@ -8,8 +8,11 @@ import com.onlyflows.domain.model.Folder
 import com.onlyflows.domain.model.Project
 import com.onlyflows.domain.model.ProjectStatus
 import com.onlyflows.ui.components.sidebar.ProjectProgress
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 
 data class ProjectsUiState(
@@ -23,7 +26,6 @@ data class ProjectsCard(
     val folderName: String?,   // null if standalone project
 )
 
-@OptIn(ExperimentalCoroutinesApi::class)
 class ProjectsViewModel(app: Application) : AndroidViewModel(app) {
 
     private val container   = (app as OnlyFlowsApp).container
@@ -41,22 +43,17 @@ class ProjectsViewModel(app: Application) : AndroidViewModel(app) {
     init {
         viewModelScope.launch {
             combine(
-                projectRepo.observeAll().flatMapLatest { projects ->
-                    if (projects.isEmpty()) flowOf(emptyList())
-                    else combine(projects.map { project ->
-                        combine(
-                            taskRepo.observeCompletedCount(project.id),
-                            taskRepo.observeAllCount(project.id),
-                        ) { completed, total -> ProjectProgress(project, completed, total) }
-                    }) { it.toList() }
-                },
+                projectRepo.observeAll(),
+                taskRepo.observeAllProjectProgress(),
                 folderRepo.observeAll(),
-            ) { progresses, folders ->
-                val folderMap = folders.associateBy { it.id }
-                val cards = progresses.map { progress ->
+            ) { projects, progressList, folders ->
+                val progressMap = progressList.associateBy { it.projectId }
+                val folderMap   = folders.associateBy { it.id }
+                val cards = projects.map { project ->
+                    val counts = progressMap[project.id]
                     ProjectsCard(
-                        progress   = progress,
-                        folderName = progress.project.folderId?.let { folderMap[it]?.title },
+                        progress   = ProjectProgress(project, counts?.completed ?: 0, counts?.total ?: 0),
+                        folderName = project.folderId?.let { folderMap[it]?.title },
                     )
                 }
                 val columns = ProjectStatus.entries.associateWith { status ->
@@ -64,7 +61,7 @@ class ProjectsViewModel(app: Application) : AndroidViewModel(app) {
                         .sortedBy { it.progress.project.sortOrder }
                 }
                 ProjectsUiState(columns = columns, folders = folders, isLoading = false)
-            }.collect { _uiState.value = it }
+            }.distinctUntilChanged().collect { _uiState.value = it }
         }
     }
 }

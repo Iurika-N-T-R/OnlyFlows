@@ -1,6 +1,7 @@
 package com.onlyflows.data.local.entity
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.onlyflows.domain.model.RecurrenceBasis
 import com.onlyflows.domain.model.RecurrenceRule
@@ -12,7 +13,18 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 
-@Entity(tableName = "tasks")
+@Entity(
+    tableName = "tasks",
+    indices = [
+        Index("projectId"),
+        Index("scheduledGroup"),
+        Index("dueDate"),
+        Index("isCompleted"),
+        Index("deletedAt"),
+        Index(value = ["dueDate", "isCompleted", "deletedAt"]),
+        Index(value = ["projectId", "deletedAt"]),
+    ]
+)
 data class TaskEntity(
     @PrimaryKey val id: String,
     val title: String,
