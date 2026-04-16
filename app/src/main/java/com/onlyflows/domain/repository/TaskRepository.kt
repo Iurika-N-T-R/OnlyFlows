@@ -26,6 +26,7 @@ interface TaskRepository {
     suspend fun setScheduledGroup(id: String, group: TaskGroup?)
     fun search(query: String): Flow<List<Task>>
     fun searchByDate(date: LocalDate): Flow<List<Task>>
+    fun searchByDateRange(start: LocalDate, end: LocalDate): Flow<List<Task>>
 
     suspend fun insert(task: Task)
     suspend fun update(task: Task)

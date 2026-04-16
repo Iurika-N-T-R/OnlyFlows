@@ -51,6 +51,13 @@ val DateBadgeFutureBg       = Color(0xFFF0F4F8)
 val DateBadgeFutureFg       = Color(0xFF6B7280)
 val DateBadgeDarkBg         = Color(0xFF2A3448)
 val DateBadgeDarkFg         = Color(0xFF8B9BB4)
+// Dark mode per-state variants
+val DateBadgeOverdueDarkBg  = Color(0xFF3D1515)
+val DateBadgeOverdueDarkFg  = Color(0xFFFF8080)
+val DateBadgeTodayDarkBg    = Color(0xFF3D2E10)
+val DateBadgeTodayDarkFg    = Color(0xFFF59E0B)
+val DateBadgeFutureDarkBg   = Color(0xFF2A3448)
+val DateBadgeFutureDarkFg   = Color(0xFF8B9BB4)
 
 // ── Tag chip ─────────────────────────────────────────────────────────────────
 

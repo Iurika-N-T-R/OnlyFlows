@@ -106,6 +106,9 @@ class TaskRepositoryImpl(
     override fun searchByDate(date: java.time.LocalDate): Flow<List<Task>> =
         taskDao.searchByDateWithItems(date.toString()).map { list -> list.map { it.toDomain() } }
 
+    override fun searchByDateRange(start: java.time.LocalDate, end: java.time.LocalDate): Flow<List<Task>> =
+        taskDao.searchByDateRangeWithItems(start.toString(), end.toString()).map { list -> list.map { it.toDomain() } }
+
     override suspend fun insert(task: Task) {
         taskDao.insert(task.toEntity())
         checklistDao.insertAll(task.checklistItems.map { it.toEntity() })

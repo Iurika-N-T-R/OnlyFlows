@@ -115,14 +115,28 @@ fun QuickFindScreen(
                 modifier = Modifier.fillMaxSize(),
             ) {
                 // ── Date shortcut ─────────────────────────────────────────────
-                if (state.parsedDate != null) {
+                if (state.dateQuery != null) {
                     item(key = "date_shortcut") {
                         val fmt = DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.ENGLISH)
+                        val fmtShort = DateTimeFormatter.ofPattern("d MMM", Locale.ENGLISH)
+                        val (dateLabel, subLabel, clickDate) = when (val dq = state.dateQuery) {
+                            is DateQuery.Single -> Triple(
+                                "📅 ${dq.date.format(fmt)}",
+                                "Show all tasks on this date",
+                                dq.date,
+                            )
+                            is DateQuery.Range  -> Triple(
+                                "📅 ${dq.start.format(fmtShort)} – ${dq.end.format(fmtShort)} ${dq.end.year}",
+                                "Show all tasks in this period",
+                                dq.start,
+                            )
+                            else -> return@item
+                        }
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { onDateClick(state.parsedDate!!) }
+                                .clickable { onDateClick(clickDate) }
                                 .padding(horizontal = 20.dp, vertical = 14.dp),
                         ) {
                             Surface(
@@ -142,13 +156,13 @@ fun QuickFindScreen(
                             Spacer(Modifier.width(14.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text       = "📅 ${state.parsedDate!!.format(fmt)}",
+                                    text       = dateLabel,
                                     style      = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.SemiBold,
                                     color      = MaterialTheme.colorScheme.onSurface,
                                 )
                                 Text(
-                                    text  = "Show all tasks on this date",
+                                    text  = subLabel,
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -303,7 +317,7 @@ fun QuickFindScreen(
                 }
 
                 // ── No results ────────────────────────────────────────────────
-                if (state.taskResults.isEmpty() && state.projectResults.isEmpty() && state.parsedDate == null) {
+                if (state.taskResults.isEmpty() && state.projectResults.isEmpty() && state.dateQuery == null) {
                     item(key = "no_results") {
                         Box(
                             contentAlignment = Alignment.Center,

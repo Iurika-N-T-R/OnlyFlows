@@ -482,10 +482,11 @@ fun DateBadge(date: LocalDate, dueTime: java.time.LocalTime? = null, modifier: M
     val timeText = dueTime?.format(DateTimeFormatter.ofPattern(timePat))
     val text = if (timeText != null) "$dateText $timeText" else dateText
 
+    val fc = MaterialTheme.flowColors
     val (bgColor, fgColor) = when {
-        daysUntil < 0  -> DateBadgeOverdueBg to DateBadgeOverdueFg
-        daysUntil == 0 -> DateBadgeTodayBg   to DateBadgeTodayFg
-        else           -> DateBadgeFutureBg   to DateBadgeFutureFg
+        daysUntil < 0  -> fc.dateBadgeOverdueBg to fc.dateBadgeOverdueFg
+        daysUntil == 0 -> fc.dateBadgeTodayBg   to fc.dateBadgeTodayFg
+        else           -> fc.dateBadgeFutureBg   to fc.dateBadgeFutureFg
     }
 
     Surface(color = bgColor, shape = RoundedCornerShape(6.dp), modifier = modifier) {

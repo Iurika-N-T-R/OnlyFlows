@@ -80,6 +80,9 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE (dueDate = :date OR startDate = :date) AND deletedAt IS NULL ORDER BY updatedAt DESC LIMIT 30")
     fun searchByDate(date: String): Flow<List<TaskEntity>>
 
+    @Query("SELECT * FROM tasks WHERE ((dueDate >= :start AND dueDate <= :end) OR (startDate >= :start AND startDate <= :end)) AND deletedAt IS NULL ORDER BY dueDate ASC, startDate ASC LIMIT 50")
+    fun searchByDateRange(start: String, end: String): Flow<List<TaskEntity>>
+
     @Query("SELECT * FROM tasks WHERE scheduledGroup IN ('TODAY', 'THIS_EVENING') AND isArchived = 0 AND deletedAt IS NULL ORDER BY scheduledGroup ASC, sortOrder ASC")
     fun observeToday(): Flow<List<TaskEntity>>
 
@@ -260,6 +263,10 @@ interface TaskDao {
     @Transaction
     @Query("SELECT * FROM tasks WHERE (dueDate = :date OR startDate = :date) AND deletedAt IS NULL ORDER BY updatedAt DESC LIMIT 30")
     fun searchByDateWithItems(date: String): Flow<List<TaskWithChecklistItems>>
+
+    @Transaction
+    @Query("SELECT * FROM tasks WHERE ((dueDate >= :start AND dueDate <= :end) OR (startDate >= :start AND startDate <= :end)) AND deletedAt IS NULL ORDER BY dueDate ASC, startDate ASC LIMIT 50")
+    fun searchByDateRangeWithItems(start: String, end: String): Flow<List<TaskWithChecklistItems>>
 
     @Transaction
     @Query("SELECT * FROM tasks WHERE deletedAt IS NOT NULL ORDER BY deletedAt DESC")

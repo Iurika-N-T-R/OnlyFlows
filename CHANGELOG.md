@@ -5,9 +5,25 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
-## [Unreleased] — en cours
+## [0.25.0] — 2026-04-16 · UI Bug Fixes — Dark Mode + QuickFind Date Search
 
-*(aucun changement en attente)*
+### Corrigé
+
+- **Tag badges (dark mode)** — les badges de tags utilisaient `isSystemInDarkTheme()` directement, ignorant le réglage Light/Dark de l'app. Corrigé via `FlowColors.tagChipBg/Fg` injecté par le système de thème.
+- **Badges de date `[Today]` / `[5d]` (dark mode)** — couleurs de fond hardcodées en clair (ex. `0xFFF0F4F8`) rendues illisibles en dark mode. Ajout de variantes sombres par état (`DateBadgeOverdueDarkBg/Fg`, `DateBadgeTodayDarkBg/Fg`, `DateBadgeFutureDarkBg/Fg`) dans `FlowColors`.
+- **Texte heure événement (dark mode)** — la couleur hex brute du calendrier (ex. bleu marine) appliquée au texte `"21:00-23:59"` devenait illisible en fond sombre. Corrigé avec `lerp(indicatorColor, Color.White, 0.45f)` en dark mode ; la barre colorée garde la couleur d'origine.
+- **QuickFind — recherche par date `"17 Apr"` toujours vide** — `LocalDate::from` échouait silencieusement faute de champ année dans le format. Corrigé en extrayant `MONTH_OF_YEAR` + `DAY_OF_MONTH` via `ChronoField` puis en construisant `LocalDate.of(year, month, day)`.
+- **QuickFind — `"Cette semaine"` / `"This week"` / `"Ce mois"` sans résultat** — ces mots-clés résolvaient vers une date unique (ex. le lundi), donc la requête SQL cherchait `dueDate = lundi` au lieu d'une plage. Corrigé avec une sealed class `DateQuery` (Single / Range) et une nouvelle méthode `searchByDateRange(start, end)` dans le DAO et le repository.
+- **QuickFind — frappe anticipée non supportée** — il fallait saisir le mot en entier pour voir les résultats. Ajout du prefix-matching sur les mots-clés relatifs (min. 2 caractères) : `"auj"` → aujourd'hui, `"dem"` → demain, `"cette"` → cette semaine, `"ce m"` → ce mois, etc.
+- **Navigation — retour depuis Today sans confirmation** — appuyer sur Retour depuis l'écran racine quittait l'app silencieusement. Ajout d'un `BackHandler` avec dialog de confirmation `"Quitter OnlyFlows ?"`.
+
+### Ajouté
+
+- **`DateQuery` (sealed class)** — `Single(date)` pour les dates ponctuelles, `Range(start, end)` pour les plages (semaine, mois, semaine N).
+- **`TaskDao.searchByDateRange` / `searchByDateRangeWithItems`** — nouvelle requête Room `dueDate >= :start AND dueDate <= :end OR startDate >= :start AND startDate <= :end`.
+- **`TaskRepository.searchByDateRange`** — nouvelle méthode dans l'interface et l'implémentation.
+- **QuickFind header de plage** — affiche `"16 Apr – 22 Apr 2026"` avec sous-titre `"Show all tasks in this period"` pour les résultats de semaine/mois.
+- **Mots-clés FR/EN supplémentaires** — `hier` / `yesterday`, `ce mois-ci`, prefix-matching sur tous les mots-clés relatifs.
 
 ---
 

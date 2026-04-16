@@ -14,11 +14,17 @@ import kotlinx.coroutines.launch
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.time.temporal.ChronoField
 import java.time.temporal.IsoFields
 import java.time.temporal.TemporalAdjusters
 import java.util.Locale
 
 private const val POPUP_MAX = 3
+
+sealed class DateQuery {
+    data class Single(val date: LocalDate) : DateQuery()
+    data class Range(val start: LocalDate, val end: LocalDate) : DateQuery()
+}
 
 data class QuickFindUiState(
     val query: String = "",
@@ -29,7 +35,8 @@ data class QuickFindUiState(
     val hasMoreTasks: Boolean = false,
     val hasMoreProjects: Boolean = false,
     val hasMoreTags: Boolean = false,
-    val parsedDate: LocalDate? = null,
+    val parsedDate: LocalDate? = null,       // kept for single-date navigation
+    val dateQuery: DateQuery? = null,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
@@ -51,10 +58,13 @@ class QuickFindViewModel(app: Application) : AndroidViewModel(app) {
                     if (q.isBlank()) {
                         flowOf(QuickFindUiState())
                     } else {
-                        val parsedDate = tryParseDate(q)
-                        val dateFlow: Flow<List<Task>> =
-                            if (parsedDate != null) taskRepo.searchByDate(parsedDate)
-                            else flowOf(emptyList())
+                        val dq = tryParseDateQuery(q)
+                        val dateFlow: Flow<List<Task>> = when (dq) {
+                            is DateQuery.Single -> taskRepo.searchByDate(dq.date)
+                            is DateQuery.Range  -> taskRepo.searchByDateRange(dq.start, dq.end)
+                            null                -> flowOf(emptyList())
+                        }
+                        val singleDate = (dq as? DateQuery.Single)?.date
 
                         combine(
                             taskRepo.search(q),
@@ -75,7 +85,8 @@ class QuickFindViewModel(app: Application) : AndroidViewModel(app) {
                                 hasMoreTasks    = allTasks.size > POPUP_MAX,
                                 hasMoreProjects = allProjects.size > POPUP_MAX,
                                 hasMoreTags     = allTags.size > POPUP_MAX,
-                                parsedDate      = parsedDate,
+                                parsedDate      = singleDate,
+                                dateQuery       = dq,
                             )
                         }
                     }
@@ -93,27 +104,51 @@ class QuickFindViewModel(app: Application) : AndroidViewModel(app) {
 
     // ── Natural language date parser ──────────────────────────────────────────
 
-    internal fun tryParseDate(query: String): LocalDate? {
+    internal fun tryParseDateQuery(query: String): DateQuery? {
         val q    = query.trim().lowercase()
         val now  = LocalDate.now()
         val year = now.year
 
-        // ── Relative keywords (FR + EN) ───────────────────────────────────────
-        when (q) {
-            "aujourd'hui", "aujourdhui", "today"     -> return now
-            "demain", "tomorrow"                      -> return now.plusDays(1)
-            "hier", "yesterday"                       -> return now.minusDays(1)
-            "cette semaine", "this week"              ->
-                return now.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-            "ce mois", "ce mois-ci", "this month"    ->
-                return now.withDayOfMonth(1)
+        if (q.isEmpty()) return null
+
+        // ── Relative range keywords (FR + EN) — return a date RANGE ──────────
+        data class RangeKeyword(val text: String, val start: LocalDate, val end: LocalDate)
+        val monday   = now.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+        val sunday   = monday.plusDays(6)
+        val monthEnd = now.withDayOfMonth(now.month.length(now.isLeapYear))
+        val rangeKeywords = listOf(
+            RangeKeyword("cette semaine", monday, sunday),
+            RangeKeyword("this week",     monday, sunday),
+            RangeKeyword("ce mois-ci",    now.withDayOfMonth(1), monthEnd),
+            RangeKeyword("ce mois",       now.withDayOfMonth(1), monthEnd),
+            RangeKeyword("this month",    now.withDayOfMonth(1), monthEnd),
+        )
+        if (q.length >= 2) {
+            rangeKeywords.firstOrNull { it.text == q || it.text.startsWith(q) }
+                ?.let { return DateQuery.Range(it.start, it.end) }
+        }
+
+        // ── Single-day relative keywords (FR + EN) ────────────────────────────
+        data class SingleKeyword(val text: String, val date: LocalDate)
+        val singleKeywords = listOf(
+            SingleKeyword("aujourd'hui", now),
+            SingleKeyword("aujourdhui",  now),
+            SingleKeyword("today",       now),
+            SingleKeyword("demain",      now.plusDays(1)),
+            SingleKeyword("tomorrow",    now.plusDays(1)),
+            SingleKeyword("hier",        now.minusDays(1)),
+            SingleKeyword("yesterday",   now.minusDays(1)),
+        )
+        if (q.length >= 2) {
+            singleKeywords.firstOrNull { it.text == q || it.text.startsWith(q) }
+                ?.let { return DateQuery.Single(it.date) }
         }
 
         // dd/MM  (e.g. "10/02")
         Regex("""^(\d{1,2})/(\d{1,2})$""").matchEntire(q)?.let { m ->
             runCatching {
                 LocalDate.of(year, m.groupValues[2].toInt(), m.groupValues[1].toInt())
-            }.getOrNull()?.let { return it }
+            }.getOrNull()?.let { return DateQuery.Single(it) }
         }
 
         // dd/MM/yyyy  (e.g. "10/02/2025")
@@ -124,37 +159,36 @@ class QuickFindViewModel(app: Application) : AndroidViewModel(app) {
                     m.groupValues[2].toInt(),
                     m.groupValues[1].toInt(),
                 )
-            }.getOrNull()?.let { return it }
+            }.getOrNull()?.let { return DateQuery.Single(it) }
         }
 
-        // "semaine N" / "week N"  (e.g. "semaine 24", "week 24")
+        // "semaine N" / "week N" — return Monday→Sunday range of that ISO week
         Regex("""^(?:semaine|week)\s+(\d{1,2})$""", RegexOption.IGNORE_CASE).matchEntire(q)?.let { m ->
             runCatching {
-                val weekNum = m.groupValues[1].toLong()
-                LocalDate.now()
-                    .with(IsoFields.WEEK_OF_WEEK_BASED_YEAR, weekNum)
+                val weekNum  = m.groupValues[1].toLong()
+                val weekStart = now.with(IsoFields.WEEK_OF_WEEK_BASED_YEAR, weekNum)
                     .with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+                DateQuery.Range(weekStart, weekStart.plusDays(6))
             }.getOrNull()?.let { return it }
         }
 
         // Normalize French abbreviations → English, then try standard patterns
         val normalized = normalizeFrench(q)
 
-        // Text patterns: try both English and French locales
+        // Text patterns: parse day+month only, then inject current year
         val textPatterns = listOf("d MMM", "MMM d", "d MMMM", "MMMM d", "dd MMM", "MMM dd")
         for (locale in listOf(Locale.ENGLISH, Locale.FRENCH)) {
             val input = if (locale == Locale.ENGLISH) normalized else q
-            // Capitalize each purely-alphabetic token so "16 apr" → "16 Apr" works
-            // (replaceFirstChar only works when the string starts with a letter)
             val capitalized = input.split(" ").joinToString(" ") { token ->
                 if (token.all { it.isLetter() }) token.replaceFirstChar { it.uppercaseChar() } else token
             }
             for (pattern in textPatterns) {
                 runCatching {
-                    DateTimeFormatter.ofPattern(pattern, locale)
-                        .parse(capitalized, LocalDate::from)
-                        .withYear(year)
-                }.getOrNull()?.let { return it }
+                    val accessor = DateTimeFormatter.ofPattern(pattern, locale).parse(capitalized)
+                    val month = accessor.get(ChronoField.MONTH_OF_YEAR)
+                    val day   = accessor.get(ChronoField.DAY_OF_MONTH)
+                    LocalDate.of(year, month, day)
+                }.getOrNull()?.let { return DateQuery.Single(it) }
             }
         }
 
