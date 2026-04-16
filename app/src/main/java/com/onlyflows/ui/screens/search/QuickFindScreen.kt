@@ -181,6 +181,75 @@ fun QuickFindScreen(
                     }
                 }
 
+                // ── Date results ──────────────────────────────────────────────
+                if (state.dateResults.isNotEmpty()) {
+                    item(key = "date_results_header") {
+                        Text(
+                            "Tâches",
+                            style    = MaterialTheme.typography.labelMedium,
+                            color    = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                        )
+                    }
+                    items(state.dateResults, key = { "date_task_${it.id}" }) { task ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onTaskClick(task.id) }
+                                .padding(horizontal = 20.dp, vertical = 12.dp),
+                        ) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .then(
+                                        if (task.isCompleted)
+                                            Modifier.background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f))
+                                        else
+                                            Modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(4.dp))
+                                    ),
+                            ) {
+                                if (task.isCompleted) {
+                                    Icon(Icons.Outlined.Check, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(12.dp))
+                                }
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text     = task.title,
+                                    style    = MaterialTheme.typography.bodyMedium,
+                                    color    = if (task.isCompleted)
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    else
+                                        MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                task.dueDate?.let { date ->
+                                    Text(
+                                        text  = date.format(DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH)),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                            Icon(
+                                Icons.Outlined.ChevronRight,
+                                contentDescription = null,
+                                tint     = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(16.dp),
+                            )
+                        }
+                        HorizontalDivider(
+                            modifier  = Modifier.padding(start = 52.dp),
+                            color     = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                            thickness = 0.5.dp,
+                        )
+                    }
+                }
+
                 // ── Projects ──────────────────────────────────────────────────
                 if (state.projectResults.isNotEmpty()) {
                     item(key = "proj_header") {
