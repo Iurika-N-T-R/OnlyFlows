@@ -5,6 +5,7 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.onlyflows.domain.model.Section
+import java.time.LocalDateTime
 
 @Entity(
     tableName = "sections",
@@ -21,6 +22,7 @@ data class SectionEntity(
     val projectId: String,
     val title: String,
     val sortOrder: Int = 0,
+    val updatedAt: LocalDateTime = LocalDateTime.now(),
 )
 
 fun SectionEntity.toDomain() = Section(
@@ -28,6 +30,7 @@ fun SectionEntity.toDomain() = Section(
     projectId = projectId,
     title     = title,
     sortOrder = sortOrder,
+    updatedAt = updatedAt,
 )
 
 fun Section.toEntity() = SectionEntity(
@@ -35,4 +38,5 @@ fun Section.toEntity() = SectionEntity(
     projectId = projectId,
     title     = title,
     sortOrder = sortOrder,
+    updatedAt = updatedAt,
 )

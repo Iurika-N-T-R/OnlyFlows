@@ -96,7 +96,7 @@ sealed interface TaskDetailEvent {
     data object Delete                                                       : TaskDetailEvent
     data class SetStartDate(val date: LocalDate?)                            : TaskDetailEvent
     data class SetRecurrence(val rule: RecurrenceRule?)                      : TaskDetailEvent
-    data class AddReminder(val at: LocalDateTime)                            : TaskDetailEvent
+    data class AddReminder(val at: LocalDateTime, val locationId: String? = null) : TaskDetailEvent
     data class DeleteReminder(val id: String)                               : TaskDetailEvent
     data object ShowStartDatePicker                                          : TaskDetailEvent
     data object HideStartDatePicker                                          : TaskDetailEvent
@@ -148,6 +148,8 @@ class TaskDetailViewModel(app: Application) : AndroidViewModel(app) {
     private val commentRepo: CommentRepository                        = container.commentRepository
     private val reminderRepo: ReminderRepository                      = container.reminderRepository
     private val attachmentRepo: AttachmentRepository                  = container.attachmentRepository
+    private val locationRepo                                          = container.savedLocationRepository
+    private val geofenceManager                                       = container.geofenceManager
 
     private val _uiState    = MutableStateFlow(TaskDetailUiState())
     val uiState: StateFlow<TaskDetailUiState> = _uiState.asStateFlow()
@@ -371,13 +373,23 @@ class TaskDetailViewModel(app: Application) : AndroidViewModel(app) {
                     id          = "rem_${System.currentTimeMillis()}",
                     taskId      = task.id,
                     scheduledAt = event.at,
+                    locationId  = event.locationId,
                 )
                 reminderRepo.add(reminder)
                 scheduler.schedule(task.id, task.title, task.note, event.at)
+                // Register geofence if a location is attached
+                event.locationId?.let { locId ->
+                    locationRepo.getById(locId)?.let { loc ->
+                        geofenceManager.register(loc.id, loc.latitude, loc.longitude, loc.radiusMeters)
+                    }
+                }
                 taskRepo.update(task.copy(hasReminders = true, updatedAt = LocalDateTime.now()))
                 _uiState.update { it.copy(showReminderPicker = false) }
             }
             is TaskDetailEvent.DeleteReminder -> viewModelScope.launch {
+                // Unregister geofence if this was a location-based reminder
+                _uiState.value.reminders.find { it.id == event.id }
+                    ?.locationId?.let { geofenceManager.unregister(it) }
                 reminderRepo.delete(event.id)
                 val remaining = _uiState.value.reminders.filter { it.id != event.id }
                 scheduler.cancel(task.id)

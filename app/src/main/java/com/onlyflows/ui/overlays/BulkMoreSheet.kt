@@ -10,6 +10,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -22,10 +23,12 @@ import java.time.LocalDate
 fun BulkMoreSheet(
     selectedCount: Int,
     tags: List<Tag>,
+    isRecurring: Boolean = false,
     onStar: (Boolean) -> Unit,
     onSetPriority: (TaskPriority) -> Unit,
     onAddTag: (String) -> Unit,
     onSchedule: (LocalDate?) -> Unit,
+    onAbandon: () -> Unit = {},
     onTrackTask: (() -> Unit)? = null,
     onDismiss: () -> Unit,
 ) {
@@ -59,6 +62,7 @@ fun BulkMoreSheet(
                         Page.PRIORITY -> "Priorité"
                         Page.TAG      -> "Ajouter un tag"
                         Page.SCHEDULE -> "Planifier"
+                        Page.WONT_DO  -> "Ne se fera pas"
                     },
                     style      = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
@@ -73,17 +77,23 @@ fun BulkMoreSheet(
                     onPriority    = { page = Page.PRIORITY },
                     onTag         = { page = Page.TAG },
                     onSchedule    = { page = Page.SCHEDULE },
+                    onWontDo      = { page = Page.WONT_DO },
                     onTrackTask   = if (selectedCount == 1) onTrackTask else null,
                 )
                 Page.PRIORITY -> PriorityPage(onSetPriority)
                 Page.TAG      -> TagPage(tags, onAddTag)
                 Page.SCHEDULE -> SchedulePage(onSchedule)
+                Page.WONT_DO  -> WontDoPage(
+                    isRecurring  = isRecurring,
+                    onAbandon    = onAbandon,
+                    onReschedule = { page = Page.SCHEDULE },
+                )
             }
         }
     }
 }
 
-private enum class Page { ROOT, PRIORITY, TAG, SCHEDULE }
+private enum class Page { ROOT, PRIORITY, TAG, SCHEDULE, WONT_DO }
 
 // ── Root page ─────────────────────────────────────────────────────────────────
 
@@ -93,6 +103,7 @@ private fun RootPage(
     onPriority: () -> Unit,
     onTag: () -> Unit,
     onSchedule: () -> Unit,
+    onWontDo: () -> Unit,
     onTrackTask: (() -> Unit)? = null,
 ) {
     Column {
@@ -106,6 +117,18 @@ private fun RootPage(
         SheetRow(icon = Icons.Outlined.Flag,         label = "Priorité",   trailing = true, onClick = onPriority)
         SheetRow(icon = Icons.Outlined.Label,        label = "Ajouter un tag", trailing = true, onClick = onTag)
         SheetRow(icon = Icons.Outlined.CalendarMonth, label = "Planifier",  trailing = true, onClick = onSchedule)
+        HorizontalDivider(
+            modifier  = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            thickness = 0.5.dp,
+            color     = MaterialTheme.colorScheme.outlineVariant,
+        )
+        SheetRow(
+            icon     = Icons.Outlined.Block,
+            label    = "Ne se fera pas",
+            trailing = true,
+            tint     = MaterialTheme.colorScheme.error,
+            onClick  = onWontDo,
+        )
         if (onTrackTask != null) {
             HorizontalDivider(
                 modifier  = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
@@ -113,6 +136,36 @@ private fun RootPage(
                 color     = MaterialTheme.colorScheme.outlineVariant,
             )
             SheetRow(icon = Icons.Outlined.Timer, label = "Démarrer le minuteur", onClick = onTrackTask)
+        }
+    }
+}
+
+// ── Wont do page ──────────────────────────────────────────────────────────────
+
+@Composable
+private fun WontDoPage(
+    isRecurring: Boolean,
+    onAbandon: () -> Unit,
+    onReschedule: () -> Unit,
+) {
+    Column {
+        if (isRecurring) {
+            SheetRow(
+                icon    = Icons.Outlined.SkipNext,
+                label   = "Passer cette occurrence",
+                onClick = onAbandon,
+            )
+        } else {
+            SheetRow(
+                icon    = Icons.Outlined.Archive,
+                label   = "Passer définitivement",
+                onClick = onAbandon,
+            )
+            SheetRow(
+                icon    = Icons.Outlined.CalendarMonth,
+                label   = "Changer la date",
+                onClick = onReschedule,
+            )
         }
     }
 }
@@ -216,8 +269,10 @@ private fun SheetRow(
     icon: ImageVector,
     label: String,
     trailing: Boolean = false,
+    tint: Color = Color.Unspecified,
     onClick: () -> Unit,
 ) {
+    val resolvedTint = if (tint == Color.Unspecified) MaterialTheme.colorScheme.onSurface else tint
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -228,7 +283,7 @@ private fun SheetRow(
         Icon(
             imageVector        = icon,
             contentDescription = null,
-            tint               = MaterialTheme.colorScheme.onSurface,
+            tint               = resolvedTint,
             modifier           = Modifier.size(22.dp),
         )
         Spacer(Modifier.width(16.dp))

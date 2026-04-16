@@ -181,13 +181,16 @@ fun InboxScreen(
     }
 
     if (state.showBulkMore) {
+        val selectedTask = state.tasks.find { it.id == state.selectedTaskIds.firstOrNull() }
         com.onlyflows.ui.overlays.BulkMoreSheet(
             selectedCount  = state.selectedTaskIds.size,
             tags           = state.tags,
+            isRecurring    = selectedTask?.recurrence != null,
             onStar         = { viewModel.onEvent(InboxEvent.BulkStar(it)) },
             onSetPriority  = { viewModel.onEvent(InboxEvent.BulkSetPriority(it)) },
             onAddTag       = { /* tag bulk not yet wired */ },
             onSchedule     = { viewModel.onEvent(InboxEvent.BulkSchedule(it)) },
+            onAbandon      = { viewModel.onEvent(InboxEvent.AbandonSelected) },
             onTrackTask    = { viewModel.onEvent(InboxEvent.StartTimerForSelected) },
             onDismiss      = { viewModel.onEvent(InboxEvent.HideBulkMore) },
         )

@@ -7,6 +7,8 @@ import android.os.Build
 import android.provider.Settings
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.*
@@ -20,7 +22,20 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.onlyflows.OnlyFlowsApp
+import com.onlyflows.data.notifications.DailyAlertScheduler
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.time.DayOfWeek
+
+private val DAY_LABELS = listOf(
+    DayOfWeek.MONDAY    to "L",
+    DayOfWeek.TUESDAY   to "M",
+    DayOfWeek.WEDNESDAY to "M",
+    DayOfWeek.THURSDAY  to "J",
+    DayOfWeek.FRIDAY    to "V",
+    DayOfWeek.SATURDAY  to "S",
+    DayOfWeek.SUNDAY    to "D",
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -28,16 +43,29 @@ fun NotificationSettingsScreen(
     onBack: () -> Unit = {},
 ) {
     val context = LocalContext.current
-    val prefs   = (context.applicationContext as OnlyFlowsApp).container.notificationPreferences
+    val container = (context.applicationContext as OnlyFlowsApp).container
+    val prefs   = container.notificationPreferences
+    val alertPrefs = container.dailyAlertPreferences
     val scope   = rememberCoroutineScope()
 
     val soundEnabled     by prefs.soundEnabled.collectAsStateWithLifecycle(initialValue = true)
     val vibrationEnabled by prefs.vibrationEnabled.collectAsStateWithLifecycle(initialValue = true)
     val bypassDnd        by prefs.bypassDnd.collectAsStateWithLifecycle(initialValue = false)
 
+    val alertEnabled by alertPrefs.enabled.collectAsStateWithLifecycle(initialValue = false)
+    val alertTimes   by alertPrefs.times.collectAsStateWithLifecycle(initialValue = emptySet())
+    val alertDays    by alertPrefs.days.collectAsStateWithLifecycle(initialValue = emptySet())
+
     // Runtime check: are notifications allowed at system level?
     val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
     val notifsEnabled = nm.areNotificationsEnabled()
+
+    var showTimePicker by remember { mutableStateOf(false) }
+    val timePickerState = rememberTimePickerState(initialHour = 8, initialMinute = 0, is24Hour = true)
+
+    fun rescheduleAll(enabled: Boolean, times: Set<String>, days: Set<String>) {
+        DailyAlertScheduler(context).scheduleAll(enabled, times, days)
+    }
 
     Scaffold(
         topBar = {
@@ -65,6 +93,7 @@ fun NotificationSettingsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .verticalScroll(rememberScrollState())
                 .padding(vertical = 8.dp),
         ) {
 
@@ -150,6 +179,97 @@ fun NotificationSettingsScreen(
             )
             HorizontalDivider(modifier = Modifier.padding(start = 64.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
 
+            // ── Daily alerts section ─────────────────────────────────────────
+            NotifGroupLabel("Alertes quotidiennes")
+
+            NotifToggleRow(
+                icon     = Icons.Outlined.Alarm,
+                label    = "Alertes quotidiennes",
+                subtitle = "Recevoir une alerte à heures fixes",
+                checked  = alertEnabled,
+                onCheckedChange = { enabled ->
+                    scope.launch {
+                        alertPrefs.setEnabled(enabled)
+                        rescheduleAll(enabled, alertPrefs.times.first(), alertPrefs.days.first())
+                    }
+                },
+            )
+
+            if (alertEnabled) {
+                // Day chips
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 8.dp),
+                ) {
+                    DAY_LABELS.forEach { (day, label) ->
+                        val selected = day.name in alertDays
+                        FilterChip(
+                            selected = selected,
+                            onClick  = {
+                                scope.launch {
+                                    alertPrefs.toggleDay(day.name)
+                                    val newDays = alertPrefs.days.first()
+                                    rescheduleAll(alertEnabled, alertTimes, newDays)
+                                }
+                            },
+                            label = { Text(label, style = MaterialTheme.typography.labelMedium) },
+                        )
+                    }
+                }
+
+                // Time list
+                val sortedTimes = alertTimes.sortedBy { it }
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp),
+                ) {
+                    sortedTimes.forEach { hhmm ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        ) {
+                            Text(
+                                text  = hhmm,
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.weight(1f),
+                            )
+                            IconButton(
+                                onClick = {
+                                    scope.launch {
+                                        alertPrefs.removeTime(hhmm)
+                                        val newTimes = alertPrefs.times.first()
+                                        rescheduleAll(alertEnabled, newTimes, alertDays)
+                                    }
+                                }
+                            ) {
+                                Icon(
+                                    Icons.Outlined.Close, "Supprimer",
+                                    tint     = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            }
+                        }
+                        HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+                    }
+
+                    // Add time button
+                    TextButton(
+                        onClick  = { showTimePicker = true },
+                        modifier = Modifier.padding(top = 4.dp),
+                    ) {
+                        Icon(Icons.Outlined.Add, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Ajouter un horaire")
+                    }
+                }
+            }
+
+            HorizontalDivider(modifier = Modifier.padding(start = 64.dp, top = 8.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+
+            // ── System section ───────────────────────────────────────────────
             NotifGroupLabel("Système")
 
             // Direct link to system notification settings for this app
@@ -193,6 +313,32 @@ fun NotificationSettingsScreen(
             }
             HorizontalDivider(modifier = Modifier.padding(start = 64.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
         }
+    }
+
+    // Time picker dialog
+    if (showTimePicker) {
+        AlertDialog(
+            onDismissRequest = { showTimePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    showTimePicker = false
+                    val hh = timePickerState.hour.toString().padStart(2, '0')
+                    val mm = timePickerState.minute.toString().padStart(2, '0')
+                    val hhmm = "$hh:$mm"
+                    scope.launch {
+                        alertPrefs.addTime(hhmm)
+                        val newTimes = alertPrefs.times.first()
+                        rescheduleAll(alertEnabled, newTimes, alertDays)
+                    }
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTimePicker = false }) { Text("Annuler") }
+            },
+            text = {
+                TimePicker(state = timePickerState)
+            },
+        )
     }
 }
 

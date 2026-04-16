@@ -108,6 +108,7 @@ sealed interface ProjectDetailEvent {
     data class BulkAddTag(val tagId: String)                                : ProjectDetailEvent
     data class BulkSchedule(val date: java.time.LocalDate?)                 : ProjectDetailEvent
     data object StartTimerForSelected                                       : ProjectDetailEvent
+    data object AbandonSelected                                             : ProjectDetailEvent
 }
 
 class ProjectDetailViewModel(app: Application) : AndroidViewModel(app) {
@@ -466,6 +467,16 @@ class ProjectDetailViewModel(app: Application) : AndroidViewModel(app) {
                         startedAt = LocalDateTime.now(),
                     )
                 )
+                _uiState.update { it.copy(selectedTaskIds = emptySet(), showBulkMore = false) }
+            }
+            ProjectDetailEvent.AbandonSelected -> viewModelScope.launch {
+                val ids   = _uiState.value.selectedTaskIds
+                val tasks = _uiState.value.tasksBySection.values.flatten()
+                ids.forEach { id ->
+                    val task = tasks.find { it.id == id } ?: return@forEach
+                    if (task.recurrence != null) taskRepo.abandonRecurring(id)
+                    else taskRepo.abandonTask(id)
+                }
                 _uiState.update { it.copy(selectedTaskIds = emptySet(), showBulkMore = false) }
             }
         }

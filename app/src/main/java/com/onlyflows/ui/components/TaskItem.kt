@@ -9,7 +9,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -498,16 +497,16 @@ fun DateBadge(date: LocalDate, dueTime: java.time.LocalTime? = null, modifier: M
 
 @Composable
 fun TagChip(tag: Tag, modifier: Modifier = Modifier) {
-    val isDark = isSystemInDarkTheme()
+    val fc = MaterialTheme.flowColors
     Surface(
-        color    = if (isDark) TagChipBgDark else TagChipBgLight,
+        color    = fc.tagChipBg,
         shape    = RoundedCornerShape(12.dp),
         modifier = modifier,
     ) {
         Text(
             text     = tag.name,
             style    = MaterialTheme.typography.labelSmall,
-            color    = if (isDark) TagChipFgDark else TagChipFgLight,
+            color    = fc.tagChipFg,
             modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
         )
     }

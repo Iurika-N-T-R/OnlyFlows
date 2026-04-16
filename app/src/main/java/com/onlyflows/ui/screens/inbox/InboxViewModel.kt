@@ -59,6 +59,7 @@ sealed interface InboxEvent {
         val sectionId: String?,
     ) : InboxEvent
     data object StartTimerForSelected                                    : InboxEvent
+    data object AbandonSelected                                          : InboxEvent
 }
 
 class InboxViewModel(app: Application) : AndroidViewModel(app) {
@@ -181,6 +182,16 @@ class InboxViewModel(app: Application) : AndroidViewModel(app) {
                         startedAt = java.time.LocalDateTime.now(),
                     )
                 )
+                _uiState.update { it.copy(selectedTaskIds = emptySet(), showBulkMore = false) }
+            }
+            InboxEvent.AbandonSelected -> viewModelScope.launch {
+                val ids   = _uiState.value.selectedTaskIds
+                val tasks = _uiState.value.tasks
+                ids.forEach { id ->
+                    val task = tasks.find { it.id == id } ?: return@forEach
+                    if (task.recurrence != null) taskRepo.abandonRecurring(id)
+                    else taskRepo.abandonTask(id)
+                }
                 _uiState.update { it.copy(selectedTaskIds = emptySet(), showBulkMore = false) }
             }
         }

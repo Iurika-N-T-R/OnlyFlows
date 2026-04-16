@@ -64,6 +64,9 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import androidx.compose.ui.text.style.TextAlign
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -864,7 +867,7 @@ fun TaskDetailScreen(
 
     if (state.showReminderPicker) {
         ReminderPickerSheet(
-            onApply   = { viewModel.onEvent(TaskDetailEvent.AddReminder(it)) },
+            onApply   = { at, locId -> viewModel.onEvent(TaskDetailEvent.AddReminder(at, locId)) },
             onDismiss = { viewModel.onEvent(TaskDetailEvent.HideReminderPicker) },
         )
     }
@@ -941,6 +944,11 @@ private fun RemindersMetaSection(
 ) {
     val use24h = com.onlyflows.ui.theme.LocalUse24hFormat.current
     val fmt = DateTimeFormatter.ofPattern(if (use24h) "EEE, d MMM · HH:mm" else "EEE, d MMM · hh:mm a")
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val container = (context.applicationContext as com.onlyflows.OnlyFlowsApp).container
+    val savedLocations by container.savedLocationRepository.observeAll()
+        .collectAsStateWithLifecycle(initialValue = emptyList())
+    val locationLabels = remember(savedLocations) { savedLocations.associate { it.id to it.label } }
     Column(modifier = Modifier.fillMaxWidth()) {
         if (reminders.isEmpty()) {
             // Empty state — looks like a normal MetaRow
@@ -958,6 +966,7 @@ private fun RemindersMetaSection(
             }
         } else {
             reminders.forEachIndexed { idx, reminder ->
+                val locationLabel = reminder.locationId?.let { locationLabels[it] }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
@@ -965,18 +974,26 @@ private fun RemindersMetaSection(
                         .padding(horizontal = 20.dp, vertical = 10.dp),
                 ) {
                     Icon(
-                        if (idx == 0) Icons.Outlined.NotificationsNone else Icons.Outlined.NotificationsNone,
+                        if (locationLabel != null) Icons.Outlined.LocationOn else Icons.Outlined.NotificationsNone,
                         null,
                         tint     = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(18.dp),
                     )
                     Spacer(Modifier.width(14.dp))
-                    Text(
-                        text     = reminder.scheduledAt.format(fmt),
-                        style    = MaterialTheme.typography.bodyMedium,
-                        color    = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.weight(1f),
-                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text  = reminder.scheduledAt.format(fmt),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        if (locationLabel != null) {
+                            Text(
+                                text  = "@ $locationLabel",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
                     IconButton(
                         onClick  = { onDelete(reminder.id) },
                         modifier = Modifier.size(32.dp),
@@ -1788,17 +1805,31 @@ private fun RecurrencePickerSheet(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ReminderPickerSheet(
-    onApply: (LocalDateTime) -> Unit,
+    onApply: (LocalDateTime, String?) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    var showDatePicker by remember { mutableStateOf(false) }
-    var showTimePicker by remember { mutableStateOf(false) }
-    var pickedDate     by remember { mutableStateOf(LocalDate.now()) }
-    var pickedHour     by remember { mutableStateOf(9) }
-    var pickedMinute   by remember { mutableStateOf(0) }
+    var showDatePicker   by remember { mutableStateOf(false) }
+    var showTimePicker   by remember { mutableStateOf(false) }
+    var pickedDate       by remember { mutableStateOf(LocalDate.now()) }
+    var pickedHour       by remember { mutableStateOf(9) }
+    var pickedMinute     by remember { mutableStateOf(0) }
+    var selectedLocation by remember { mutableStateOf<com.onlyflows.domain.model.SavedLocation?>(null) }
+    var locationExpanded by remember { mutableStateOf(false) }
+
+    val container = (context.applicationContext as com.onlyflows.OnlyFlowsApp).container
+    val locations by container.savedLocationRepository.observeAll()
+        .collectAsStateWithLifecycle(initialValue = emptyList())
+
+    val locationPermLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { /* recompose re-reads permission state */ }
+
+    val hasLocationPerm = ContextCompat.checkSelfPermission(
+        context, Manifest.permission.ACCESS_FINE_LOCATION
+    ) == PackageManager.PERMISSION_GRANTED
 
     val formatter = DateTimeFormatter.ofPattern("EEE, d MMM · HH:mm")
     val preview   = LocalDateTime.of(pickedDate, java.time.LocalTime.of(pickedHour, pickedMinute))
@@ -1872,7 +1903,7 @@ private fun ReminderPickerSheet(
                 label   = "In 1 minute (test)",
                 sublabel = "Fires immediately to test notifications",
                 onClick = {
-                    onApply(LocalDateTime.now().plusMinutes(1))
+                    onApply(LocalDateTime.now().plusMinutes(1), null)
                     onDismiss()
                 },
             )
@@ -1884,7 +1915,7 @@ private fun ReminderPickerSheet(
                 tint    = Color(0xFF8B8FC9),
                 label   = "This evening · 18:00",
                 onClick = {
-                    onApply(LocalDate.now().atTime(18, 0))
+                    onApply(LocalDate.now().atTime(18, 0), null)
                     onDismiss()
                 },
             )
@@ -1896,7 +1927,7 @@ private fun ReminderPickerSheet(
                 tint    = Color(0xFFFF8800),
                 label   = "Tomorrow morning · 9:00",
                 onClick = {
-                    onApply(LocalDate.now().plusDays(1).atTime(9, 0))
+                    onApply(LocalDate.now().plusDays(1).atTime(9, 0), null)
                     onDismiss()
                 },
             )
@@ -1920,10 +1951,88 @@ private fun ReminderPickerSheet(
                     Text(String.format("%02d:%02d", pickedHour, pickedMinute))
                 }
             }
+
+            // Location picker (only shown if saved locations exist)
+            if (locations.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                if (!hasLocationPerm) {
+                    // Permission not granted — show a tappable banner
+                    Surface(
+                        color    = MaterialTheme.colorScheme.secondaryContainer,
+                        shape    = RoundedCornerShape(8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                locationPermLauncher.launch(
+                                    arrayOf(
+                                        Manifest.permission.ACCESS_FINE_LOCATION,
+                                        Manifest.permission.ACCESS_BACKGROUND_LOCATION,
+                                    )
+                                )
+                            },
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier          = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                        ) {
+                            Icon(
+                                Icons.Outlined.LocationOn, null,
+                                tint     = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.size(16.dp),
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "Enable location access to use location reminders",
+                                style    = MaterialTheme.typography.labelSmall,
+                                color    = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                    }
+                } else {
+                    ExposedDropdownMenuBox(
+                        expanded         = locationExpanded,
+                        onExpandedChange = { locationExpanded = it },
+                    ) {
+                        OutlinedTextField(
+                            value         = selectedLocation?.label ?: "No location (time only)",
+                            onValueChange = {},
+                            readOnly      = true,
+                            label         = { Text("Trigger location (optional)") },
+                            trailingIcon  = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = locationExpanded) },
+                            modifier      = Modifier
+                                .fillMaxWidth()
+                                .menuAnchor(),
+                        )
+                        ExposedDropdownMenu(
+                            expanded         = locationExpanded,
+                            onDismissRequest = { locationExpanded = false },
+                        ) {
+                            DropdownMenuItem(
+                                text    = { Text("None") },
+                                onClick = {
+                                    selectedLocation = null
+                                    locationExpanded = false
+                                },
+                            )
+                            locations.forEach { loc ->
+                                DropdownMenuItem(
+                                    text    = { Text(loc.label) },
+                                    onClick = {
+                                        selectedLocation = loc
+                                        locationExpanded = false
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
             Spacer(Modifier.height(12.dp))
             Button(
                 onClick  = {
-                    onApply(preview)
+                    onApply(preview, selectedLocation?.id)
                     onDismiss()
                 },
                 modifier = Modifier.fillMaxWidth(),

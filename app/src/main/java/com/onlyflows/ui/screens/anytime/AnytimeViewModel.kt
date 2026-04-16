@@ -47,6 +47,7 @@ sealed interface AnytimeEvent {
     data class BulkAddTag(val tagId: String)                           : AnytimeEvent
     data class BulkSchedule(val date: java.time.LocalDate?)            : AnytimeEvent
     data object StartTimerForSelected                                   : AnytimeEvent
+    data object AbandonSelected                                         : AnytimeEvent
     // scheduledGroup = null → Inbox, SOMEDAY → Someday, ANYTIME → Anytime, else project move
     data class MoveSelected(
         val scheduledGroup: TaskGroup?,
@@ -161,6 +162,16 @@ class AnytimeViewModel(app: Application) : AndroidViewModel(app) {
                         startedAt = java.time.LocalDateTime.now(),
                     )
                 )
+                _uiState.update { it.copy(selectedTaskIds = emptySet(), showBulkMore = false) }
+            }
+            AnytimeEvent.AbandonSelected -> viewModelScope.launch {
+                val ids   = _uiState.value.selectedTaskIds
+                val tasks = _uiState.value.tasks
+                ids.forEach { id ->
+                    val task = tasks.find { it.id == id } ?: return@forEach
+                    if (task.recurrence != null) taskRepo.abandonRecurring(id)
+                    else taskRepo.abandonTask(id)
+                }
                 _uiState.update { it.copy(selectedTaskIds = emptySet(), showBulkMore = false) }
             }
             is AnytimeEvent.MoveSelected -> viewModelScope.launch {

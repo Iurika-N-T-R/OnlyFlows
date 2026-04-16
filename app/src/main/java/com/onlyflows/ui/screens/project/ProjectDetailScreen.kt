@@ -735,13 +735,17 @@ fun ProjectDetailScreen(
     }
 
     if (state.showBulkMore) {
+        val allTasks     = state.tasksBySection.values.flatten()
+        val selectedTask = allTasks.find { it.id == state.selectedTaskIds.firstOrNull() }
         BulkMoreSheet(
             selectedCount = state.selectedTaskIds.size,
             tags          = state.tags,
+            isRecurring   = selectedTask?.recurrence != null,
             onStar        = { viewModel.onEvent(ProjectDetailEvent.BulkStar(it)) },
             onSetPriority = { viewModel.onEvent(ProjectDetailEvent.BulkSetPriority(it)) },
             onAddTag      = { viewModel.onEvent(ProjectDetailEvent.BulkAddTag(it)) },
             onSchedule    = { viewModel.onEvent(ProjectDetailEvent.BulkSchedule(it)) },
+            onAbandon     = { viewModel.onEvent(ProjectDetailEvent.AbandonSelected) },
             onTrackTask   = { viewModel.onEvent(ProjectDetailEvent.StartTimerForSelected) },
             onDismiss     = { viewModel.onEvent(ProjectDetailEvent.HideBulkMore) },
         )

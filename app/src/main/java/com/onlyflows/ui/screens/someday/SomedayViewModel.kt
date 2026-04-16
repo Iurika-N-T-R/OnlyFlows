@@ -47,6 +47,7 @@ sealed interface SomedayEvent {
     data class BulkAddTag(val tagId: String)                           : SomedayEvent
     data class BulkSchedule(val date: java.time.LocalDate?)            : SomedayEvent
     data object StartTimerForSelected                                   : SomedayEvent
+    data object AbandonSelected                                         : SomedayEvent
     data class MoveSelected(
         val scheduledGroup: TaskGroup?,
         val projectId: String?,
@@ -160,6 +161,16 @@ class SomedayViewModel(app: Application) : AndroidViewModel(app) {
                         startedAt = java.time.LocalDateTime.now(),
                     )
                 )
+                _uiState.update { it.copy(selectedTaskIds = emptySet(), showBulkMore = false) }
+            }
+            SomedayEvent.AbandonSelected -> viewModelScope.launch {
+                val ids   = _uiState.value.selectedTaskIds
+                val tasks = _uiState.value.tasks
+                ids.forEach { id ->
+                    val task = tasks.find { it.id == id } ?: return@forEach
+                    if (task.recurrence != null) taskRepo.abandonRecurring(id)
+                    else taskRepo.abandonTask(id)
+                }
                 _uiState.update { it.copy(selectedTaskIds = emptySet(), showBulkMore = false) }
             }
             is SomedayEvent.MoveSelected -> viewModelScope.launch {

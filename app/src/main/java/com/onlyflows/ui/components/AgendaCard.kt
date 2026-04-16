@@ -9,6 +9,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.onlyflows.data.mock.MockData
@@ -38,6 +39,7 @@ fun AgendaCard(
 
 @Composable
 private fun AgendaEventRow(event: AgendaEvent) {
+    val isDark = MaterialTheme.flowColors.isDark
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.padding(vertical = 1.dp),
@@ -48,6 +50,8 @@ private fun AgendaEventRow(event: AgendaEvent) {
         } catch (e: Exception) {
             MaterialTheme.colorScheme.primary
         }
+        // In dark mode, lighten the time text so dark calendar colors remain readable
+        val timeTextColor = if (isDark) lerp(indicatorColor, Color.White, 0.45f) else indicatorColor
 
         if (!event.isAllDay) {
             Box(
@@ -61,7 +65,7 @@ private fun AgendaEventRow(event: AgendaEvent) {
             Text(
                 text  = event.time ?: "",
                 style = MaterialTheme.typography.bodySmall,
-                color = indicatorColor,
+                color = timeTextColor,
                 modifier = Modifier.widthIn(min = 52.dp),
             )
             Spacer(Modifier.width(4.dp))

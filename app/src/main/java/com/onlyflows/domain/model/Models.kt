@@ -40,6 +40,7 @@ data class SavedLocation(
     val latitude: Double,
     val longitude: Double,
     val radiusMeters: Float = 100f,
+    val updatedAt: LocalDateTime = LocalDateTime.now(),
 )
 
 // ── ActionLog ────────────────────────────────────────────────────────────────
@@ -47,6 +48,7 @@ data class SavedLocation(
 enum class ActionType {
     TASK_CREATED, TASK_COMPLETED, TASK_UNCOMPLETED,
     TASK_ARCHIVED, TASK_DELETED, TASK_RESTORED,
+    TASK_ABANDONED,
     TIMER_STARTED, TIMER_STOPPED,
     PROJECT_STATUS_CHANGED,
     COMMENT_ADDED,
@@ -113,6 +115,7 @@ data class ChecklistItem(
     val sortOrder: Int = 0,
     val dueDate: LocalDate? = null,
     val startDate: LocalDate? = null,
+    @IgnoredOnParcel val updatedAt: LocalDateTime = LocalDateTime.now(),
 ) : Parcelable
 
 // ── Folder (area grouping projects) ─────────────────────────────────────────
@@ -123,6 +126,7 @@ data class Folder(
     val id: String,
     val title: String,
     val sortOrder: Int = 0,
+    @IgnoredOnParcel val updatedAt: LocalDateTime = LocalDateTime.now(),
 ) : Parcelable
 
 // ── Project ──────────────────────────────────────────────────────────────────
@@ -165,6 +169,7 @@ data class Section(
     val projectId: String,
     val title: String,
     val sortOrder: Int = 0,
+    @IgnoredOnParcel val updatedAt: LocalDateTime = LocalDateTime.now(),
 ) : Parcelable
 
 // ── Tag ──────────────────────────────────────────────────────────────────────
@@ -175,6 +180,7 @@ data class Tag(
     val id: String,
     val name: String,
     val colorHex: String = "#4A90D9",
+    @IgnoredOnParcel val updatedAt: LocalDateTime = LocalDateTime.now(),
 ) : Parcelable
 
 // ── Reminder ─────────────────────────────────────────────────────────────────
@@ -186,6 +192,7 @@ data class Reminder(
     val taskId: String,
     val scheduledAt: LocalDateTime,
     val locationId: String? = null,
+    @IgnoredOnParcel val updatedAt: LocalDateTime = LocalDateTime.now(),
 ) : Parcelable
 
 // ── AgendaEvent ──────────────────────────────────────────────────────────────
@@ -233,6 +240,8 @@ data class Attachment(
     val uri: String,           // persistable content URI as string
     val fileSize: Long = 0L,   // bytes
     val createdAt: LocalDateTime = LocalDateTime.now(),
+    val updatedAt: LocalDateTime = LocalDateTime.now(),
+    val syncedFrom: String? = null,
 )
 
 // ── TimeEntry ─────────────────────────────────────────────────────────────────
@@ -243,6 +252,7 @@ data class TimeEntry(
     val taskId: String,
     val startedAt: LocalDateTime,
     val endedAt: LocalDateTime? = null, // null = currently running
+    val updatedAt: LocalDateTime = LocalDateTime.now(),
 )
 
 // ── Note (item in a NOTE-type project) ───────────────────────────────────────
@@ -258,6 +268,10 @@ data class Note(
 )
 
 // ── FilterPreset ─────────────────────────────────────────────────────────────
+
+// ── DailyCount ───────────────────────────────────────────────────────────────
+
+data class DailyCount(val date: String, val count: Int)
 
 // ── ProjectTaskProgress ───────────────────────────────────────────────────────
 

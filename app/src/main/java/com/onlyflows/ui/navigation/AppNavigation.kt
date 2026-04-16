@@ -22,8 +22,10 @@ import com.onlyflows.ui.screens.settings.BackupSettingsScreen
 import com.onlyflows.ui.screens.settings.CalendarSettingsScreen
 import com.onlyflows.ui.screens.settings.AboutAppScreen
 import com.onlyflows.ui.screens.settings.GeneralSettingsScreen
+import com.onlyflows.ui.screens.settings.LocationsSettingsScreen
 import com.onlyflows.ui.screens.settings.NotificationSettingsScreen
 import com.onlyflows.ui.screens.settings.SettingsScreen
+import com.onlyflows.ui.screens.settings.SyncSettingsScreen
 import com.onlyflows.ui.screens.task.TaskDetailScreen
 import com.onlyflows.ui.screens.today.TodayScreen
 import com.onlyflows.ui.screens.upcoming.UpcomingScreen
@@ -158,6 +160,9 @@ fun AppNavigation(
                 onNotificationSettingsClick  = { navController.navigate(Screen.NotificationSettings.route) },
                 onAboutClick                 = { navController.navigate(Screen.AboutApp.route) },
                 onGeneralSettingsClick       = { navController.navigate(Screen.GeneralSettings.route) },
+                onLocationsSettingsClick     = { navController.navigate(Screen.LocationsSettings.route) },
+                onStatisticsClick            = { navController.navigate(Screen.Statistics.route) },
+                onSyncSettingsClick          = { navController.navigate(Screen.SyncSettings.route) },
             )
         }
 
@@ -183,6 +188,18 @@ fun AppNavigation(
 
         composable(Screen.GeneralSettings.route) {
             GeneralSettingsScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(Screen.LocationsSettings.route) {
+            LocationsSettingsScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(Screen.Statistics.route) {
+            com.onlyflows.ui.screens.settings.StatisticsScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(Screen.SyncSettings.route) {
+            SyncSettingsScreen(onBack = { navController.popBackStack() })
         }
     }
 }

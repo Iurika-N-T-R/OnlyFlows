@@ -94,8 +94,20 @@ class QuickFindViewModel(app: Application) : AndroidViewModel(app) {
     // ── Natural language date parser ──────────────────────────────────────────
 
     internal fun tryParseDate(query: String): LocalDate? {
-        val q    = query.trim()
-        val year = LocalDate.now().year
+        val q    = query.trim().lowercase()
+        val now  = LocalDate.now()
+        val year = now.year
+
+        // ── Relative keywords (FR + EN) ───────────────────────────────────────
+        when (q) {
+            "aujourd'hui", "aujourdhui", "today"     -> return now
+            "demain", "tomorrow"                      -> return now.plusDays(1)
+            "hier", "yesterday"                       -> return now.minusDays(1)
+            "cette semaine", "this week"              ->
+                return now.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+            "ce mois", "ce mois-ci", "this month"    ->
+                return now.withDayOfMonth(1)
+        }
 
         // dd/MM  (e.g. "10/02")
         Regex("""^(\d{1,2})/(\d{1,2})$""").matchEntire(q)?.let { m ->
@@ -132,8 +144,11 @@ class QuickFindViewModel(app: Application) : AndroidViewModel(app) {
         val textPatterns = listOf("d MMM", "MMM d", "d MMMM", "MMMM d", "dd MMM", "MMM dd")
         for (locale in listOf(Locale.ENGLISH, Locale.FRENCH)) {
             val input = if (locale == Locale.ENGLISH) normalized else q
-            // Capitalize first char so "10 feb" → "10 Feb" works
-            val capitalized = input.replaceFirstChar { it.uppercaseChar() }
+            // Capitalize each purely-alphabetic token so "16 apr" → "16 Apr" works
+            // (replaceFirstChar only works when the string starts with a letter)
+            val capitalized = input.split(" ").joinToString(" ") { token ->
+                if (token.all { it.isLetter() }) token.replaceFirstChar { it.uppercaseChar() } else token
+            }
             for (pattern in textPatterns) {
                 runCatching {
                     DateTimeFormatter.ofPattern(pattern, locale)

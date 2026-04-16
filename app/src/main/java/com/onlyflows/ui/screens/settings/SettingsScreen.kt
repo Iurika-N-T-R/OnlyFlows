@@ -5,9 +5,12 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.ArrowForwardIos
+import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.Palette
@@ -28,7 +31,10 @@ fun SettingsScreen(
     onCalendarSettingsClick: () -> Unit = {},
     onBackupClick: () -> Unit = {},
     onNotificationSettingsClick: () -> Unit = {},
+    onLocationsSettingsClick: () -> Unit = {},
+    onStatisticsClick: () -> Unit = {},
     onAboutClick: () -> Unit = {},
+    onSyncSettingsClick: () -> Unit = {},
 ) {
     Scaffold(
         topBar = {
@@ -87,6 +93,24 @@ fun SettingsScreen(
                 icon    = Icons.Outlined.CloudUpload,
                 label   = "Sauvegarde",
                 onClick = onBackupClick,
+            )
+            Divider()
+            SettingsRow(
+                icon    = Icons.Outlined.LocationOn,
+                label   = "Locations",
+                onClick = onLocationsSettingsClick,
+            )
+            Divider()
+            SettingsRow(
+                icon    = Icons.Outlined.Sync,
+                label   = "Synchronisation LAN",
+                onClick = onSyncSettingsClick,
+            )
+            Divider()
+            SettingsRow(
+                icon    = Icons.Outlined.BarChart,
+                label   = "Statistiques",
+                onClick = onStatisticsClick,
             )
             Divider()
             SettingsGroupLabel("Application")

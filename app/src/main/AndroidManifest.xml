@@ -10,6 +10,19 @@
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <!-- Keeps the wake lock alive long enough for the BroadcastReceiver to fire -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Location-based reminders (geofencing) -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <!-- LAN Sync -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!-- Attachment file reading (API 33+) -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
 
     <application
         android:name=".OnlyFlowsApp"
@@ -45,6 +58,20 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
+
+        <receiver
+            android:name=".data.notifications.DailyAlertReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name=".data.notifications.GeofenceReceiver"
+            android:exported="true"
+            android:permission="android.permission.ACCESS_FINE_LOCATION" />
+
+        <service
+            android:name=".data.sync.SyncForegroundService"
+            android:foregroundServiceType="dataSync"
+            android:exported="false" />
     </application>
 
 </manifest>

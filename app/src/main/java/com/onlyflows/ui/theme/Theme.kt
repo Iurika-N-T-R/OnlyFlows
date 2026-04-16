@@ -23,6 +23,9 @@ data class FlowColors(
     val sectionHeader: Color,
     val outline: Color,
     val outlineVariant: Color,
+    val tagChipBg: Color,
+    val tagChipFg: Color,
+    val isDark: Boolean,
 )
 
 val LocalFlowColors = staticCompositionLocalOf {
@@ -38,6 +41,9 @@ val LocalFlowColors = staticCompositionLocalOf {
         sectionHeader = FlowBlue,
         outline = OutlineLight,
         outlineVariant = OutlineVariantLight,
+        tagChipBg = TagChipBgLight,
+        tagChipFg = TagChipFgLight,
+        isDark = false,
     )
 }
 
@@ -105,6 +111,9 @@ fun OnlyFlowsTheme(
             sectionHeader   = FlowBlue,
             outline         = OutlineDark,
             outlineVariant  = OutlineVariantDark,
+            tagChipBg       = TagChipBgDark,
+            tagChipFg       = TagChipFgDark,
+            isDark          = true,
         )
     } else {
         FlowColors(
@@ -119,6 +128,9 @@ fun OnlyFlowsTheme(
             sectionHeader   = FlowBlue,
             outline         = OutlineLight,
             outlineVariant  = OutlineVariantLight,
+            tagChipBg       = TagChipBgLight,
+            tagChipFg       = TagChipFgLight,
+            isDark          = false,
         )
     }
 

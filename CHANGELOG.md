@@ -11,6 +11,61 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.24.0] — 2026-04-16 · LAN Sync — Device Authorization
+
+### Ajouté
+
+- **Whitelist d'appareils de confiance** — chaque appareil maintient une liste `trusted_device_ids` (DataStore JSON). Seuls les appareils explicitement autorisés peuvent synchroniser des données.
+- **`SyncPreferences`** — nouveaux champs `trustedDeviceIds: Flow<Set<String>>` + méthodes `addTrustedDevice()`, `removeTrustedDevice()`, `isTrusted()`.
+- **`SyncServer`** — intercepteur sur toutes les routes sauf `/ping` : vérifie l'en-tête `X-Device-Id` dans la whitelist, retourne **HTTP 403** si absent ou non autorisé. La découverte (ping) reste publique.
+- **`SyncClient`** — envoie `X-Device-Id: <thisDeviceId>` sur chaque requête via `defaultRequest`.
+- **`SyncRepositoryImpl`** — `syncWithPeer()` abandonne immédiatement si le pair n'est pas dans la whitelist.
+- **`SyncOrchestrator`** — la synchronisation automatique (découverte + périodique 30 s) ne déclenche que pour les pairs de confiance.
+- **UI (`SyncSettingsScreen`)** — liste des appareils mise à jour :
+  - Pair non autorisé : icône cadenas ouvert (gris) + bouton **"Autoriser"**
+  - Pair autorisé : icône cadenas fermé (vert) + bouton **"Sync"** + bouton **"Révoquer"** (rouge)
+  - En-tête : `"Appareils détectés (N) — X autorisé(s)"`
+- **`SyncViewModel`** — `trustedDeviceIds: Set<String>` dans `SyncUiState` + actions `trustDevice()` / `untrustDevice()`.
+
+---
+
+## [0.23.0] — 2026-04-16 · LAN Sync with Conflict Resolution + Attachment File Sync
+
+### Ajouté
+
+- **Synchronisation LAN peer-to-peer** — découverte automatique via Android NSD (`_onlyflows._tcp`), serveur HTTP embarqué Ktor CIO (port 47120), synchronisation bidirectionnelle Last-Write-Wins basée sur `updatedAt`.
+- **`updatedAt`** ajouté sur 8 entités Room : `ChecklistItem`, `Section`, `Tag`, `Folder`, `SavedLocation`, `Reminder`, `TimeEntry`, `Attachment` (+ `syncedFrom: String?` sur `Attachment`).
+- **`SyncMetaEntity`** (`sync_meta`) — curseur de dernière synchronisation par pair.
+- **`DeletedEntityEntity`** (`deleted_entities`) — registre des suppressions (tombstones) ; les suppressions propagées ne peuvent pas être ressuscitées.
+- **`SyncDao`** — upserts, requêtes `changedSince`, `maxUpdatedAt`, gestion tombstones, `updateAttachmentUri`.
+- **`SyncPreferences`** — `deviceId` (UUID stable), `deviceName`, `syncEnabled`, `syncPort`, `syncAttachments`, `maxAttachmentSizeMb`.
+- **`LanDiscoveryManager`** — enregistre et découvre les services NSD ; expose `StateFlow<List<PeerInfo>>`.
+- **`SyncServer`** — routes : `GET /ping`, `GET /manifest`, `POST /pull`, `GET /files/{id}` (streaming via ContentResolver).
+- **`SyncClient`** — client Ktor CIO ; `ping`, `fetchManifest`, `pull`, `downloadFile`.
+- **`ConflictResolver`** — LWW pur : tombstone > entité récente > entité ancienne.
+- **`SyncRepositoryImpl`** — session complète : ping → manifest → tombstones → pull delta → résolution conflits → téléchargement pièces jointes → mise à jour curseur.
+- **`AttachmentSyncer`** — télécharge les fichiers dans `getExternalFilesDir("attachments")/sync/`, respecte le toggle et la limite de taille.
+- **`SyncOrchestrator`** — `SupervisorJob + Dispatchers.IO` ; sync au peer-discovery + périodique 30 s.
+- **`SyncForegroundService`** — maintient le serveur Ktor actif en arrière-plan avec notification persistante.
+- **`SyncSettingsScreen`** / **`SyncViewModel`** — toggle on/off, nom de l'appareil, statut sync, toggle pièces jointes, limite de taille, liste des pairs découverts.
+- **DB version 23 → 24** (`fallbackToDestructiveMigration`).
+- **Permissions** `AndroidManifest` : INTERNET, ACCESS_WIFI_STATE, CHANGE_WIFI_MULTICAST_STATE, FOREGROUND_SERVICE, FOREGROUND_SERVICE_DATA_SYNC, READ_MEDIA_*.
+- **Dépendances** : Ktor 2.3.12 (server-cio, client-cio, content-negotiation, serialization-json), kotlinx-serialization-json 1.7.3, plugin `kotlin.serialization`.
+
+---
+
+## [0.22.1] — 2026-04-16 · Bug fixes (5)
+
+### Corrigé
+
+- **Bug 1 — Tag badges ignoraient le thème de l'app** : `Theme.kt` — ajout de `tagChipBg`, `tagChipFg` et `isDark` dans `FlowColors`, renseignés correctement dans les branches light/dark ; `TaskItem.kt` — `TagChip` lit désormais `MaterialTheme.flowColors.tagChipBg/Fg` au lieu d'appeler `isSystemInDarkTheme()` directement.
+- **Bug 2 — Texte de l'heure illisible en mode sombre** : `AgendaCard.kt` — en mode sombre, la couleur du texte de l'heure est `lerp(indicatorColor, Color.White, 0.45f)` ; la barre de couleur garde la teinte d'origine, seul le texte est éclairci.
+- **Bug 3 — La recherche "16 Apr" / "16 Avr" ne retournait aucun résultat** : `QuickFindViewModel.kt` — correction de la logique de capitalisation : chaque token alphabétique est capitalisé individuellement ("16 apr" → "16 Apr") au lieu de mettre en majuscule le premier caractère de la chaîne entière (qui était un chiffre, donc rien ne changeait).
+- **Bug 4 — Dates relatives en langage naturel non reconnues** : `QuickFindViewModel.kt` — détection de mots-clés au début de `tryParseDate()` : `aujourd'hui`/`today`, `demain`/`tomorrow`, `hier`/`yesterday`, `cette semaine`/`this week`, `ce mois`/`this month`.
+- **Bug 5 — Retour sur Today quittait l'app silencieusement** : `TodayScreen.kt` — ajout d'un second `BackHandler(enabled = true)` affichant un `AlertDialog("Quitter OnlyFlows ?")` ; le premier handler (désélection) garde la priorité car il est enregistré en premier.
+
+---
+
 ## [0.22.0] — 2026-04-15 · Deprecation fixes + Performance pass
 
 ### Modifié

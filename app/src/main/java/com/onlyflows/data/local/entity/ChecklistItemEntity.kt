@@ -6,6 +6,7 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.onlyflows.domain.model.ChecklistItem
 import java.time.LocalDate
+import java.time.LocalDateTime
 
 @Entity(
     tableName = "checklist_items",
@@ -25,6 +26,7 @@ data class ChecklistItemEntity(
     val sortOrder: Int = 0,
     val dueDate: LocalDate? = null,
     val startDate: LocalDate? = null,
+    val updatedAt: LocalDateTime = LocalDateTime.now(),
 )
 
 fun ChecklistItemEntity.toDomain() = ChecklistItem(
@@ -35,6 +37,7 @@ fun ChecklistItemEntity.toDomain() = ChecklistItem(
     sortOrder   = sortOrder,
     dueDate     = dueDate,
     startDate   = startDate,
+    updatedAt   = updatedAt,
 )
 
 fun ChecklistItem.toEntity() = ChecklistItemEntity(
@@ -45,4 +48,5 @@ fun ChecklistItem.toEntity() = ChecklistItemEntity(
     sortOrder   = sortOrder,
     dueDate     = dueDate,
     startDate   = startDate,
+    updatedAt   = updatedAt,
 )

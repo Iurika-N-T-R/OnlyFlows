@@ -41,8 +41,10 @@ import kotlinx.coroutines.launch
         AttachmentEntity::class,
         ActionLogEntity::class,
         SavedLocationEntity::class,
+        SyncMetaEntity::class,
+        DeletedEntityEntity::class,
     ],
-    version = 23,
+    version = 24,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -62,6 +64,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun attachmentDao(): AttachmentDao
     abstract fun actionLogDao(): ActionLogDao
     abstract fun savedLocationDao(): SavedLocationDao
+    abstract fun syncDao(): SyncDao
 
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null

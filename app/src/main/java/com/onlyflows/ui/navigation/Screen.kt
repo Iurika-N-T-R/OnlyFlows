@@ -19,6 +19,9 @@ sealed class Screen(val route: String) {
     data object NotificationSettings  : Screen("settings/notifications")
     data object AboutApp               : Screen("settings/about")
     data object GeneralSettings        : Screen("settings/general")
+    data object LocationsSettings      : Screen("settings/locations")
+    data object Statistics             : Screen("settings/statistics")
+    data object SyncSettings           : Screen("settings/sync")
 
     data object ProjectDetail : Screen("project/{projectId}") {
         fun createRoute(projectId: String) = "project/$projectId"

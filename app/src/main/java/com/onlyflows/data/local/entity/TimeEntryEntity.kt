@@ -11,6 +11,7 @@ data class TimeEntryEntity(
     val taskId: String,
     val startedAt: LocalDateTime,
     val endedAt: LocalDateTime? = null,
+    val updatedAt: LocalDateTime = LocalDateTime.now(),
 )
 
 fun TimeEntryEntity.toDomain() = TimeEntry(
@@ -18,6 +19,7 @@ fun TimeEntryEntity.toDomain() = TimeEntry(
     taskId    = taskId,
     startedAt = startedAt,
     endedAt   = endedAt,
+    updatedAt = updatedAt,
 )
 
 fun TimeEntry.toEntity() = TimeEntryEntity(
@@ -25,4 +27,5 @@ fun TimeEntry.toEntity() = TimeEntryEntity(
     taskId    = taskId,
     startedAt = startedAt,
     endedAt   = endedAt,
+    updatedAt = updatedAt,
 )

@@ -32,6 +32,8 @@ interface TaskRepository {
     suspend fun setCompleted(id: String, completed: Boolean)
     suspend fun setArchived(id: String, archived: Boolean)
     suspend fun completeRecurring(id: String)
+    suspend fun abandonTask(id: String)
+    suspend fun abandonRecurring(id: String)
     suspend fun setStarred(id: String, starred: Boolean)
     suspend fun moveTask(id: String, projectId: String?, sectionId: String?)
     suspend fun delete(id: String)
@@ -55,4 +57,9 @@ interface TaskRepository {
     fun observeAllCount(projectId: String): Flow<Int>
     fun observeCompletedCount(projectId: String): Flow<Int>
     fun observeAllProjectProgress(): Flow<List<ProjectTaskProgress>>
+
+    // Global statistics
+    fun observeActiveCount(): Flow<Int>
+    fun observeAllCompletedCount(): Flow<Int>
+    fun observeAllArchivedCount(): Flow<Int>
 }

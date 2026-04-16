@@ -1,6 +1,7 @@
 package com.onlyflows.ui.screens.today
 
 import android.Manifest
+import android.app.Activity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -17,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -59,6 +61,23 @@ fun TodayScreen(
 
     BackHandler(enabled = state.selectedTaskIds.isNotEmpty()) {
         viewModel.onEvent(TodayEvent.ClearSelection)
+    }
+
+    val activity = LocalContext.current as Activity
+    var showExitDialog by remember { mutableStateOf(false) }
+    BackHandler(enabled = true) { showExitDialog = true }
+
+    if (showExitDialog) {
+        AlertDialog(
+            onDismissRequest = { showExitDialog = false },
+            title  = { Text("Quitter OnlyFlows ?") },
+            confirmButton  = {
+                TextButton(onClick = { activity.finish() }) { Text("Quitter") }
+            },
+            dismissButton  = {
+                TextButton(onClick = { showExitDialog = false }) { Text("Annuler") }
+            },
+        )
     }
 
     val scrollBehavior    = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
@@ -386,13 +405,17 @@ fun TodayScreen(
     }
 
     if (state.showMoreSheet) {
+        val allTasks = state.todayTasks + state.eveningTasks + state.overdueTasks
+        val selectedTask = allTasks.find { it.id == state.selectedTaskIds.firstOrNull() }
         BulkMoreSheet(
             selectedCount = state.selectedTaskIds.size,
             tags          = state.tags,
+            isRecurring   = selectedTask?.recurrence != null,
             onStar        = { viewModel.onEvent(TodayEvent.StarSelected(it)) },
             onSetPriority = { viewModel.onEvent(TodayEvent.SetPrioritySelected(it)) },
             onAddTag      = { viewModel.onEvent(TodayEvent.AddTagSelected(it)) },
             onSchedule    = { viewModel.onEvent(TodayEvent.ScheduleSelected(it)) },
+            onAbandon     = { viewModel.onEvent(TodayEvent.AbandonSelected) },
             onTrackTask   = { viewModel.onEvent(TodayEvent.StartTimerForSelected) },
             onDismiss     = { viewModel.onEvent(TodayEvent.HideMoreSheet) },
         )

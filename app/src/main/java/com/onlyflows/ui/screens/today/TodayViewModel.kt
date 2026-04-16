@@ -84,6 +84,7 @@ sealed interface TodayEvent {
     data class AddTagSelected(val tagId: String)                        : TodayEvent
     data class ScheduleSelected(val date: LocalDate?)                   : TodayEvent
     data object StartTimerForSelected                                   : TodayEvent
+    data object AbandonSelected                                         : TodayEvent
 }
 
 class TodayViewModel(app: Application) : AndroidViewModel(app) {
@@ -252,6 +253,16 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
                         startedAt = LocalDateTime.now(),
                     )
                 )
+                _uiState.update { it.copy(selectedTaskIds = emptySet(), showMoreSheet = false) }
+            }
+            TodayEvent.AbandonSelected -> viewModelScope.launch {
+                val ids      = _uiState.value.selectedTaskIds
+                val allTasks = _uiState.value.todayTasks + _uiState.value.eveningTasks + _uiState.value.overdueTasks
+                ids.forEach { id ->
+                    val task = allTasks.find { it.id == id } ?: return@forEach
+                    if (task.recurrence != null) taskRepo.abandonRecurring(id)
+                    else taskRepo.abandonTask(id)
+                }
                 _uiState.update { it.copy(selectedTaskIds = emptySet(), showMoreSheet = false) }
             }
         }

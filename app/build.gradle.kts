@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.parcelize)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -86,4 +87,15 @@ dependencies {
     // WorkManager
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.androidx.documentfile)
+
+    // Location + Geofencing
+    implementation(libs.play.services.location)
+
+    // LAN Sync — Ktor (server + client) + kotlinx.serialization
+    implementation(libs.ktor.server.cio)
+    implementation(libs.ktor.server.content.neg)
+    implementation(libs.ktor.serialization.json)
+    implementation(libs.ktor.client.cio)
+    implementation(libs.ktor.client.content.neg)
+    implementation(libs.kotlinx.serialization.json)
 }

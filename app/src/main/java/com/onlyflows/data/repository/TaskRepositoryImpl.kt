@@ -1,7 +1,9 @@
 package com.onlyflows.data.repository
 
 import com.onlyflows.data.local.dao.ChecklistItemDao
+import com.onlyflows.data.local.dao.SyncDao
 import com.onlyflows.data.local.dao.TaskDao
+import com.onlyflows.data.local.entity.DeletedEntityEntity
 import com.onlyflows.data.local.entity.TaskWithChecklistItems
 import com.onlyflows.data.local.entity.toDomain
 import com.onlyflows.data.local.entity.toEntity
@@ -22,7 +24,19 @@ class TaskRepositoryImpl(
     private val taskDao: TaskDao,
     private val checklistDao: ChecklistItemDao,
     private val actionLog: ActionLogRepository? = null,
+    private val syncDao: SyncDao? = null,
 ) : TaskRepository {
+
+    private suspend fun tombstone(id: String) {
+        syncDao?.insertTombstone(
+            DeletedEntityEntity(
+                id         = "tomb_$id",
+                entityType = "tasks",
+                entityId   = id,
+                deletedAt  = LocalDateTime.now(),
+            )
+        )
+    }
 
     private suspend fun log(type: ActionType, taskId: String, label: String, extra: String? = null) {
         actionLog?.insert(
@@ -155,6 +169,55 @@ class TaskRepositoryImpl(
         }
     }
 
+    override suspend fun abandonTask(id: String) {
+        taskDao.setArchived(id, true, LocalDateTime.now().toString())
+        val label = taskDao.getById(id)?.title ?: id
+        log(ActionType.TASK_ABANDONED, id, label)
+    }
+
+    override suspend fun abandonRecurring(id: String) {
+        val entity = taskDao.getById(id) ?: return
+        val items  = checklistDao.getByTask(id)
+        val task   = entity.toDomain(items)
+        val rule   = task.recurrence ?: return
+
+        // 1 — increment abandoned count, archive current occurrence
+        taskDao.update(
+            entity.copy(
+                isArchived               = true,
+                recurrenceAbandonedCount = entity.recurrenceAbandonedCount + 1,
+                updatedAt                = LocalDateTime.now(),
+            )
+        )
+        log(ActionType.TASK_ABANDONED, id, task.title)
+
+        // 2 — compute next due date
+        val nextDue = nextDueDate(
+            rule        = rule,
+            completedOn = LocalDate.now(),
+            currentDue  = task.dueDate,
+        ) ?: return
+
+        // 3 — insert fresh occurrence (reset completion + checklist)
+        val nextTask = task.copy(
+            id             = "task_${System.currentTimeMillis()}",
+            isCompleted    = false,
+            isArchived     = false,
+            dueDate        = nextDue,
+            checklistItems = task.checklistItems.map { it.copy(isCompleted = false) },
+            createdAt      = LocalDateTime.now(),
+            updatedAt      = LocalDateTime.now(),
+        )
+        taskDao.insert(nextTask.toEntity())
+        if (nextTask.checklistItems.isNotEmpty()) {
+            checklistDao.insertAll(
+                nextTask.checklistItems.mapIndexed { idx, item ->
+                    item.copy(id = "cli_${System.currentTimeMillis()}_$idx", taskId = nextTask.id).toEntity()
+                }
+            )
+        }
+    }
+
     override suspend fun setStarred(id: String, starred: Boolean) {
         taskDao.setStarred(id, starred, LocalDateTime.now().toString())
     }
@@ -164,10 +227,12 @@ class TaskRepositoryImpl(
     }
 
     override suspend fun delete(id: String) {
+        tombstone(id)
         taskDao.delete(id)
     }
 
     override suspend fun deleteAll(ids: List<String>) {
+        ids.forEach { tombstone(it) }
         taskDao.deleteAll(ids)
     }
 
@@ -187,6 +252,7 @@ class TaskRepositoryImpl(
     }
 
     override suspend fun emptyTrash() {
+        taskDao.getTrashIds().forEach { tombstone(it) }
         taskDao.emptyTrash()
     }
 
@@ -221,4 +287,8 @@ class TaskRepositoryImpl(
         taskDao.observeAllProjectProgress().map { list ->
             list.map { com.onlyflows.domain.model.ProjectTaskProgress(it.projectId, it.total, it.completed) }
         }
+
+    override fun observeActiveCount(): Flow<Int>        = taskDao.observeActiveCount()
+    override fun observeAllCompletedCount(): Flow<Int>  = taskDao.observeAllCompletedCount()
+    override fun observeAllArchivedCount(): Flow<Int>   = taskDao.observeAllArchivedCount()
 }

@@ -126,6 +126,18 @@ interface TaskDao {
     @Query("SELECT COUNT(*) FROM tasks WHERE dueDate < :today AND isCompleted = 0 AND isArchived = 0 AND deletedAt IS NULL")
     fun observeOverdueCount(today: String): Flow<Int>
 
+    /** All active (non-completed, non-archived, non-deleted) tasks globally */
+    @Query("SELECT COUNT(*) FROM tasks WHERE isCompleted = 0 AND isArchived = 0 AND deletedAt IS NULL")
+    fun observeActiveCount(): Flow<Int>
+
+    /** All completed tasks globally */
+    @Query("SELECT COUNT(*) FROM tasks WHERE isCompleted = 1 AND deletedAt IS NULL")
+    fun observeAllCompletedCount(): Flow<Int>
+
+    /** All archived tasks globally (abandoned) */
+    @Query("SELECT COUNT(*) FROM tasks WHERE isArchived = 1 AND deletedAt IS NULL")
+    fun observeAllArchivedCount(): Flow<Int>
+
     // ── Writes ────────────────────────────────────────────────────────────────
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -154,6 +166,9 @@ interface TaskDao {
 
     @Query("UPDATE tasks SET deletedAt = NULL WHERE id = :id")
     suspend fun restoreFromTrash(id: String)
+
+    @Query("SELECT id FROM tasks WHERE deletedAt IS NOT NULL")
+    suspend fun getTrashIds(): List<String>
 
     @Query("DELETE FROM tasks WHERE deletedAt IS NOT NULL")
     suspend fun emptyTrash()
