@@ -51,7 +51,7 @@ fun NoteCard(
                         Spacer(Modifier.height(4.dp))
                     }
                     if (note.content.isNotBlank()) {
-                        Text(
+                        SimpleMarkdownText(
                             text     = note.content,
                             style    = MaterialTheme.typography.bodyMedium,
                             color    = MaterialTheme.colorScheme.onSurfaceVariant,

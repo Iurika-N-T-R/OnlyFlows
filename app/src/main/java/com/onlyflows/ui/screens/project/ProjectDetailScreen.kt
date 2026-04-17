@@ -342,24 +342,26 @@ fun ProjectDetailScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            Box {
-                                ProjectStatusChip(
-                                    status  = project.status,
-                                    onClick = { showStatusMenu = true },
-                                )
-                                DropdownMenu(
-                                    expanded         = showStatusMenu,
-                                    onDismissRequest = { showStatusMenu = false },
-                                ) {
-                                    ProjectStatus.entries.forEach { s ->
-                                        DropdownMenuItem(
-                                            text        = { Text(s.label) },
-                                            leadingIcon = { Text(s.emoji) },
-                                            onClick     = {
-                                                viewModel.onEvent(ProjectDetailEvent.UpdateStatus(s))
-                                                showStatusMenu = false
-                                            },
-                                        )
+                            if (project.type != ProjectType.NOTE) {
+                                Box {
+                                    ProjectStatusChip(
+                                        status  = project.status,
+                                        onClick = { showStatusMenu = true },
+                                    )
+                                    DropdownMenu(
+                                        expanded         = showStatusMenu,
+                                        onDismissRequest = { showStatusMenu = false },
+                                    ) {
+                                        ProjectStatus.entries.forEach { s ->
+                                            DropdownMenuItem(
+                                                text        = { Text(s.label) },
+                                                leadingIcon = { Text(s.emoji) },
+                                                onClick     = {
+                                                    viewModel.onEvent(ProjectDetailEvent.UpdateStatus(s))
+                                                    showStatusMenu = false
+                                                },
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -400,7 +402,7 @@ fun ProjectDetailScreen(
                     items(state.notes, key = { "note_${it.id}" }) { note ->
                         NoteCard(
                             note     = note,
-                            onClick  = { viewModel.onEvent(ProjectDetailEvent.OpenNoteEditor(note)) },
+                            onClick  = { viewModel.onEvent(ProjectDetailEvent.OpenNoteViewer(note)) },
                             onEdit   = { viewModel.onEvent(ProjectDetailEvent.OpenNoteEditor(note)) },
                             onDelete = { viewModel.onEvent(ProjectDetailEvent.DeleteNoteItem(note.id)) },
                             modifier = Modifier
@@ -751,14 +753,15 @@ fun ProjectDetailScreen(
         )
     }
 
-    // ── Note editor sheet (NOTE-type projects) ────────────────────────────────
+    // ── Note editor/viewer sheet (NOTE-type projects) ─────────────────────────
     if (state.isAddingNote || state.editingNote != null) {
         NoteEditorSheet(
-            note      = state.editingNote,
-            onSave    = { id, title, content ->
+            note            = state.editingNote,
+            startInViewMode = state.noteViewMode,
+            onSave          = { id, title, content ->
                 viewModel.onEvent(ProjectDetailEvent.SaveNote(id, title, content))
             },
-            onDismiss = { viewModel.onEvent(ProjectDetailEvent.HideNoteEditor) },
+            onDismiss       = { viewModel.onEvent(ProjectDetailEvent.HideNoteEditor) },
         )
     }
 }
@@ -1008,7 +1011,12 @@ private fun ProjectEditSheet(
                 .navigationBarsPadding()
                 .padding(horizontal = 20.dp, vertical = 8.dp),
         ) {
-            Text("Edit Project", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            val editTitle = when (project.type) {
+                ProjectType.NOTE -> "Modifier la liste de notes"
+                ProjectType.LIST -> "Modifier la liste"
+                else             -> "Modifier le projet"
+            }
+            Text(editTitle, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(16.dp))
 
             OutlinedTextField(

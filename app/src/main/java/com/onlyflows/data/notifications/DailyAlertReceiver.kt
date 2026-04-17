@@ -13,6 +13,7 @@ import com.onlyflows.OnlyFlowsApp
 import com.onlyflows.R
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
 import kotlin.math.abs
@@ -61,10 +62,16 @@ class DailyAlertReceiver : BroadcastReceiver() {
                 val channelId = if (soundEnabled || vibrationEnabled)
                     ReminderReceiver.CHANNEL_ID else ReminderReceiver.CHANNEL_ID_SILENT
 
+                val taskCount = container.taskRepository.observeTodayCount().first()
+                val notifText = if (taskCount > 0)
+                    "$taskCount tâche${if (taskCount > 1) "s" else ""} en attente aujourd'hui"
+                else
+                    "Vos tâches vous attendent"
+
                 val builder = NotificationCompat.Builder(context, channelId)
                     .setSmallIcon(R.drawable.ic_nav_today)
                     .setContentTitle("OnlyFlows")
-                    .setContentText("Vos tâches vous attendent")
+                    .setContentText(notifText)
                     .setContentIntent(tapIntent)
                     .setAutoCancel(true)
                     .setPriority(NotificationCompat.PRIORITY_HIGH)

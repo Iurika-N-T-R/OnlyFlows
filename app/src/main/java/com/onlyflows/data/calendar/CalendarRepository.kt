@@ -129,4 +129,68 @@ class CalendarRepository(private val context: Context) {
         val events = getEventsForDateRange(date, date, disabledIds)[date] ?: return emptyList()
         return events.filter { it.isAllDay || it.endMillis > now }
     }
+
+    /** Returns upcoming events (up to 1 year ahead) whose title contains [query] (case-insensitive). */
+    fun searchByTitle(query: String, disabledIds: Set<String> = emptySet()): List<AgendaEvent> {
+        if (!hasPermission() || query.isBlank()) return emptyList()
+        val zone     = ZoneId.systemDefault()
+        val nowMs    = System.currentTimeMillis()
+        val futureMs = nowMs + 365L * 24 * 60 * 60 * 1000
+
+        val uriBuilder = CalendarContract.Instances.CONTENT_URI.buildUpon()
+        ContentUris.appendId(uriBuilder, nowMs)
+        ContentUris.appendId(uriBuilder, futureMs)
+
+        val projection = arrayOf(
+            CalendarContract.Instances.EVENT_ID,
+            CalendarContract.Instances.TITLE,
+            CalendarContract.Instances.BEGIN,
+            CalendarContract.Instances.END,
+            CalendarContract.Instances.ALL_DAY,
+            CalendarContract.Instances.CALENDAR_ID,
+            CalendarContract.Instances.DISPLAY_COLOR,
+        )
+
+        val cursor = context.contentResolver.query(
+            uriBuilder.build(), projection, null, null,
+            "${CalendarContract.Instances.BEGIN} ASC",
+        ) ?: return emptyList()
+
+        val results    = mutableListOf<AgendaEvent>()
+        val timeFmt    = DateTimeFormatter.ofPattern("HH:mm")
+        val lowerQuery = query.lowercase()
+
+        cursor.use {
+            while (it.moveToNext()) {
+                val title = it.getString(1) ?: continue
+                if (!title.lowercase().contains(lowerQuery)) continue
+                val calId = it.getLong(5).toString()
+                if (calId in disabledIds) continue
+
+                val beginMs  = it.getLong(2)
+                val endMs    = it.getLong(3)
+                val isAllDay = it.getInt(4) == 1
+                val color    = it.getInt(6)
+                val colorHex = "#${(color and 0xFFFFFF).toString(16).padStart(6, '0')}"
+
+                val localStart = Instant.ofEpochMilli(beginMs).atZone(zone).toLocalDateTime()
+                val timeStr = if (isAllDay) null else {
+                    val localEnd = Instant.ofEpochMilli(endMs).atZone(zone).toLocalDateTime()
+                    "${localStart.format(timeFmt)} – ${localEnd.format(timeFmt)}"
+                }
+
+                results += AgendaEvent(
+                    id          = it.getLong(0).toString(),
+                    title       = title,
+                    time        = timeStr,
+                    colorHex    = colorHex,
+                    isAllDay    = isAllDay,
+                    startMillis = beginMs,
+                    endMillis   = endMs,
+                    calendarId  = calId,
+                )
+            }
+        }
+        return results
+    }
 }

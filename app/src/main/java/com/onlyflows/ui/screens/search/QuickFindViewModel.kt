@@ -73,8 +73,8 @@ class QuickFindViewModel(app: Application) : AndroidViewModel(app) {
                         val singleDate = (dq as? DateQuery.Single)?.date
 
                         // Fetch calendar events for the resolved date/range (IO, non-blocking)
+                        val disabledIds = if (calendarRepo.hasPermission()) calendarPrefs.disabledCalendarIds.first() else emptySet()
                         val events: List<AgendaEvent> = if (dq != null && calendarRepo.hasPermission()) {
-                            val disabledIds = calendarPrefs.disabledCalendarIds.first()
                             withContext(Dispatchers.IO) {
                                 when (dq) {
                                     is DateQuery.Single -> calendarRepo.getEventsForDateRange(dq.date, dq.date, disabledIds)
@@ -83,6 +83,11 @@ class QuickFindViewModel(app: Application) : AndroidViewModel(app) {
                                         .values.flatten()
                                 }
                             }.take(POPUP_MAX)
+                        } else emptyList()
+
+                        // Search events by title when no date was parsed
+                        val titleEvents: List<AgendaEvent> = if (dq == null && q.length >= 2 && calendarRepo.hasPermission()) {
+                            withContext(Dispatchers.IO) { calendarRepo.searchByTitle(q, disabledIds) }.take(POPUP_MAX)
                         } else emptyList()
 
                         combine(
@@ -101,7 +106,7 @@ class QuickFindViewModel(app: Application) : AndroidViewModel(app) {
                                 projectResults  = allProjects.take(POPUP_MAX),
                                 tagResults      = allTags.take(POPUP_MAX),
                                 dateResults     = dateTasks.take(POPUP_MAX),
-                                eventResults    = events,
+                                eventResults    = (events + titleEvents).take(POPUP_MAX),
                                 hasMoreTasks    = allTasks.size > POPUP_MAX,
                                 hasMoreProjects = allProjects.size > POPUP_MAX,
                                 hasMoreTags     = allTags.size > POPUP_MAX,

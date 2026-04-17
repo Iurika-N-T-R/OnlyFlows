@@ -51,6 +51,7 @@ data class ProjectDetailUiState(
     val notes: List<Note>                        = emptyList(),
     val editingNote: Note?                       = null,
     val isAddingNote: Boolean                    = false,
+    val noteViewMode: Boolean                    = false,
     val archivedTasks: List<Task>                = emptyList(),
     val totalCompletedSeconds: Long              = 0L,   // sum of finished entries (from DB)
     val activeProjectEntry: com.onlyflows.domain.model.TimeEntry? = null, // running entry if any
@@ -94,6 +95,7 @@ sealed interface ProjectDetailEvent {
     data class UpdateNote(val note: String)                                   : ProjectDetailEvent
     // ── Note-list CRUD (NOTE-type projects) ──
     data object ShowNewNoteEditor                                             : ProjectDetailEvent
+    data class  OpenNoteViewer(val note: Note)                               : ProjectDetailEvent
     data class  OpenNoteEditor(val note: Note)                               : ProjectDetailEvent
     data object HideNoteEditor                                                : ProjectDetailEvent
     data class  SaveNote(val id: String?, val title: String, val content: String) : ProjectDetailEvent
@@ -385,9 +387,10 @@ class ProjectDetailViewModel(app: Application) : AndroidViewModel(app) {
                 projectRepo.insert(child)
             }
             // ── Note-list events ──────────────────────────────────────────────
-            is ProjectDetailEvent.ShowNewNoteEditor -> _uiState.update { it.copy(isAddingNote = true, editingNote = null) }
-            is ProjectDetailEvent.OpenNoteEditor    -> _uiState.update { it.copy(editingNote = event.note, isAddingNote = false) }
-            is ProjectDetailEvent.HideNoteEditor    -> _uiState.update { it.copy(editingNote = null, isAddingNote = false) }
+            is ProjectDetailEvent.ShowNewNoteEditor -> _uiState.update { it.copy(isAddingNote = true, editingNote = null, noteViewMode = false) }
+            is ProjectDetailEvent.OpenNoteViewer    -> _uiState.update { it.copy(editingNote = event.note, isAddingNote = false, noteViewMode = true) }
+            is ProjectDetailEvent.OpenNoteEditor    -> _uiState.update { it.copy(editingNote = event.note, isAddingNote = false, noteViewMode = false) }
+            is ProjectDetailEvent.HideNoteEditor    -> _uiState.update { it.copy(editingNote = null, isAddingNote = false, noteViewMode = false) }
             is ProjectDetailEvent.SaveNote -> viewModelScope.launch {
                 val projectId = _uiState.value.project?.id ?: return@launch
                 val now = LocalDateTime.now()
