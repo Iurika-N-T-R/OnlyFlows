@@ -25,7 +25,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.onlyflows.domain.model.AgendaEvent
 import com.onlyflows.domain.model.TaskPriority
+import com.onlyflows.ui.screens.search.DateQuery
+import com.onlyflows.ui.screens.search.QuickFindViewModel
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -250,6 +253,61 @@ fun QuickFindScreen(
                     }
                 }
 
+                // ── Calendar events ───────────────────────────────────────────
+                if (state.eventResults.isNotEmpty()) {
+                    item(key = "event_header") {
+                        Text(
+                            "Events",
+                            style    = MaterialTheme.typography.labelMedium,
+                            color    = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                        )
+                    }
+                    items(state.eventResults, key = { "event_${it.id}" }) { event ->
+                        val dotColor = remember(event.colorHex) {
+                            runCatching { android.graphics.Color.parseColor(event.colorHex) }
+                                .getOrDefault(0xFF4A90D9.toInt())
+                                .let { androidx.compose.ui.graphics.Color(it) }
+                        }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 20.dp, vertical = 12.dp),
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .width(3.dp)
+                                    .height(36.dp)
+                                    .clip(RoundedCornerShape(2.dp))
+                                    .background(dotColor),
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text     = event.title,
+                                    style    = MaterialTheme.typography.bodyMedium,
+                                    color    = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                if (event.time != null) {
+                                    Text(
+                                        text  = event.time,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        }
+                        HorizontalDivider(
+                            modifier  = Modifier.padding(start = 35.dp),
+                            color     = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                            thickness = 0.5.dp,
+                        )
+                    }
+                }
+
                 // ── Projects ──────────────────────────────────────────────────
                 if (state.projectResults.isNotEmpty()) {
                     item(key = "proj_header") {
@@ -386,7 +444,7 @@ fun QuickFindScreen(
                 }
 
                 // ── No results ────────────────────────────────────────────────
-                if (state.taskResults.isEmpty() && state.projectResults.isEmpty() && state.dateQuery == null) {
+                if (state.taskResults.isEmpty() && state.projectResults.isEmpty() && state.dateQuery == null && state.eventResults.isEmpty()) {
                     item(key = "no_results") {
                         Box(
                             contentAlignment = Alignment.Center,

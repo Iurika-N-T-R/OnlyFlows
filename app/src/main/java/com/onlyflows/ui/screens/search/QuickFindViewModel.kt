@@ -4,9 +4,12 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.onlyflows.OnlyFlowsApp
+import com.onlyflows.domain.model.AgendaEvent
 import com.onlyflows.domain.model.Project
 import com.onlyflows.domain.model.Tag
 import com.onlyflows.domain.model.Task
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.*
@@ -32,19 +35,22 @@ data class QuickFindUiState(
     val projectResults: List<Project> = emptyList(),
     val tagResults: List<Tag> = emptyList(),
     val dateResults: List<Task> = emptyList(),
+    val eventResults: List<AgendaEvent> = emptyList(),
     val hasMoreTasks: Boolean = false,
     val hasMoreProjects: Boolean = false,
     val hasMoreTags: Boolean = false,
-    val parsedDate: LocalDate? = null,       // kept for single-date navigation
+    val parsedDate: LocalDate? = null,
     val dateQuery: DateQuery? = null,
 )
 
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 class QuickFindViewModel(app: Application) : AndroidViewModel(app) {
-    private val container   = (app as OnlyFlowsApp).container
-    private val taskRepo    = container.taskRepository
-    private val projectRepo = container.projectRepository
-    private val tagRepo     = container.tagRepository
+    private val container      = (app as OnlyFlowsApp).container
+    private val taskRepo       = container.taskRepository
+    private val projectRepo    = container.projectRepository
+    private val tagRepo        = container.tagRepository
+    private val calendarRepo   = container.calendarRepository
+    private val calendarPrefs  = container.calendarPreferences
 
     private val _query   = MutableStateFlow("")
     private val _uiState = MutableStateFlow(QuickFindUiState())
@@ -66,6 +72,19 @@ class QuickFindViewModel(app: Application) : AndroidViewModel(app) {
                         }
                         val singleDate = (dq as? DateQuery.Single)?.date
 
+                        // Fetch calendar events for the resolved date/range (IO, non-blocking)
+                        val events: List<AgendaEvent> = if (dq != null && calendarRepo.hasPermission()) {
+                            val disabledIds = calendarPrefs.disabledCalendarIds.first()
+                            withContext(Dispatchers.IO) {
+                                when (dq) {
+                                    is DateQuery.Single -> calendarRepo.getEventsForDateRange(dq.date, dq.date, disabledIds)
+                                        .values.flatten()
+                                    is DateQuery.Range  -> calendarRepo.getEventsForDateRange(dq.start, dq.end, disabledIds)
+                                        .values.flatten()
+                                }
+                            }.take(POPUP_MAX)
+                        } else emptyList()
+
                         combine(
                             taskRepo.search(q),
                             projectRepo.observeAll().map { list ->
@@ -82,6 +101,7 @@ class QuickFindViewModel(app: Application) : AndroidViewModel(app) {
                                 projectResults  = allProjects.take(POPUP_MAX),
                                 tagResults      = allTags.take(POPUP_MAX),
                                 dateResults     = dateTasks.take(POPUP_MAX),
+                                eventResults    = events,
                                 hasMoreTasks    = allTasks.size > POPUP_MAX,
                                 hasMoreProjects = allProjects.size > POPUP_MAX,
                                 hasMoreTags     = allTags.size > POPUP_MAX,

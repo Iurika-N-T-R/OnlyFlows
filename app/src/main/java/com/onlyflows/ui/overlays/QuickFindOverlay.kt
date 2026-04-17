@@ -1,5 +1,6 @@
 package com.onlyflows.ui.overlays
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -23,10 +24,12 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.onlyflows.domain.model.AgendaEvent
 import com.onlyflows.domain.model.Project
 import com.onlyflows.domain.model.Tag
 import com.onlyflows.domain.model.Task
 import com.onlyflows.domain.model.TaskPriority
+import com.onlyflows.ui.screens.search.DateQuery
 import com.onlyflows.ui.screens.search.QuickFindViewModel
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -162,6 +165,8 @@ fun QuickFindPopup(
                             || state.tagResults.isNotEmpty()
                             || state.taskResults.isNotEmpty()
                             || state.dateResults.isNotEmpty()
+                            || state.eventResults.isNotEmpty()
+                            || state.dateQuery != null
 
                         if (!hasResults) {
                             Box(
@@ -183,11 +188,18 @@ fun QuickFindPopup(
                                     .heightIn(max = 440.dp),
                             ) {
                                 // ── Date shortcut (shown first when date is detected) ──
-                                if (state.parsedDate != null) {
+                                if (state.dateQuery != null) {
                                     item(key = "date_shortcut") {
                                         DateShortcutRow(
-                                            date    = state.parsedDate!!,
-                                            onClick = { onDateClick(state.parsedDate!!); onDismiss() },
+                                            dateQuery = state.dateQuery!!,
+                                            onClick   = {
+                                                val clickDate = when (val dq = state.dateQuery) {
+                                                    is DateQuery.Single -> dq.date
+                                                    is DateQuery.Range  -> dq.start
+                                                    else                -> return@DateShortcutRow
+                                                }
+                                                onDateClick(clickDate); onDismiss()
+                                            },
                                         )
                                     }
                                     item(key = "date_shortcut_divider") { GroupDivider() }
@@ -227,15 +239,29 @@ fun QuickFindPopup(
                                     }
                                 }
 
-                                // Date results
-                                if (state.dateResults.isNotEmpty() && state.parsedDate != null) {
+                                // Date results (tasks)
+                                if (state.dateResults.isNotEmpty() && state.dateQuery != null) {
                                     item(key = "date_divider") { GroupDivider() }
                                     item(key = "date_label") {
-                                        val fmt = DateTimeFormatter.ofPattern("d MMM", Locale.ENGLISH)
-                                        SectionLabel("On ${state.parsedDate!!.format(fmt)}")
+                                        val fmt   = DateTimeFormatter.ofPattern("d MMM", Locale.ENGLISH)
+                                        val label = when (val dq = state.dateQuery) {
+                                            is DateQuery.Single -> "On ${dq.date.format(fmt)}"
+                                            is DateQuery.Range  -> "${dq.start.format(fmt)} – ${dq.end.format(fmt)}"
+                                            else                -> "Date"
+                                        }
+                                        SectionLabel(label)
                                     }
                                     items(state.dateResults, key = { "date_${it.id}" }) { task ->
                                         TaskRow(task) { onTaskClick(task.id); onDismiss() }
+                                    }
+                                }
+
+                                // Calendar events
+                                if (state.eventResults.isNotEmpty()) {
+                                    item(key = "event_divider") { GroupDivider() }
+                                    item(key = "event_label") { SectionLabel("Events") }
+                                    items(state.eventResults, key = { "event_${it.id}" }) { event ->
+                                        EventRow(event)
                                     }
                                 }
                             }
@@ -250,9 +276,17 @@ fun QuickFindPopup(
 // ── Date shortcut row ─────────────────────────────────────────────────────────
 
 @Composable
-private fun DateShortcutRow(date: LocalDate, onClick: () -> Unit) {
-    val fmt   = DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.ENGLISH)
-    val label = date.format(fmt)
+private fun DateShortcutRow(dateQuery: DateQuery, onClick: () -> Unit) {
+    val fmtFull  = DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.ENGLISH)
+    val fmtShort = DateTimeFormatter.ofPattern("d MMM", Locale.ENGLISH)
+    val label = when (dateQuery) {
+        is DateQuery.Single -> dateQuery.date.format(fmtFull)
+        is DateQuery.Range  -> "${dateQuery.start.format(fmtShort)} – ${dateQuery.end.format(fmtShort)} ${dateQuery.end.year}"
+    }
+    val subLabel = when (dateQuery) {
+        is DateQuery.Single -> "Show all tasks on this date"
+        is DateQuery.Range  -> "Show all tasks in this period"
+    }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -283,7 +317,7 @@ private fun DateShortcutRow(date: LocalDate, onClick: () -> Unit) {
                 color      = MaterialTheme.colorScheme.onSurface,
             )
             Text(
-                text  = "Show all tasks on this date",
+                text  = subLabel,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -457,6 +491,44 @@ private fun TaskRow(task: Task, onClick: () -> Unit) {
                 tint     = priorityColor,
                 modifier = Modifier.size(13.dp),
             )
+        }
+    }
+}
+
+@Composable
+private fun EventRow(event: AgendaEvent) {
+    val dotColor = remember(event.colorHex) {
+        runCatching { Color(android.graphics.Color.parseColor(event.colorHex)) }
+            .getOrDefault(Color(0xFF4A90D9))
+    }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 11.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .width(3.dp)
+                .height(32.dp)
+                .background(dotColor, RoundedCornerShape(2.dp)),
+        )
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text     = event.title,
+                style    = MaterialTheme.typography.bodyMedium,
+                color    = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (event.time != null) {
+                Text(
+                    text  = event.time,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }
