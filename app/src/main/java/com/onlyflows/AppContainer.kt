@@ -26,6 +26,9 @@ import com.onlyflows.data.preferences.CalendarPreferences
 import com.onlyflows.data.preferences.NotificationPreferences
 import com.onlyflows.data.preferences.SidebarPreferences
 import com.onlyflows.data.preferences.SyncPreferences
+import com.onlyflows.data.preferences.WidgetPreferences
+import com.onlyflows.data.repository.GoalRepositoryImpl
+import com.onlyflows.data.repository.GoalLogRepositoryImpl
 import com.onlyflows.data.repository.FolderRepositoryImpl
 import com.onlyflows.data.repository.NoteRepositoryImpl
 import com.onlyflows.data.repository.ProjectRepositoryImpl
@@ -38,6 +41,8 @@ import com.onlyflows.data.sync.SyncRepositoryImpl
 import com.onlyflows.data.sync.network.LanDiscoveryManager
 import com.onlyflows.data.sync.network.SyncClient
 import com.onlyflows.data.sync.network.SyncServer
+import com.onlyflows.domain.repository.GoalRepository
+import com.onlyflows.domain.repository.GoalLogRepository
 import com.onlyflows.domain.repository.FolderRepository
 import com.onlyflows.domain.repository.NoteRepository
 import com.onlyflows.domain.repository.ProjectRepository
@@ -70,6 +75,8 @@ class AppContainer(context: Context) {
         syncDao      = syncDao,
     )
 
+    val goalRepository: GoalRepository = GoalRepositoryImpl(db.goalDao())
+    val goalLogRepository: GoalLogRepository = GoalLogRepositoryImpl(db.goalLogDao())
     val folderRepository: FolderRepository = FolderRepositoryImpl(db.folderDao(), syncDao)
 
     val tagRepository: TagRepository = TagRepositoryImpl(db.tagDao(), syncDao)
@@ -83,6 +90,7 @@ class AppContainer(context: Context) {
     val calendarRepository: CalendarRepository   = CalendarRepository(context)
     val backupPreferences: BackupPreferences     = BackupPreferences(context)
     val backupManager: BackupManager             = BackupManager(context)
+    val widgetPreferences: WidgetPreferences     = WidgetPreferences(context)
     val reminderScheduler: ReminderScheduler     = ReminderScheduler(context)
     val dailyAlertPreferences: DailyAlertPreferences = DailyAlertPreferences(context)
     val dailyAlertScheduler: DailyAlertScheduler     = DailyAlertScheduler(context)

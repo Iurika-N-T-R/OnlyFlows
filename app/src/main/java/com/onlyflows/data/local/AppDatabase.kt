@@ -7,11 +7,15 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.onlyflows.data.local.dao.*
+import com.onlyflows.data.local.dao.GoalDao
+import com.onlyflows.data.local.dao.GoalLogDao
 import com.onlyflows.data.local.dao.ActionLogDao
 import com.onlyflows.data.local.dao.SavedLocationDao
 import com.onlyflows.data.local.dao.ReminderDao
 import com.onlyflows.data.local.dao.AttachmentDao
 import com.onlyflows.data.local.entity.*
+import com.onlyflows.data.local.entity.GoalEntity
+import com.onlyflows.data.local.entity.GoalLogEntity
 import com.onlyflows.data.local.entity.ActionLogEntity
 import com.onlyflows.data.local.entity.SavedLocationEntity
 import com.onlyflows.data.local.entity.NoteEntity
@@ -43,8 +47,10 @@ import kotlinx.coroutines.launch
         SavedLocationEntity::class,
         SyncMetaEntity::class,
         DeletedEntityEntity::class,
+        GoalEntity::class,
+        GoalLogEntity::class,
     ],
-    version = 24,
+    version = 26,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)
@@ -64,6 +70,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun attachmentDao(): AttachmentDao
     abstract fun actionLogDao(): ActionLogDao
     abstract fun savedLocationDao(): SavedLocationDao
+    abstract fun goalDao(): GoalDao
+    abstract fun goalLogDao(): GoalLogDao
     abstract fun syncDao(): SyncDao
 
     companion object {

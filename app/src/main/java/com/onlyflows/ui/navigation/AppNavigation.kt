@@ -15,6 +15,8 @@ import com.onlyflows.ui.screens.projects.ProjectsScreen
 import com.onlyflows.ui.screens.logbook.LogbookScreen
 import com.onlyflows.ui.screens.someday.SomedayScreen
 import com.onlyflows.ui.screens.project.ProjectDetailScreen
+import com.onlyflows.ui.screens.goals.GoalsScreen
+import com.onlyflows.ui.screens.goals.GoalDetailScreen
 import com.onlyflows.ui.screens.search.DateResultsScreen
 import com.onlyflows.ui.screens.search.QuickFindScreen
 import com.onlyflows.ui.screens.settings.AppearanceScreen
@@ -106,6 +108,24 @@ fun AppNavigation(
 
         composable(Screen.Trash.route) {
             TrashScreen(onOpenDrawer = onOpenDrawer)
+        }
+
+        composable(Screen.Goals.route) {
+            GoalsScreen(
+                onOpenDrawer = onOpenDrawer,
+                onGoalClick = { goalId -> navController.navigate(Screen.GoalDetail.createRoute(goalId)) },
+            )
+        }
+
+        composable(
+            route = Screen.GoalDetail.route,
+            arguments = listOf(navArgument("goalId") { type = NavType.StringType }),
+        ) {
+            val goalId = it.arguments!!.getString("goalId")!!
+            GoalDetailScreen(
+                goalId = goalId,
+                onBack = { navController.popBackStack() },
+            )
         }
 
         composable(
