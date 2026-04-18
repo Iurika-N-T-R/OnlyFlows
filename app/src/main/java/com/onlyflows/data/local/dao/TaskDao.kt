@@ -83,8 +83,41 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE ((dueDate >= :start AND dueDate <= :end) OR (startDate >= :start AND startDate <= :end)) AND deletedAt IS NULL ORDER BY dueDate ASC, startDate ASC LIMIT 50")
     fun searchByDateRange(start: String, end: String): Flow<List<TaskEntity>>
 
-    @Query("SELECT * FROM tasks WHERE scheduledGroup IN ('TODAY', 'THIS_EVENING') AND isArchived = 0 AND deletedAt IS NULL ORDER BY scheduledGroup ASC, sortOrder ASC")
-    fun observeToday(): Flow<List<TaskEntity>>
+    @Query("""
+        SELECT * FROM tasks
+        WHERE isCompleted = 0 AND isArchived = 0 AND deletedAt IS NULL
+          AND (
+            scheduledGroup IN ('TODAY', 'THIS_EVENING')
+            OR dueDate = :today
+            OR (startDate <= :today AND (dueDate IS NULL OR dueDate >= :today))
+          )
+        ORDER BY scheduledGroup ASC, sortOrder ASC
+    """)
+    fun observeToday(today: String): Flow<List<TaskEntity>>
+
+    @Query("""
+        SELECT * FROM tasks
+        WHERE isCompleted = 1 AND deletedAt IS NULL
+          AND (
+            scheduledGroup IN ('TODAY', 'THIS_EVENING')
+            OR dueDate = :today
+            OR (startDate <= :today AND (dueDate IS NULL OR dueDate >= :today))
+          )
+        ORDER BY updatedAt DESC
+    """)
+    fun observeTodayCompleted(today: String): Flow<List<TaskEntity>>
+
+    @Query("""
+        SELECT * FROM tasks
+        WHERE isArchived = 1 AND isCompleted = 0 AND deletedAt IS NULL
+          AND (
+            scheduledGroup IN ('TODAY', 'THIS_EVENING')
+            OR dueDate = :today
+            OR (startDate <= :today AND (dueDate IS NULL OR dueDate >= :today))
+          )
+        ORDER BY updatedAt DESC
+    """)
+    fun observeTodayAbandoned(today: String): Flow<List<TaskEntity>>
 
     @Query("SELECT * FROM tasks WHERE dueDate < :today AND isCompleted = 0 AND isArchived = 0 AND deletedAt IS NULL ORDER BY dueDate ASC, sortOrder ASC")
     fun observeOverdueTasks(today: String): Flow<List<TaskEntity>>
@@ -223,8 +256,43 @@ interface TaskDao {
     fun observeDependentsWithItems(taskId: String): Flow<List<TaskWithChecklistItems>>
 
     @Transaction
-    @Query("SELECT * FROM tasks WHERE scheduledGroup IN ('TODAY', 'THIS_EVENING') AND isArchived = 0 AND deletedAt IS NULL ORDER BY scheduledGroup ASC, sortOrder ASC")
-    fun observeTodayWithItems(): Flow<List<TaskWithChecklistItems>>
+    @Query("""
+        SELECT * FROM tasks
+        WHERE isCompleted = 0 AND isArchived = 0 AND deletedAt IS NULL
+          AND (
+            scheduledGroup IN ('TODAY', 'THIS_EVENING')
+            OR dueDate = :today
+            OR (startDate <= :today AND (dueDate IS NULL OR dueDate >= :today))
+          )
+        ORDER BY scheduledGroup ASC, sortOrder ASC
+    """)
+    fun observeTodayWithItems(today: String): Flow<List<TaskWithChecklistItems>>
+
+    @Transaction
+    @Query("""
+        SELECT * FROM tasks
+        WHERE isCompleted = 1 AND deletedAt IS NULL
+          AND (
+            scheduledGroup IN ('TODAY', 'THIS_EVENING')
+            OR dueDate = :today
+            OR (startDate <= :today AND (dueDate IS NULL OR dueDate >= :today))
+          )
+        ORDER BY updatedAt DESC
+    """)
+    fun observeTodayCompletedWithItems(today: String): Flow<List<TaskWithChecklistItems>>
+
+    @Transaction
+    @Query("""
+        SELECT * FROM tasks
+        WHERE isArchived = 1 AND isCompleted = 0 AND deletedAt IS NULL
+          AND (
+            scheduledGroup IN ('TODAY', 'THIS_EVENING')
+            OR dueDate = :today
+            OR (startDate <= :today AND (dueDate IS NULL OR dueDate >= :today))
+          )
+        ORDER BY updatedAt DESC
+    """)
+    fun observeTodayAbandonedWithItems(today: String): Flow<List<TaskWithChecklistItems>>
 
     @Transaction
     @Query("SELECT * FROM tasks WHERE dueDate < :today AND isCompleted = 0 AND isArchived = 0 AND deletedAt IS NULL ORDER BY dueDate ASC, sortOrder ASC")

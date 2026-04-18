@@ -22,6 +22,14 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+private val fontSizeOptions = listOf(
+    0.8f  to "XS",
+    0.9f  to "S",
+    1.0f  to "M",
+    1.15f to "L",
+    1.3f  to "XL",
+)
+
 // ── ViewModel ─────────────────────────────────────────────────────────────────
 
 class AppearanceViewModel(app: Application) : AndroidViewModel(app) {
@@ -30,8 +38,15 @@ class AppearanceViewModel(app: Application) : AndroidViewModel(app) {
     val themeMode: StateFlow<ThemeMode> = prefs.themeMode
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ThemeMode.SYSTEM)
 
+    val fontScale: StateFlow<Float> = prefs.fontScale
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 1.0f)
+
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch { prefs.setThemeMode(mode) }
+    }
+
+    fun setFontScale(scale: Float) {
+        viewModelScope.launch { prefs.setFontScale(scale) }
     }
 }
 
@@ -44,6 +59,7 @@ fun AppearanceScreen(
     viewModel: AppearanceViewModel = viewModel(),
 ) {
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
+    val fontScale by viewModel.fontScale.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -105,6 +121,48 @@ fun AppearanceScreen(
                     )
                 }
             }
+
+            Spacer(Modifier.height(24.dp))
+
+            Text(
+                text     = "TAILLE DU TEXTE",
+                style    = MaterialTheme.typography.labelSmall,
+                color    = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
+
+            Surface(
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.surfaceVariant,
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    fontSizeOptions.forEach { (scale, label) ->
+                        val selected = fontScale == scale
+                        FilterChip(
+                            selected = selected,
+                            onClick  = { viewModel.setFontScale(scale) },
+                            label    = { Text(label) },
+                            modifier = Modifier.weight(1f),
+                            colors   = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                selectedLabelColor     = MaterialTheme.colorScheme.onPrimary,
+                            ),
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text  = "Aperçu: La taille du texte s'applique à toute l'application.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

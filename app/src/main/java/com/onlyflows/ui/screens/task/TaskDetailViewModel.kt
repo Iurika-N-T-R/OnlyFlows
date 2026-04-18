@@ -1,10 +1,10 @@
 package com.onlyflows.ui.screens.task
 
 import android.app.Application
-import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.onlyflows.OnlyFlowsApp
+import com.onlyflows.data.debug.AppLog
 import com.onlyflows.domain.model.ChecklistItem
 import com.onlyflows.domain.model.Project
 import com.onlyflows.domain.model.RecurrenceRule
@@ -174,6 +174,7 @@ class TaskDetailViewModel(app: Application) : AndroidViewModel(app) {
 
     @OptIn(ExperimentalCoroutinesApi::class)
     fun loadTask(taskId: String) {
+        AppLog.d("TaskDetailVM", "loadTask: id=$taskId")
         viewModelScope.launch {
             combine(
                 taskRepo.observeById(taskId).filterNotNull(),
@@ -294,23 +295,37 @@ class TaskDetailViewModel(app: Application) : AndroidViewModel(app) {
                 taskRepo.addChecklistItem(item)
             }
             is TaskDetailEvent.UpdateTitle -> viewModelScope.launch {
+                AppLog.d("TaskDetailVM", "UpdateTitle: \"${task.title}\" → \"${event.title}\" id=${task.id}")
                 taskRepo.update(task.copy(title = event.title, updatedAt = LocalDateTime.now()))
             }
             is TaskDetailEvent.UpdateNote -> viewModelScope.launch {
+                AppLog.d("TaskDetailVM", "UpdateNote: id=${task.id} len=${event.note.length}")
                 taskRepo.update(task.copy(note = event.note, updatedAt = LocalDateTime.now()))
             }
             is TaskDetailEvent.SetDueDate -> {
+                AppLog.d("TaskDetailVM", "SetDueDate: \"${task.title}\" date=${event.date} time=${event.dueTime} prevDue=${task.dueDate} group=${task.scheduledGroup}")
                 viewModelScope.launch {
-                    taskRepo.update(task.copy(
-                        dueDate = event.date,
-                        dueTime = event.dueTime,
-                        endTime = event.endTime,
+                    var updated = task.copy(
+                        dueDate   = event.date,
+                        dueTime   = event.dueTime,
+                        endTime   = event.endTime,
                         updatedAt = LocalDateTime.now(),
-                    ))
+                    )
+                    // Clearing the due date on a floating task (no project, no group) would drop
+                    // it into Inbox. Assign a default group to keep it accessible.
+                    if (event.date == null && task.startDate == null
+                        && task.projectId == null && task.scheduledGroup == null) {
+                        updated = updated.copy(
+                            scheduledGroup = if (task.priority != TaskPriority.NONE) TaskGroup.ANYTIME else TaskGroup.SOMEDAY
+                        )
+                        AppLog.d("TaskDetailVM", "SetDueDate null→floating: assigned group=${updated.scheduledGroup}")
+                    }
+                    taskRepo.update(updated)
                 }
                 _uiState.update { it.copy(showDatePicker = false) }
             }
             is TaskDetailEvent.SetScheduledGroup -> {
+                AppLog.d("TaskDetailVM", "SetScheduledGroup: \"${task.title}\" ${task.scheduledGroup} → ${event.group}")
                 viewModelScope.launch {
                     taskRepo.update(task.copy(scheduledGroup = event.group, updatedAt = LocalDateTime.now()))
                 }
@@ -331,8 +346,12 @@ class TaskDetailViewModel(app: Application) : AndroidViewModel(app) {
             is TaskDetailEvent.DeleteTag -> viewModelScope.launch {
                 tagRepo.delete(event.tagId)
             }
-            TaskDetailEvent.ToggleStar     -> viewModelScope.launch { taskRepo.setStarred(task.id, !task.isStarred) }
+            TaskDetailEvent.ToggleStar     -> viewModelScope.launch {
+                AppLog.d("TaskDetailVM", "${if (!task.isStarred) "star" else "unstar"}: \"${task.title}\"")
+                taskRepo.setStarred(task.id, !task.isStarred)
+            }
             TaskDetailEvent.ToggleComplete -> viewModelScope.launch {
+                AppLog.d("TaskDetailVM", "toggleComplete: \"${task.title}\" ${task.isCompleted} → ${!task.isCompleted} recurrence=${task.recurrence != null}")
                 if (!task.isCompleted) {
                     scheduler.cancel(task.id)
                     reminderRepo.deleteByTask(task.id)
@@ -345,6 +364,7 @@ class TaskDetailViewModel(app: Application) : AndroidViewModel(app) {
                 }
             }
             TaskDetailEvent.Delete -> viewModelScope.launch {
+                AppLog.d("TaskDetailVM", "delete: \"${task.title}\" id=${task.id}")
                 taskRepo.softDelete(task.id)
             }
             TaskDetailEvent.ShowDatePicker -> _uiState.update { it.copy(showDatePicker = true) }
@@ -354,21 +374,34 @@ class TaskDetailViewModel(app: Application) : AndroidViewModel(app) {
             TaskDetailEvent.ShowWhenPicker -> _uiState.update { it.copy(showWhenPicker = true) }
             TaskDetailEvent.HideWhenPicker -> _uiState.update { it.copy(showWhenPicker = false) }
             is TaskDetailEvent.SetPriority -> viewModelScope.launch {
+                AppLog.d("TaskDetailVM", "SetPriority: \"${task.title}\" ${task.priority} → ${event.priority}")
                 taskRepo.update(task.copy(priority = event.priority, updatedAt = LocalDateTime.now()))
                 _uiState.update { it.copy(showPriorityPicker = false) }
             }
             TaskDetailEvent.ShowPriorityPicker -> _uiState.update { it.copy(showPriorityPicker = true) }
             TaskDetailEvent.HidePriorityPicker -> _uiState.update { it.copy(showPriorityPicker = false) }
             is TaskDetailEvent.SetStartDate -> {
-                viewModelScope.launch { taskRepo.update(task.copy(startDate = event.date, updatedAt = LocalDateTime.now())) }
+                AppLog.d("TaskDetailVM", "SetStartDate: \"${task.title}\" ${task.startDate} → ${event.date}")
+                viewModelScope.launch {
+                    var updated = task.copy(startDate = event.date, updatedAt = LocalDateTime.now())
+                    if (event.date == null && task.dueDate == null
+                        && task.projectId == null && task.scheduledGroup == null) {
+                        updated = updated.copy(
+                            scheduledGroup = if (task.priority != TaskPriority.NONE) TaskGroup.ANYTIME else TaskGroup.SOMEDAY
+                        )
+                        AppLog.d("TaskDetailVM", "SetStartDate null→floating: assigned group=${updated.scheduledGroup}")
+                    }
+                    taskRepo.update(updated)
+                }
                 _uiState.update { it.copy(showStartDatePicker = false) }
             }
             is TaskDetailEvent.SetRecurrence -> {
+                AppLog.d("TaskDetailVM", "SetRecurrence: \"${task.title}\" rule=${event.rule}")
                 viewModelScope.launch { taskRepo.update(task.copy(recurrence = event.rule, updatedAt = LocalDateTime.now())) }
                 _uiState.update { it.copy(showRecurrencePicker = false) }
             }
             is TaskDetailEvent.AddReminder -> viewModelScope.launch {
-                Log.d("TaskDetailVM", "AddReminder: at=${event.at} for task=${task.id}")
+                AppLog.d("TaskDetailVM", "AddReminder: at=${event.at} for \"${task.title}\" id=${task.id}")
                 val reminder = Reminder(
                     id          = "rem_${System.currentTimeMillis()}",
                     taskId      = task.id,

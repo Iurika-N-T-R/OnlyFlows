@@ -17,18 +17,46 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.rememberNavController
 import androidx.window.core.layout.WindowWidthSizeClass
 import com.onlyflows.data.preferences.ThemeMode
+import com.onlyflows.domain.model.Task
+import com.onlyflows.domain.model.TaskGroup
+import com.onlyflows.domain.model.TaskPriority
 import com.onlyflows.ui.layout.AdaptiveAppLayout
+import com.onlyflows.ui.navigation.Screen
+import com.onlyflows.ui.overlays.AddTaskSheet
+import com.onlyflows.ui.widgets.EXTRA_TASK_ID
+import com.onlyflows.ui.theme.LocalFontScale
 import com.onlyflows.ui.theme.LocalUse24hFormat
 import com.onlyflows.ui.theme.OnlyFlowsTheme
+import java.time.LocalDateTime
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
+    companion object {
+        const val EXTRA_ADD_TASK = "extra_add_task"
+    }
+
     var keyShortcutHandler: ((android.view.KeyEvent) -> Boolean)? = null
+    var navigateToTask: ((String) -> Unit)? = null
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        if (intent.getBooleanExtra(EXTRA_ADD_TASK, false)) {
+            (application as OnlyFlowsApp).requestAddTask()
+        }
+        intent.getStringExtra(EXTRA_TASK_ID)?.let { taskId ->
+            navigateToTask?.invoke(taskId)
+        }
+    }
 
     override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
         if (event.action == android.view.KeyEvent.ACTION_DOWN &&
@@ -45,12 +73,17 @@ class MainActivity : ComponentActivity() {
         requestPostNotificationsIfNeeded()
         requestBatteryOptimizationExemption()
         enableEdgeToEdge()
+        if (intent.getBooleanExtra(EXTRA_ADD_TASK, false)) {
+            (application as OnlyFlowsApp).requestAddTask()
+        }
         setContent {
             val app = application as OnlyFlowsApp
             val themeMode by app.container.appPreferences.themeMode
                 .collectAsStateWithLifecycle(initialValue = ThemeMode.SYSTEM)
             val use24hFormat by app.container.appPreferences.use24hFormat
                 .collectAsStateWithLifecycle(initialValue = true)
+            val fontScaleMultiplier by app.container.appPreferences.fontScale
+                .collectAsStateWithLifecycle(initialValue = 1.0f)
             val systemDark = isSystemInDarkTheme()
             val darkTheme = when (themeMode) {
                 ThemeMode.LIGHT  -> false
@@ -59,19 +92,65 @@ class MainActivity : ComponentActivity() {
             }
 
             OnlyFlowsTheme(darkTheme = darkTheme) {
+                val sysDensity = LocalDensity.current
+                var showGlobalAddTask by remember { mutableStateOf(false) }
+
+                LaunchedEffect(Unit) {
+                    app.addTaskRequested.collect { showGlobalAddTask = true }
+                }
+
                 androidx.compose.runtime.CompositionLocalProvider(
                     LocalUse24hFormat provides use24hFormat,
+                    LocalFontScale provides fontScaleMultiplier,
+                    LocalDensity provides Density(
+                        density   = sysDensity.density,
+                        fontScale = sysDensity.fontScale * fontScaleMultiplier,
+                    ),
                 ) {
-                val navController = rememberNavController()
-                val windowInfo = currentWindowAdaptiveInfo()
-                val isTablet = windowInfo.windowSizeClass.windowWidthSizeClass ==
-                        WindowWidthSizeClass.EXPANDED
+                    val navController = rememberNavController()
+
+                    LaunchedEffect(navController) {
+                        navigateToTask = { taskId ->
+                            navController.navigate(Screen.TaskDetail.createRoute(taskId))
+                        }
+                        intent.getStringExtra(EXTRA_TASK_ID)?.let { taskId ->
+                            navController.navigate(Screen.TaskDetail.createRoute(taskId))
+                        }
+                    }
+
+                    val windowInfo = currentWindowAdaptiveInfo()
+                    val isTablet = windowInfo.windowSizeClass.windowWidthSizeClass ==
+                            WindowWidthSizeClass.EXPANDED
 
                     AdaptiveAppLayout(
                         navController = navController,
                         isTablet      = isTablet,
                         modifier      = Modifier.fillMaxSize(),
                     )
+
+                    if (showGlobalAddTask) {
+                        AddTaskSheet(
+                            defaultGroup = TaskGroup.TODAY,
+                            onAdd = { title, group, dueDate, priority, projectId, sectionId ->
+                                showGlobalAddTask = false
+                                val repo = app.container.taskRepository
+                                CoroutineScope(Dispatchers.IO).launch {
+                                    repo.insert(Task(
+                                        id             = "task_${System.currentTimeMillis()}",
+                                        title          = title,
+                                        priority       = priority,
+                                        projectId      = projectId,
+                                        sectionId      = sectionId,
+                                        scheduledGroup = if (projectId == null) group else null,
+                                        dueDate        = dueDate ?: if (projectId != null) java.time.LocalDate.now() else null,
+                                        createdAt      = LocalDateTime.now(),
+                                        updatedAt      = LocalDateTime.now(),
+                                    ))
+                                }
+                            },
+                            onDismiss = { showGlobalAddTask = false },
+                        )
+                    }
                 }
             }
         }

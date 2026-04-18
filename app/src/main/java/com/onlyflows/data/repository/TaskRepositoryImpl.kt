@@ -71,6 +71,12 @@ class TaskRepositoryImpl(
     override fun observeToday(): Flow<List<Task>> =
         taskDao.observeTodayWithItems(java.time.LocalDate.now().toString()).map { list -> list.map { it.toDomain() } }
 
+    override fun observeTodayCompleted(): Flow<List<Task>> =
+        taskDao.observeTodayCompletedWithItems(java.time.LocalDate.now().toString()).map { list -> list.map { it.toDomain() } }
+
+    override fun observeTodayAbandoned(): Flow<List<Task>> =
+        taskDao.observeTodayAbandonedWithItems(java.time.LocalDate.now().toString()).map { list -> list.map { it.toDomain() } }
+
     override fun observeByProject(projectId: String): Flow<List<Task>> =
         taskDao.observeByProjectWithItems(projectId).map { list -> list.map { it.toDomain() } }
 

@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.onlyflows.OnlyFlowsApp
+import com.onlyflows.data.debug.AppLog
 import com.onlyflows.data.calendar.CalendarRepository
 import com.onlyflows.data.preferences.CalendarPreferences
 import com.onlyflows.domain.model.AgendaEvent
@@ -43,6 +44,8 @@ data class TodayUiState(
     val todayTasks: List<Task>              = emptyList(),
     val eveningTasks: List<Task>            = emptyList(),
     val overdueTasks: List<Task>            = emptyList(),
+    val completedTasks: List<Task>          = emptyList(),
+    val abandonedTasks: List<Task>          = emptyList(),
     val tags: List<Tag>                     = emptyList(),
     val allProjects: List<com.onlyflows.domain.model.Project> = emptyList(),
     val activeTagFilter: Set<String>        = emptySet(),
@@ -101,33 +104,53 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
     val uiState: StateFlow<TodayUiState> = _uiState.asStateFlow()
 
     init {
+        AppLog.d("TodayVM", "init")
         viewModelScope.launch {
             combine(
                 taskRepo.observeToday(),
                 taskRepo.observeOverdue(),
                 tagRepo.observeAll(),
                 projectRepo.observeAll(),
-            ) { tasks, overdue, tags, projects ->
-                listOf<Any>(tasks, overdue, tags, projects)
+                taskRepo.observeTodayCompleted(),
+            ) { args ->
+                args
             }.distinctUntilChanged().collect { args ->
                 @Suppress("UNCHECKED_CAST")
-                val tasks    = args[0] as List<Task>
+                val tasks     = args[0] as List<Task>
                 @Suppress("UNCHECKED_CAST")
-                val overdue  = args[1] as List<Task>
+                val overdue   = args[1] as List<Task>
                 @Suppress("UNCHECKED_CAST")
-                val tags     = args[2] as List<Tag>
+                val tags      = args[2] as List<Tag>
                 @Suppress("UNCHECKED_CAST")
-                val projects = args[3] as List<com.onlyflows.domain.model.Project>
+                val projects  = args[3] as List<com.onlyflows.domain.model.Project>
+                @Suppress("UNCHECKED_CAST")
+                val completed = args[4] as List<Task>
+                val today = LocalDate.now()
+                val todayFiltered = tasks.filter {
+                    it.scheduledGroup == TaskGroup.TODAY
+                    || (it.scheduledGroup == null && (
+                        it.dueDate == today
+                        || (it.startDate != null && !it.startDate.isAfter(today)
+                            && (it.dueDate == null || !it.dueDate.isBefore(today)))
+                    ))
+                }.sortedWith(taskComparator)
+                AppLog.d("TodayVM", "data updated: today=${todayFiltered.size} overdue=${overdue.size} completed=${completed.size} raw=${tasks.size}")
                 _uiState.update { state ->
                     state.copy(
-                        todayTasks   = tasks.filter { it.scheduledGroup == TaskGroup.TODAY }.sortedWith(taskComparator),
-                        eveningTasks = tasks.filter { it.scheduledGroup == TaskGroup.THIS_EVENING }.sortedWith(taskComparator),
-                        overdueTasks = overdue.sortedWith(taskComparator),
-                        tags         = tags,
-                        allProjects  = projects,
-                        isLoading    = false,
+                        todayTasks    = todayFiltered,
+                        eveningTasks  = tasks.filter { it.scheduledGroup == TaskGroup.THIS_EVENING }.sortedWith(taskComparator),
+                        overdueTasks  = overdue.sortedWith(taskComparator),
+                        completedTasks = completed,
+                        tags          = tags,
+                        allProjects   = projects,
+                        isLoading     = false,
                     )
                 }
+            }
+        }
+        viewModelScope.launch {
+            taskRepo.observeTodayAbandoned().distinctUntilChanged().collect { abandoned ->
+                _uiState.update { it.copy(abandonedTasks = abandoned) }
             }
         }
         viewModelScope.launch {
@@ -175,7 +198,8 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
         when (event) {
             is TodayEvent.ToggleComplete -> viewModelScope.launch {
                 val completing = !event.current
-                val task = (_uiState.value.todayTasks + _uiState.value.eveningTasks).find { it.id == event.taskId }
+                val task = (_uiState.value.todayTasks + _uiState.value.eveningTasks + _uiState.value.overdueTasks).find { it.id == event.taskId }
+                AppLog.d("TodayVM", "toggleComplete: \"${task?.title ?: event.taskId}\" → completing=$completing recurrence=${task?.recurrence != null}")
                 if (completing && task?.recurrence != null) {
                     taskRepo.completeRecurring(event.taskId)
                 } else {
@@ -186,8 +210,8 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
             is TodayEvent.ClearSelection -> _uiState.update { it.copy(selectedTaskIds = emptySet()) }
             is TodayEvent.ShowAddTask    -> _uiState.update { it.copy(showAddTask = true) }
             is TodayEvent.HideAddTask    -> _uiState.update { it.copy(showAddTask = false) }
-            is TodayEvent.AddTask        -> addTask(event.title, event.priority, event.projectId, event.sectionId)
-            is TodayEvent.DeleteSelected -> deleteSelected(event.ids)
+            is TodayEvent.AddTask        -> { AppLog.d("TodayVM", "addTask: \"${event.title}\" project=${event.projectId}"); addTask(event.title, event.priority, event.projectId, event.sectionId) }
+            is TodayEvent.DeleteSelected -> { AppLog.d("TodayVM", "deleteSelected: ${event.ids.size} tasks"); deleteSelected(event.ids) }
             is TodayEvent.ToggleChecklistItem -> viewModelScope.launch {
                 taskRepo.toggleChecklistItem(event.itemId, event.completed)
                 val allTasks = _uiState.value.todayTasks + _uiState.value.eveningTasks

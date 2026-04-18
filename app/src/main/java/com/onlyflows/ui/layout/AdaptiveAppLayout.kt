@@ -50,9 +50,13 @@ fun AdaptiveAppLayout(
         if (isTablet) {
             Row(modifier = Modifier.fillMaxSize()) {
                 // Column 1 — sidebar (fixed width)
+                // Projects always navigate in the middle NavHost; only tasks open the right pane
+                val navigateToProject = { id: String ->
+                    navController.navigate(Screen.ProjectDetail.createRoute(id))
+                }
                 AppSidebar(
                     navController        = navController,
-                    onProjectClick       = { detailPane = DetailPane.Project(it) },
+                    onProjectClick       = { navigateToProject(it) },
                     onSettingsClick      = { navController.navigate(Screen.Settings.route) },
                     onNewGroup           = {},
                     onAddProjectToFolder = {},
@@ -67,25 +71,25 @@ fun AdaptiveAppLayout(
                         onSearchClick     = { showQuickFind = true },
                         isTablet          = true,
                         onTaskSelected    = { detailPane = DetailPane.Task(it) },
-                        onProjectSelected = { detailPane = DetailPane.Project(it) },
+                        onProjectSelected = { navigateToProject(it) },
                         modifier          = Modifier.weight(1f),
                     )
                 } else {
-                    // Something selected: master list 38 % + detail panel 62 %
+                    // Task selected: master list 38 % + task detail panel 62 %
                     AppNavigation(
                         navController     = navController,
                         onOpenDrawer      = {},
                         onSearchClick     = { showQuickFind = true },
                         isTablet          = true,
                         onTaskSelected    = { detailPane = DetailPane.Task(it) },
-                        onProjectSelected = { detailPane = DetailPane.Project(it) },
+                        onProjectSelected = { navigateToProject(it) },
                         modifier          = Modifier.weight(0.38f),
                     )
                     VerticalDivider()
                     DetailPaneContent(
                         pane           = detailPane,
                         onClose        = { detailPane = DetailPane.None },
-                        onProjectClick = { detailPane = DetailPane.Project(it) },
+                        onProjectClick = { navigateToProject(it) },
                         modifier       = Modifier.weight(0.62f),
                     )
                 }
@@ -142,8 +146,7 @@ fun AdaptiveAppLayout(
                 },
                 onProjectClick = { projectId ->
                     showQuickFind = false
-                    if (isTablet) detailPane = DetailPane.Project(projectId)
-                    else navController.navigate(Screen.ProjectDetail.createRoute(projectId))
+                    navController.navigate(Screen.ProjectDetail.createRoute(projectId))
                 },
                 onShowMore     = { query ->
                     showQuickFind = false

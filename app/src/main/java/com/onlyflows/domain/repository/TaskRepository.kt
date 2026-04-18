@@ -11,6 +11,8 @@ import java.time.LocalDateTime
 interface TaskRepository {
     fun observeAll(): Flow<List<Task>>
     fun observeToday(): Flow<List<Task>>
+    fun observeTodayCompleted(): Flow<List<Task>>
+    fun observeTodayAbandoned(): Flow<List<Task>>
     fun observeInbox(): Flow<List<Task>>
     fun observeByGroup(group: com.onlyflows.domain.model.TaskGroup): Flow<List<Task>>
     fun observeOverdue(): Flow<List<Task>>

@@ -83,6 +83,7 @@ fun TodayScreen(
     val scrollBehavior    = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val fc                = MaterialTheme.flowColors
     var completedExpanded by remember { mutableStateOf(false) }
+    var abandonedExpanded by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(state.pendingDeleteTask) {
@@ -111,8 +112,11 @@ fun TodayScreen(
     val filteredOverdue = remember(state.overdueTasks, state.pendingDeleteTask?.id, state.activeTagFilter, state.activePriorityFilter) {
         state.overdueTasks.applyFilters()
     }
-    val completedTasks = remember(state.todayTasks, state.eveningTasks, state.pendingDeleteTask?.id, state.activeTagFilter, state.activePriorityFilter, state.movingToCompletedIds) {
-        (state.todayTasks + state.eveningTasks).applyFilters().filter { it.isCompleted && it.id !in state.movingToCompletedIds }
+    val completedTasks = remember(state.completedTasks, state.pendingDeleteTask?.id, state.activeTagFilter, state.activePriorityFilter, state.movingToCompletedIds) {
+        state.completedTasks.filter { it.id != state.pendingDeleteTask?.id && it.id !in state.movingToCompletedIds }
+    }
+    val abandonedTasks = remember(state.abandonedTasks, state.pendingDeleteTask?.id) {
+        state.abandonedTasks.filter { it.id != state.pendingDeleteTask?.id }
     }
 
     Scaffold(
@@ -326,7 +330,7 @@ fun TodayScreen(
             }
 
             // Empty state
-            if (filteredOverdue.isEmpty() && pendingToday.isEmpty() && pendingEvening.isEmpty() && completedTasks.isEmpty()) {
+            if (filteredOverdue.isEmpty() && pendingToday.isEmpty() && pendingEvening.isEmpty() && completedTasks.isEmpty() && abandonedTasks.isEmpty()) {
                 item(key = "empty") {
                     Box(
                         contentAlignment = Alignment.Center,
@@ -367,7 +371,43 @@ fun TodayScreen(
                             onToggleChecklistItem = { id, done -> viewModel.onEvent(TodayEvent.ToggleChecklistItem(id, done)) },
                             onEditClick           = { onTaskClick(it) },
                             onLongClick           = { viewModel.onEvent(TodayEvent.ToggleSelect(it)) },
-                                modifier              = Modifier.animateItem(),
+                            modifier              = Modifier.animateItem(),
+                        )
+                        HorizontalDivider(
+                            modifier  = Modifier.padding(start = 54.dp),
+                            color     = MaterialTheme.colorScheme.outlineVariant,
+                            thickness = 0.5.dp,
+                        )
+                    }
+                }
+            }
+
+            // ── Won't do section ──────────────────────────────────────────────
+            if (abandonedTasks.isNotEmpty()) {
+                item(key = "abandoned_header") {
+                    CompletedSectionHeader(
+                        count    = abandonedTasks.size,
+                        expanded = abandonedExpanded,
+                        onToggle = { abandonedExpanded = !abandonedExpanded },
+                        label    = "Won't do",
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
+                if (abandonedExpanded) {
+                    items(
+                        items = abandonedTasks,
+                        key   = { "abandoned_${it.id}" },
+                    ) { task ->
+                        TaskItem(
+                            task                  = task,
+                            tags                  = state.tags,
+                            isSelected            = task.id in state.selectedTaskIds,
+                            isSelectionMode       = state.selectedTaskIds.isNotEmpty(),
+                            onToggleComplete      = { /* abandoned tasks can't be toggled */ },
+                            onToggleChecklistItem = { _, _ -> },
+                            onEditClick           = { onTaskClick(it) },
+                            onLongClick           = { viewModel.onEvent(TodayEvent.ToggleSelect(it)) },
+                            modifier              = Modifier.animateItem(),
                         )
                         HorizontalDivider(
                             modifier  = Modifier.padding(start = 54.dp),
