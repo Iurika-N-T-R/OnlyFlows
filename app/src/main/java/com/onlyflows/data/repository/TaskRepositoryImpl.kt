@@ -1,5 +1,6 @@
 package com.onlyflows.data.repository
 
+import com.onlyflows.data.debug.AppLog
 import com.onlyflows.data.local.dao.ChecklistItemDao
 import com.onlyflows.data.local.dao.SyncDao
 import com.onlyflows.data.local.dao.TaskDao
@@ -68,7 +69,7 @@ class TaskRepositoryImpl(
         taskDao.observeByGroupWithItems(group.name).map { list -> list.map { it.toDomain() } }
 
     override fun observeToday(): Flow<List<Task>> =
-        taskDao.observeTodayWithItems().map { list -> list.map { it.toDomain() } }
+        taskDao.observeTodayWithItems(java.time.LocalDate.now().toString()).map { list -> list.map { it.toDomain() } }
 
     override fun observeByProject(projectId: String): Flow<List<Task>> =
         taskDao.observeByProjectWithItems(projectId).map { list -> list.map { it.toDomain() } }
@@ -113,22 +114,26 @@ class TaskRepositoryImpl(
         taskDao.insert(task.toEntity())
         checklistDao.insertAll(task.checklistItems.map { it.toEntity() })
         log(ActionType.TASK_CREATED, task.id, task.title)
+        AppLog.d("TaskRepo", "insert: \"${task.title}\" id=${task.id} group=${task.scheduledGroup} due=${task.dueDate} project=${task.projectId}")
     }
 
     override suspend fun update(task: Task) {
         taskDao.update(task.toEntity())
+        AppLog.d("TaskRepo", "update: \"${task.title}\" id=${task.id} due=${task.dueDate} start=${task.startDate} group=${task.scheduledGroup} priority=${task.priority} project=${task.projectId}")
     }
 
     override suspend fun setCompleted(id: String, completed: Boolean) {
         taskDao.setCompleted(id, completed, LocalDateTime.now().toString())
         val label = taskDao.getById(id)?.title ?: id
         log(if (completed) ActionType.TASK_COMPLETED else ActionType.TASK_UNCOMPLETED, id, label)
+        AppLog.d("TaskRepo", "${if (completed) "complete" else "uncomplete"}: \"$label\" id=$id")
     }
 
     override suspend fun setArchived(id: String, archived: Boolean) {
         taskDao.setArchived(id, archived, LocalDateTime.now().toString())
         val label = taskDao.getById(id)?.title ?: id
         log(if (archived) ActionType.TASK_ARCHIVED else ActionType.TASK_RESTORED, id, label)
+        AppLog.d("TaskRepo", "${if (archived) "archive" else "restore"}: \"$label\" id=$id")
     }
 
     override suspend fun completeRecurring(id: String) {
@@ -223,26 +228,33 @@ class TaskRepositoryImpl(
 
     override suspend fun setStarred(id: String, starred: Boolean) {
         taskDao.setStarred(id, starred, LocalDateTime.now().toString())
+        AppLog.d("TaskRepo", "${if (starred) "star" else "unstar"}: id=$id")
     }
 
     override suspend fun moveTask(id: String, projectId: String?, sectionId: String?) {
         taskDao.moveTask(id, projectId, sectionId, LocalDateTime.now().toString())
+        val label = taskDao.getById(id)?.title ?: id
+        log(ActionType.TASK_MOVED, id, label, extra = projectId ?: "inbox")
+        AppLog.d("TaskRepo", "move: \"$label\" id=$id → project=${projectId ?: "inbox"} section=$sectionId")
     }
 
     override suspend fun delete(id: String) {
         tombstone(id)
         taskDao.delete(id)
+        AppLog.d("TaskRepo", "hardDelete: id=$id")
     }
 
     override suspend fun deleteAll(ids: List<String>) {
         ids.forEach { tombstone(it) }
         taskDao.deleteAll(ids)
+        AppLog.d("TaskRepo", "hardDeleteAll: ${ids.size} tasks")
     }
 
     override suspend fun softDelete(id: String) {
         val label = taskDao.getById(id)?.title ?: id
         taskDao.softDelete(id, LocalDateTime.now().toString())
         log(ActionType.TASK_DELETED, id, label)
+        AppLog.d("TaskRepo", "softDelete: \"$label\" id=$id")
     }
 
     override fun observeTrash(): Flow<List<Task>> =
@@ -261,10 +273,12 @@ class TaskRepositoryImpl(
 
     override suspend fun addChecklistItem(item: ChecklistItem) {
         checklistDao.insert(item.toEntity())
+        AppLog.d("TaskRepo", "addChecklist: \"${item.title}\" taskId=${item.taskId}")
     }
 
     override suspend fun toggleChecklistItem(id: String, completed: Boolean) {
         checklistDao.setCompleted(id, completed)
+        AppLog.d("TaskRepo", "toggleChecklist: id=$id completed=$completed")
     }
 
     override suspend fun deleteChecklistItem(id: String) {

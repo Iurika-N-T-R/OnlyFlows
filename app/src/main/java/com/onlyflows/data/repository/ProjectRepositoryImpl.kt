@@ -1,5 +1,6 @@
 package com.onlyflows.data.repository
 
+import com.onlyflows.data.debug.AppLog
 import com.onlyflows.data.local.dao.FolderDao
 import com.onlyflows.data.local.dao.ProjectDao
 import com.onlyflows.data.local.dao.SectionDao
@@ -106,7 +107,6 @@ class ProjectRepositoryImpl(
     override suspend fun insert(project: Project) {
         projectDao.insert(project.toEntity())
         project.sections.forEach { sectionDao.insert(it.toEntity()) }
-        // Insert initial status log entry
         statusLogDao.insert(
             StatusLogEntity(
                 id        = "log_${project.id}_${System.currentTimeMillis()}",
@@ -115,6 +115,8 @@ class ProjectRepositoryImpl(
                 changedAt = LocalDateTime.now().toString(),
             )
         )
+        log(ActionType.PROJECT_CREATED, project.id, project.title)
+        AppLog.i("ProjectRepo", "Project created: ${project.title}")
     }
 
     override suspend fun update(project: Project) {
@@ -124,6 +126,8 @@ class ProjectRepositoryImpl(
     override suspend fun delete(id: String) {
         tombstone(id, "projects")
         projectDao.delete(id)
+        log(ActionType.PROJECT_DELETED, id, id)
+        AppLog.i("ProjectRepo", "Project deleted: $id")
     }
 
     override suspend fun archive(id: String) {
@@ -160,6 +164,7 @@ class ProjectRepositoryImpl(
 
     override suspend fun insertSection(section: Section) {
         sectionDao.insert(section.toEntity())
+        log(ActionType.SECTION_CREATED, section.id, section.title)
     }
 
     override suspend fun updateSection(section: Section) {
@@ -170,6 +175,7 @@ class ProjectRepositoryImpl(
         tombstone(sectionId, "sections")
         taskDao.clearSection(sectionId, java.time.LocalDateTime.now().toString())
         sectionDao.delete(sectionId)
+        log(ActionType.SECTION_DELETED, sectionId, sectionId)
     }
 
     override fun observeStatusLog(projectId: String): Flow<List<StatusLogEntry>> =

@@ -947,8 +947,7 @@ private fun FolderCreateSheet(
 private fun navigate(navController: NavController, route: String) {
     navController.navigate(route) {
         launchSingleTop = true
-        restoreState    = true
-        popUpTo(navController.graph.startDestinationId) { saveState = true }
+        popUpTo(navController.graph.startDestinationId) { inclusive = false }
     }
 }
 

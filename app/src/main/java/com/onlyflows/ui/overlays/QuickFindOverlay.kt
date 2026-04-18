@@ -19,9 +19,13 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.unit.max
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.onlyflows.domain.model.AgendaEvent
@@ -51,24 +55,46 @@ fun QuickFindPopup(
         focusRequester.requestFocus()
     }
 
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
+    // Read status-bar height directly from the View — avoids Xiaomi/HyperOS inset mis-reporting
+    val view = LocalView.current
+    val density = LocalDensity.current
+    val statusBarTopDp = remember(view) {
+        val px = ViewCompat.getRootWindowInsets(view)
+            ?.getInsets(WindowInsetsCompat.Type.statusBars())?.top ?: 0
+        with(density) { px.toDp() }
+    }
+    // Guarantee at least 24dp so the card never slides under the status bar
+    val topPaddingDp = max(statusBarTopDp, 24.dp)
+
+    // Scrim — fills the screen; tap outside the card to dismiss
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.45f))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication        = null,
+            ) { onDismiss() },
+    )
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(top = topPaddingDp, start = 16.dp, end = 16.dp, bottom = 12.dp),
+        contentAlignment = Alignment.TopCenter,
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp, vertical = 52.dp),
-            contentAlignment = Alignment.TopCenter,
+        Surface(
+            shape           = RoundedCornerShape(16.dp),
+            shadowElevation = 16.dp,
+            color           = MaterialTheme.colorScheme.surface,
+            modifier        = Modifier
+                .widthIn(max = 600.dp)
+                .fillMaxWidth()
+                .heightIn(max = 520.dp)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication        = null,
+                ) { /* consume — prevent scrim dismiss */ },
         ) {
-            Surface(
-                shape           = RoundedCornerShape(16.dp),
-                shadowElevation = 16.dp,
-                color           = MaterialTheme.colorScheme.surface,
-                modifier        = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 520.dp),
-            ) {
                 Column {
                     // ── Search field ──────────────────────────────────────────
                     Row(
@@ -271,7 +297,6 @@ fun QuickFindPopup(
             }
         }
     }
-}
 
 // ── Date shortcut row ─────────────────────────────────────────────────────────
 

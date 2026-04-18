@@ -26,6 +26,7 @@ import com.onlyflows.ui.screens.settings.LocationsSettingsScreen
 import com.onlyflows.ui.screens.settings.NotificationSettingsScreen
 import com.onlyflows.ui.screens.settings.SettingsScreen
 import com.onlyflows.ui.screens.settings.SyncSettingsScreen
+import com.onlyflows.ui.screens.logs.LogsScreen
 import com.onlyflows.ui.screens.task.TaskDetailScreen
 import com.onlyflows.ui.screens.today.TodayScreen
 import com.onlyflows.ui.screens.upcoming.UpcomingScreen
@@ -35,8 +36,19 @@ fun AppNavigation(
     navController: NavHostController,
     onOpenDrawer: () -> Unit = {},
     onSearchClick: () -> Unit = {},
+    isTablet: Boolean = false,
+    onTaskSelected: ((String) -> Unit)? = null,
+    onProjectSelected: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
+    fun navigateToTask(id: String) {
+        if (isTablet && onTaskSelected != null) onTaskSelected(id)
+        else navController.navigate(Screen.TaskDetail.createRoute(id))
+    }
+    fun navigateToProject(id: String) {
+        if (isTablet && onProjectSelected != null) onProjectSelected(id)
+        else navController.navigate(Screen.ProjectDetail.createRoute(id))
+    }
     NavHost(
         navController = navController,
         startDestination = Screen.Today.route,
@@ -44,7 +56,7 @@ fun AppNavigation(
     ) {
         composable(Screen.Today.route) {
             TodayScreen(
-                onTaskClick   = { taskId -> navController.navigate(Screen.TaskDetail.createRoute(taskId)) },
+                onTaskClick   = { navigateToTask(it) },
                 onSearchClick = onSearchClick,
                 onOpenDrawer  = onOpenDrawer,
             )
@@ -52,42 +64,42 @@ fun AppNavigation(
 
         composable(Screen.Upcoming.route) {
             UpcomingScreen(
-                onTaskClick  = { taskId -> navController.navigate(Screen.TaskDetail.createRoute(taskId)) },
+                onTaskClick  = { navigateToTask(it) },
                 onOpenDrawer = onOpenDrawer,
             )
         }
 
         composable(Screen.Inbox.route) {
             InboxScreen(
-                onTaskClick  = { taskId -> navController.navigate(Screen.TaskDetail.createRoute(taskId)) },
+                onTaskClick  = { navigateToTask(it) },
                 onOpenDrawer = onOpenDrawer,
             )
         }
 
         composable(Screen.Projects.route) {
             ProjectsScreen(
-                onProjectClick = { projectId -> navController.navigate(Screen.ProjectDetail.createRoute(projectId)) },
+                onProjectClick = { navigateToProject(it) },
                 onOpenDrawer   = onOpenDrawer,
             )
         }
 
         composable(Screen.Logbook.route) {
             LogbookScreen(
-                onProjectClick = { projectId -> navController.navigate(Screen.ProjectDetail.createRoute(projectId)) },
+                onProjectClick = { navigateToProject(it) },
                 onOpenDrawer   = onOpenDrawer,
             )
         }
 
         composable(Screen.Someday.route) {
             SomedayScreen(
-                onTaskClick  = { taskId -> navController.navigate(Screen.TaskDetail.createRoute(taskId)) },
+                onTaskClick  = { navigateToTask(it) },
                 onOpenDrawer = onOpenDrawer,
             )
         }
 
         composable(Screen.Anytime.route) {
             AnytimeScreen(
-                onTaskClick  = { taskId -> navController.navigate(Screen.TaskDetail.createRoute(taskId)) },
+                onTaskClick  = { navigateToTask(it) },
                 onOpenDrawer = onOpenDrawer,
             )
         }
@@ -103,8 +115,8 @@ fun AppNavigation(
             val projectId = backStack.arguments?.getString("projectId") ?: return@composable
             ProjectDetailScreen(
                 projectId   = projectId,
-                onTaskClick = { taskId -> navController.navigate(Screen.TaskDetail.createRoute(taskId)) },
-                onListClick = { listId -> navController.navigate(Screen.ProjectDetail.createRoute(listId)) },
+                onTaskClick = { navigateToTask(it) },
+                onListClick = { navigateToProject(it) },
                 onBack      = { navController.popBackStack() },
             )
         }
@@ -132,9 +144,9 @@ fun AppNavigation(
             val initialQuery = URLDecoder.decode(backStack.arguments?.getString("query") ?: "", "UTF-8")
             QuickFindScreen(
                 initialQuery   = initialQuery,
-                onTaskClick    = { taskId    -> navController.navigate(Screen.TaskDetail.createRoute(taskId)) },
-                onProjectClick = { projectId -> navController.navigate(Screen.ProjectDetail.createRoute(projectId)) },
-                onDateClick    = { date      -> navController.navigate(Screen.DateResults.createRoute(date.toString())) },
+                onTaskClick    = { navigateToTask(it) },
+                onProjectClick = { navigateToProject(it) },
+                onDateClick    = { date -> navController.navigate(Screen.DateResults.createRoute(date.toString())) },
                 onBack         = { navController.popBackStack() },
             )
         }
@@ -146,7 +158,7 @@ fun AppNavigation(
             val dateStr = backStack.arguments?.getString("date") ?: return@composable
             DateResultsScreen(
                 dateStr     = dateStr,
-                onTaskClick = { taskId -> navController.navigate(Screen.TaskDetail.createRoute(taskId)) },
+                onTaskClick = { navigateToTask(it) },
                 onBack      = { navController.popBackStack() },
             )
         }
@@ -163,7 +175,12 @@ fun AppNavigation(
                 onLocationsSettingsClick     = { navController.navigate(Screen.LocationsSettings.route) },
                 onStatisticsClick            = { navController.navigate(Screen.Statistics.route) },
                 onSyncSettingsClick          = { navController.navigate(Screen.SyncSettings.route) },
+                onLogsClick                  = { navController.navigate(Screen.Logs.route) },
             )
+        }
+
+        composable(Screen.Logs.route) {
+            LogsScreen(onBack = { navController.popBackStack() })
         }
 
         composable(Screen.Appearance.route) {
