@@ -28,6 +28,15 @@ import com.onlyflows.ui.theme.OnlyFlowsTheme
 
 class MainActivity : ComponentActivity() {
 
+    var keyShortcutHandler: ((android.view.KeyEvent) -> Boolean)? = null
+
+    override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+        if (event.action == android.view.KeyEvent.ACTION_DOWN &&
+            keyShortcutHandler?.invoke(event) == true
+        ) return true
+        return super.dispatchKeyEvent(event)
+    }
+
     private val requestNotificationPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* no-op */ }
 
