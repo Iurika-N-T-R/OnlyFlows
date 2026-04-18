@@ -1,14 +1,23 @@
 package com.onlyflows.ui.screens.goals
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.StarBorder
@@ -30,6 +39,7 @@ import com.onlyflows.domain.model.GoalLog
 import com.onlyflows.domain.model.GoalStatus
 import com.onlyflows.domain.model.computeStatus
 import com.onlyflows.ui.overlays.AddGoalLogSheet
+import com.onlyflows.ui.overlays.AddGoalSheet
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
@@ -41,6 +51,7 @@ import kotlin.math.roundToInt
 fun GoalDetailScreen(
     goalId: String,
     onBack: () -> Unit,
+    onDeleted: () -> Unit = {},
     viewModel: GoalDetailViewModel = viewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -52,6 +63,23 @@ fun GoalDetailScreen(
                 viewModel.onEvent(GoalDetailEvent.AddLog(label, note, tags))
             },
             onDismiss = { viewModel.onEvent(GoalDetailEvent.HideAddLog) },
+        )
+    }
+
+    if (state.showEditGoal) {
+        AddGoalSheet(
+            onConfirm = { title, frequency, target, color, emoji, deadline, tags ->
+                viewModel.onEvent(GoalDetailEvent.UpdateGoal(title, frequency, target, color, emoji, deadline, tags))
+            },
+            onDismiss = { viewModel.onEvent(GoalDetailEvent.HideEditGoal) },
+            initialTitle       = goal.title,
+            initialEmoji       = goal.emoji,
+            initialFrequency   = goal.frequency,
+            initialTargetCount = goal.targetCount,
+            initialColorHex    = goal.colorHex,
+            initialDeadline    = goal.deadline,
+            initialTags        = goal.tags,
+            confirmLabel       = "Save Changes",
         )
     }
 
@@ -67,8 +95,30 @@ fun GoalDetailScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = {}) {
-                        Icon(Icons.Outlined.MoreVert, contentDescription = "More")
+                    var showMenu by remember { mutableStateOf(false) }
+                    Box {
+                        IconButton(onClick = { showMenu = true }) {
+                            Icon(Icons.Outlined.MoreVert, contentDescription = "More")
+                        }
+                        DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                            DropdownMenuItem(
+                                text = { Text("Edit goal") },
+                                leadingIcon = { Icon(Icons.Outlined.Edit, null, modifier = Modifier.size(18.dp)) },
+                                onClick = {
+                                    showMenu = false
+                                    viewModel.onEvent(GoalDetailEvent.ShowEditGoal)
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Delete goal", color = MaterialTheme.colorScheme.error) },
+                                leadingIcon = { Icon(Icons.Outlined.Delete, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp)) },
+                                onClick = {
+                                    showMenu = false
+                                    viewModel.onEvent(GoalDetailEvent.DeleteGoal)
+                                    onDeleted()
+                                },
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
@@ -84,6 +134,17 @@ fun GoalDetailScreen(
         },
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
+
+        // Collect all unique tags from log entries for the filter bar
+        val logTags = remember(state.logs) {
+            state.logs.filter { it.deletedAt == null }.flatMap { it.tags }.distinct().sorted()
+        }
+        var selectedLogTag by remember { mutableStateOf<String?>(null) }
+        val filteredLogs = remember(state.logs, selectedLogTag) {
+            val active = state.logs.filter { it.deletedAt == null }
+            if (selectedLogTag == null) active else active.filter { selectedLogTag in it.tags }
+        }
+
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(padding),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
@@ -91,7 +152,7 @@ fun GoalDetailScreen(
         ) {
             item { GoalHeaderCard(goal = goal, accentColor = accentColor) }
 
-            // Tags
+            // Goal's own tags (category labels)
             if (goal.tags.isNotEmpty()) {
                 item {
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -118,13 +179,41 @@ fun GoalDetailScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text("Logged", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                        IconButton(onClick = {}) {
-                            Icon(Icons.Outlined.MoreVert, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Text("Logged", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = accentColor)
+                        Text(
+                            "${filteredLogs.size} entries",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+
+                // Tag filter chips for log entries
+                if (logTags.isNotEmpty()) {
+                    item(key = "log_tag_filter") {
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            contentPadding = PaddingValues(vertical = 2.dp),
+                        ) {
+                            item {
+                                FilterChip(
+                                    selected = selectedLogTag == null,
+                                    onClick  = { selectedLogTag = null },
+                                    label    = { Text("All") },
+                                )
+                            }
+                            items(logTags) { tag ->
+                                FilterChip(
+                                    selected = selectedLogTag == tag,
+                                    onClick  = { selectedLogTag = if (selectedLogTag == tag) null else tag },
+                                    label    = { Text(tag) },
+                                )
+                            }
                         }
                     }
                 }
-                items(state.logs, key = { it.id }) { log ->
+
+                items(filteredLogs, key = { it.id }) { log ->
                     GoalLogItem(
                         log = log,
                         onToggleStar = { viewModel.onEvent(GoalDetailEvent.ToggleStar(log.id, !log.isStarred)) },
@@ -283,53 +372,107 @@ private fun StatCard(
 
 @Composable
 private fun GoalSparkline(logs: List<GoalLog>, accentColor: Color) {
-    // Count logs per month for a simple bar sparkline
-    val monthlyCounts = logs
-        .filter { it.deletedAt == null }
-        .groupBy { it.loggedAt.month.getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.getDefault()) }
+    val year = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
+
+    // Build cumulative count per month (Jan=1..Dec=12) for this year
+    val monthLabels = listOf("JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC")
+    val currentMonth = LocalDate.now().monthValue
+
+    val countByMonth = logs
+        .filter { it.deletedAt == null && it.loggedAt.year == year }
+        .groupBy { it.loggedAt.monthValue }
         .mapValues { it.value.size }
 
-    val maxVal = monthlyCounts.values.maxOrNull()?.toFloat() ?: 1f
+    val months = (1..currentMonth).toList()
+    val points = months.map { m -> countByMonth[m] ?: 0 }
+    val maxVal = points.maxOrNull()?.toFloat()?.coerceAtLeast(1f) ?: 1f
+
+    val lineColor = accentColor
+    val trackColor = accentColor.copy(alpha = 0.15f)
+    val dotColor = accentColor
+    val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
 
     Surface(
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape    = RoundedCornerShape(12.dp),
+        color    = MaterialTheme.colorScheme.surfaceVariant,
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier              = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
+                verticalAlignment     = Alignment.CenterVertically,
             ) {
                 Text("Entries per month", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
-                Text(
-                    java.util.Calendar.getInstance().get(java.util.Calendar.YEAR).toString(),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Text(year.toString(), style = MaterialTheme.typography.labelSmall, color = labelColor)
             }
-            Row(
-                modifier = Modifier.fillMaxWidth().height(48.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.Bottom,
-            ) {
-                monthlyCounts.entries.take(6).forEach { (month, count) ->
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Bottom,
-                        modifier = Modifier.weight(1f).fillMaxHeight(),
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth(0.7f)
-                                .fillMaxHeight(count / maxVal)
-                                .clip(RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp))
-                                .background(accentColor),
-                        )
-                        Text(month.take(3), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp)
+
+            if (points.size >= 2) {
+                Canvas(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(64.dp),
+                ) {
+                    val w = size.width
+                    val h = size.height
+                    val padTop = 8f
+                    val padBottom = 16f
+                    val chartH = h - padTop - padBottom
+                    val stepX = if (points.size > 1) w / (points.size - 1).toFloat() else w
+
+                    fun xOf(i: Int) = i * stepX
+                    fun yOf(v: Int) = padTop + chartH * (1f - v / maxVal)
+
+                    // Filled area under curve
+                    val fillPath = Path().apply {
+                        moveTo(xOf(0), yOf(points[0]))
+                        for (i in 1 until points.size) {
+                            val cx = (xOf(i - 1) + xOf(i)) / 2f
+                            cubicTo(cx, yOf(points[i - 1]), cx, yOf(points[i]), xOf(i), yOf(points[i]))
+                        }
+                        lineTo(xOf(points.lastIndex), h)
+                        lineTo(0f, h)
+                        close()
+                    }
+                    drawPath(fillPath, color = trackColor)
+
+                    // Line
+                    val linePath = Path().apply {
+                        moveTo(xOf(0), yOf(points[0]))
+                        for (i in 1 until points.size) {
+                            val cx = (xOf(i - 1) + xOf(i)) / 2f
+                            cubicTo(cx, yOf(points[i - 1]), cx, yOf(points[i]), xOf(i), yOf(points[i]))
+                        }
+                    }
+                    drawPath(linePath, color = lineColor, style = Stroke(width = 2.5f, cap = StrokeCap.Round, join = StrokeJoin.Round))
+
+                    // Dots on each point
+                    for (i in points.indices) {
+                        drawCircle(color = dotColor, radius = 4f, center = Offset(xOf(i), yOf(points[i])))
+                        drawCircle(color = androidx.compose.ui.graphics.Color.White, radius = 2f, center = Offset(xOf(i), yOf(points[i])))
                     }
                 }
+
+                // Month labels
+                Row(
+                    modifier              = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    months.forEach { m ->
+                        Text(
+                            monthLabels[m - 1],
+                            style    = MaterialTheme.typography.labelSmall,
+                            color    = labelColor,
+                            fontSize = 9.sp,
+                        )
+                    }
+                }
+            } else {
+                Text(
+                    "Log your first entry to see progress here.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = labelColor,
+                )
             }
         }
     }

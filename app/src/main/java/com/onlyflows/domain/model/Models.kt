@@ -90,6 +90,7 @@ data class Task(
     val hasAttachments: Boolean = false,
     val isStarred: Boolean = false,
     val tagIds: List<String> = emptyList(),
+    val goalIds: List<String> = emptyList(),
     val priority: TaskPriority = TaskPriority.NONE,
     val startDate: LocalDate? = null,
     @IgnoredOnParcel val recurrence: RecurrenceRule? = null,

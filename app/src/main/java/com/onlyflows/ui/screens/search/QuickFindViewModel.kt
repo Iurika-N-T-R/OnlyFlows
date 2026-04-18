@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.onlyflows.OnlyFlowsApp
 import com.onlyflows.domain.model.AgendaEvent
+import com.onlyflows.domain.model.Goal
 import com.onlyflows.domain.model.Project
 import com.onlyflows.domain.model.Tag
 import com.onlyflows.domain.model.Task
@@ -34,11 +35,13 @@ data class QuickFindUiState(
     val taskResults: List<Task> = emptyList(),
     val projectResults: List<Project> = emptyList(),
     val tagResults: List<Tag> = emptyList(),
+    val goalResults: List<Goal> = emptyList(),
     val dateResults: List<Task> = emptyList(),
     val eventResults: List<AgendaEvent> = emptyList(),
     val hasMoreTasks: Boolean = false,
     val hasMoreProjects: Boolean = false,
     val hasMoreTags: Boolean = false,
+    val hasMoreGoals: Boolean = false,
     val parsedDate: LocalDate? = null,
     val dateQuery: DateQuery? = null,
 )
@@ -49,6 +52,7 @@ class QuickFindViewModel(app: Application) : AndroidViewModel(app) {
     private val taskRepo       = container.taskRepository
     private val projectRepo    = container.projectRepository
     private val tagRepo        = container.tagRepository
+    private val goalRepo       = container.goalRepository
     private val calendarRepo   = container.calendarRepository
     private val calendarPrefs  = container.calendarPreferences
 
@@ -98,18 +102,26 @@ class QuickFindViewModel(app: Application) : AndroidViewModel(app) {
                             tagRepo.observeAll().map { list ->
                                 list.filter { it.name.contains(q, ignoreCase = true) }
                             },
+                            goalRepo.observeActive().map { list ->
+                                list.filter { g ->
+                                    g.title.contains(q, ignoreCase = true) ||
+                                    g.tags.any { t -> t.contains(q, ignoreCase = true) }
+                                }
+                            },
                             dateFlow,
-                        ) { allTasks, allProjects, allTags, dateTasks ->
+                        ) { allTasks, allProjects, allTags, allGoals, dateTasks ->
                             QuickFindUiState(
                                 query           = q,
                                 taskResults     = allTasks.take(POPUP_MAX),
                                 projectResults  = allProjects.take(POPUP_MAX),
                                 tagResults      = allTags.take(POPUP_MAX),
+                                goalResults     = allGoals.take(POPUP_MAX),
                                 dateResults     = dateTasks.take(POPUP_MAX),
                                 eventResults    = (events + titleEvents).take(POPUP_MAX),
                                 hasMoreTasks    = allTasks.size > POPUP_MAX,
                                 hasMoreProjects = allProjects.size > POPUP_MAX,
                                 hasMoreTags     = allTags.size > POPUP_MAX,
+                                hasMoreGoals    = allGoals.size > POPUP_MAX,
                                 parsedDate      = singleDate,
                                 dateQuery       = dq,
                             )

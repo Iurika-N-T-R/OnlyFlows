@@ -44,14 +44,20 @@ fun AddGoalSheet(
     onDismiss: () -> Unit,
     initialEmoji: String = "🎯",
     initialTitle: String = "",
+    initialFrequency: GoalFrequency = GoalFrequency.ONCE,
+    initialTargetCount: Int = 1,
+    initialColorHex: String = goalColors.first(),
+    initialDeadline: LocalDate? = null,
+    initialTags: List<String> = emptyList(),
+    confirmLabel: String = "Add Goal",
 ) {
     var title       by remember { mutableStateOf(initialTitle) }
-    var frequency   by remember { mutableStateOf(GoalFrequency.ONCE) }
-    var targetCount by remember { mutableIntStateOf(1) }
-    var colorHex    by remember { mutableStateOf(goalColors.first()) }
+    var frequency   by remember { mutableStateOf(initialFrequency) }
+    var targetCount by remember { mutableIntStateOf(initialTargetCount) }
+    var colorHex    by remember { mutableStateOf(initialColorHex) }
     var emoji       by remember { mutableStateOf(initialEmoji) }
-    var tagsText    by remember { mutableStateOf("") }
-    var deadline    by remember { mutableStateOf<LocalDate?>(null) }
+    var tagsText    by remember { mutableStateOf(initialTags.joinToString(", ")) }
+    var deadline    by remember { mutableStateOf<LocalDate?>(initialDeadline) }
     var showDatePicker by remember { mutableStateOf(false) }
 
     if (showDatePicker) {
@@ -86,7 +92,7 @@ fun AddGoalSheet(
                 .padding(bottom = 40.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Text("New Goal", style = MaterialTheme.typography.titleLarge)
+            Text(if (confirmLabel == "Add Goal") "New Goal" else "Edit Goal", style = MaterialTheme.typography.titleLarge)
 
             // Emoji picker
             Text("Icon", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -185,7 +191,7 @@ fun AddGoalSheet(
                 enabled  = title.isNotBlank(),
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text("Add Goal")
+                Text(confirmLabel)
             }
         }
     }

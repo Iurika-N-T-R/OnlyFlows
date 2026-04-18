@@ -22,6 +22,7 @@ data class GoalDetailUiState(
     val logs: List<GoalLog> = emptyList(),
     val commentDraft: String = "",
     val showAddLog: Boolean = false,
+    val showEditGoal: Boolean = false,
 )
 
 sealed interface GoalDetailEvent {
@@ -31,6 +32,18 @@ sealed interface GoalDetailEvent {
     data class AddLog(val label: String, val note: String, val tags: List<String>) : GoalDetailEvent
     data class DeleteLog(val logId: String) : GoalDetailEvent
     data class ToggleStar(val logId: String, val starred: Boolean) : GoalDetailEvent
+    data object ShowEditGoal : GoalDetailEvent
+    data object HideEditGoal : GoalDetailEvent
+    data class UpdateGoal(
+        val title: String,
+        val frequency: com.onlyflows.domain.model.GoalFrequency,
+        val targetCount: Int,
+        val colorHex: String,
+        val emoji: String,
+        val deadline: java.time.LocalDate?,
+        val tags: List<String>,
+    ) : GoalDetailEvent
+    data object DeleteGoal : GoalDetailEvent
 }
 
 class GoalDetailViewModel(
@@ -45,13 +58,16 @@ class GoalDetailViewModel(
     private val _commentDraft = MutableStateFlow("")
     private val _showAddLog = MutableStateFlow(false)
 
+    private val _showEditGoal = MutableStateFlow(false)
+
     val uiState: StateFlow<GoalDetailUiState> = combine(
         goalRepo.observeById(goalId),
         logRepo.observeByGoal(goalId),
         _commentDraft,
         _showAddLog,
-    ) { goal, logs, draft, showAdd ->
-        GoalDetailUiState(goal = goal, logs = logs, commentDraft = draft, showAddLog = showAdd)
+        _showEditGoal,
+    ) { goal, logs, draft, showAdd, showEdit ->
+        GoalDetailUiState(goal = goal, logs = logs, commentDraft = draft, showAddLog = showAdd, showEditGoal = showEdit)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), GoalDetailUiState())
 
     fun onEvent(event: GoalDetailEvent) {
@@ -75,6 +91,27 @@ class GoalDetailViewModel(
             }
             is GoalDetailEvent.DeleteLog -> viewModelScope.launch { logRepo.softDelete(event.logId) }
             is GoalDetailEvent.ToggleStar -> viewModelScope.launch { logRepo.setStarred(event.logId, event.starred) }
+            GoalDetailEvent.ShowEditGoal -> _showEditGoal.value = true
+            GoalDetailEvent.HideEditGoal -> _showEditGoal.value = false
+            is GoalDetailEvent.UpdateGoal -> viewModelScope.launch {
+                val current = uiState.value.goal ?: return@launch
+                goalRepo.update(
+                    current.copy(
+                        title       = event.title,
+                        frequency   = event.frequency,
+                        targetCount = event.targetCount,
+                        colorHex    = event.colorHex,
+                        emoji       = event.emoji,
+                        deadline    = event.deadline,
+                        tags        = event.tags,
+                        updatedAt   = java.time.LocalDateTime.now(),
+                    )
+                )
+                _showEditGoal.value = false
+            }
+            GoalDetailEvent.DeleteGoal -> viewModelScope.launch {
+                goalRepo.softDelete(goalId)
+            }
         }
     }
 }

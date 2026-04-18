@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.onlyflows.OnlyFlowsApp
 import com.onlyflows.data.debug.AppLog
 import com.onlyflows.domain.model.ChecklistItem
+import com.onlyflows.domain.model.Goal
 import com.onlyflows.domain.model.Project
 import com.onlyflows.domain.model.RecurrenceRule
 import com.onlyflows.domain.model.Tag
@@ -18,6 +19,7 @@ import com.onlyflows.domain.model.Reminder
 import com.onlyflows.domain.model.TimeEntry
 import com.onlyflows.domain.repository.AttachmentRepository
 import com.onlyflows.domain.repository.CommentRepository
+import com.onlyflows.domain.repository.GoalRepository
 import com.onlyflows.domain.repository.ProjectRepository
 import com.onlyflows.domain.repository.ReminderRepository
 import com.onlyflows.domain.repository.TagRepository
@@ -70,6 +72,9 @@ data class TaskDetailUiState(
     val attachments: List<Attachment>         = emptyList(),
     val showSmartMove: Boolean                = false,
     val projects: List<Project>               = emptyList(),
+    val showGoalPicker: Boolean               = false,
+    val showAddGoal: Boolean                  = false,
+    val allGoals: List<Goal>                  = emptyList(),
 )
 
 sealed interface TaskDetailEvent {
@@ -135,6 +140,20 @@ sealed interface TaskDetailEvent {
         val fileSize: Long,
     ) : TaskDetailEvent
     data class DeleteAttachment(val id: String)                                 : TaskDetailEvent
+    data object ShowGoalPicker                                                  : TaskDetailEvent
+    data object HideGoalPicker                                                  : TaskDetailEvent
+    data class SetGoals(val goalIds: List<String>)                              : TaskDetailEvent
+    data object ShowAddGoal                                                     : TaskDetailEvent
+    data object HideAddGoal                                                     : TaskDetailEvent
+    data class CreateAndAttachGoal(
+        val title: String,
+        val frequency: com.onlyflows.domain.model.GoalFrequency,
+        val targetCount: Int,
+        val colorHex: String,
+        val emoji: String,
+        val deadline: java.time.LocalDate?,
+        val tags: List<String>,
+    ) : TaskDetailEvent
 }
 
 class TaskDetailViewModel(app: Application) : AndroidViewModel(app) {
@@ -150,6 +169,7 @@ class TaskDetailViewModel(app: Application) : AndroidViewModel(app) {
     private val attachmentRepo: AttachmentRepository                  = container.attachmentRepository
     private val locationRepo                                          = container.savedLocationRepository
     private val geofenceManager                                       = container.geofenceManager
+    private val goalRepo: GoalRepository                              = container.goalRepository
 
     private val _uiState    = MutableStateFlow(TaskDetailUiState())
     val uiState: StateFlow<TaskDetailUiState> = _uiState.asStateFlow()
@@ -221,9 +241,13 @@ class TaskDetailViewModel(app: Application) : AndroidViewModel(app) {
             .collect { newState ->
                 _uiState.update { current ->
                     newState.copy(
-                        comments    = current.comments,
-                        reminders   = current.reminders,
-                        attachments = current.attachments,
+                        comments       = current.comments,
+                        reminders      = current.reminders,
+                        attachments    = current.attachments,
+                        allGoals       = current.allGoals,
+                        projects       = current.projects,
+                        showGoalPicker = current.showGoalPicker,
+                        showAddGoal    = current.showAddGoal,
                     )
                 }
             }
@@ -258,6 +282,14 @@ class TaskDetailViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             projectRepo.observeAll().collect { projects ->
                 _uiState.update { it.copy(projects = projects) }
+            }
+        }
+    }
+
+    fun loadGoals() {
+        viewModelScope.launch {
+            goalRepo.observeActive().collect { goals ->
+                _uiState.update { it.copy(allGoals = goals) }
             }
         }
     }
@@ -351,16 +383,28 @@ class TaskDetailViewModel(app: Application) : AndroidViewModel(app) {
                 taskRepo.setStarred(task.id, !task.isStarred)
             }
             TaskDetailEvent.ToggleComplete -> viewModelScope.launch {
-                AppLog.d("TaskDetailVM", "toggleComplete: \"${task.title}\" ${task.isCompleted} → ${!task.isCompleted} recurrence=${task.recurrence != null}")
-                if (!task.isCompleted) {
+                val completing = !task.isCompleted
+                AppLog.d("TaskDetailVM", "toggleComplete: \"${task.title}\" ${task.isCompleted} → $completing recurrence=${task.recurrence != null}")
+                if (completing) {
                     scheduler.cancel(task.id)
                     reminderRepo.deleteByTask(task.id)
                     taskRepo.update(task.copy(hasReminders = false, updatedAt = LocalDateTime.now()))
                 }
-                if (!task.isCompleted && task.recurrence != null) {
+                if (completing && task.recurrence != null) {
                     taskRepo.completeRecurring(task.id)
                 } else {
-                    taskRepo.setCompleted(task.id, !task.isCompleted)
+                    taskRepo.setCompleted(task.id, completing)
+                }
+                // Auto-update linked goal progress
+                task.goalIds.forEach { goalId ->
+                    val goal = _uiState.value.allGoals.find { it.id == goalId } ?: return@forEach
+                    val next = if (completing)
+                        (goal.currentCount + 1).coerceAtMost(goal.targetCount)
+                    else
+                        (goal.currentCount - 1).coerceAtLeast(0)
+                    goalRepo.setProgress(goalId, next)
+                    if (next >= goal.targetCount) goalRepo.setCompleted(goalId, true)
+                    else if (!completing) goalRepo.setCompleted(goalId, false)
                 }
             }
             TaskDetailEvent.Delete -> viewModelScope.launch {
@@ -534,6 +578,32 @@ class TaskDetailViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 taskRepo.delete(task.id)
                 _uiState.update { it.copy(convertedProjectId = newProject.id) }
+            }
+            TaskDetailEvent.ShowGoalPicker -> _uiState.update { it.copy(showGoalPicker = true) }
+            TaskDetailEvent.HideGoalPicker -> _uiState.update { it.copy(showGoalPicker = false) }
+            is TaskDetailEvent.SetGoals -> viewModelScope.launch {
+                taskRepo.setGoals(task.id, event.goalIds)
+                _uiState.update { it.copy(showGoalPicker = false) }
+            }
+            TaskDetailEvent.ShowAddGoal -> _uiState.update { it.copy(showGoalPicker = false, showAddGoal = true) }
+            TaskDetailEvent.HideAddGoal -> _uiState.update { it.copy(showAddGoal = false, showGoalPicker = true) }
+            is TaskDetailEvent.CreateAndAttachGoal -> viewModelScope.launch {
+                val newGoalId = UUID.randomUUID().toString()
+                goalRepo.insert(
+                    Goal(
+                        id          = newGoalId,
+                        title       = event.title,
+                        frequency   = event.frequency,
+                        targetCount = event.targetCount,
+                        colorHex    = event.colorHex,
+                        emoji       = event.emoji,
+                        deadline    = event.deadline,
+                        tags        = event.tags,
+                    )
+                )
+                val newIds = task.goalIds + newGoalId
+                taskRepo.setGoals(task.id, newIds)
+                _uiState.update { it.copy(showAddGoal = false) }
             }
         }
     }

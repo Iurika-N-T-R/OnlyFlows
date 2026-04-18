@@ -123,8 +123,9 @@ fun AppNavigation(
         ) {
             val goalId = it.arguments!!.getString("goalId")!!
             GoalDetailScreen(
-                goalId = goalId,
-                onBack = { navController.popBackStack() },
+                goalId    = goalId,
+                onBack    = { navController.popBackStack() },
+                onDeleted = { navController.popBackStack() },
             )
         }
 
@@ -166,6 +167,7 @@ fun AppNavigation(
                 initialQuery   = initialQuery,
                 onTaskClick    = { navigateToTask(it) },
                 onProjectClick = { navigateToProject(it) },
+                onGoalClick    = { navController.navigate(Screen.GoalDetail.createRoute(it)) },
                 onDateClick    = { date -> navController.navigate(Screen.DateResults.createRoute(date.toString())) },
                 onBack         = { navController.popBackStack() },
             )

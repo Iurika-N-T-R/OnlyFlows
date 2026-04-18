@@ -49,6 +49,9 @@ interface TaskDao {
     @Query("UPDATE tasks SET dependsOnTaskId = :dependsOnId, updatedAt = :now WHERE id = :id")
     suspend fun setDependsOn(id: String, dependsOnId: String?, now: String)
 
+    @Query("UPDATE tasks SET goalIds = :goalIds, updatedAt = :now WHERE id = :id")
+    suspend fun setGoals(id: String, goalIds: String, now: String)
+
     // Anytime = explicitly moved there (any task) OR project tasks with priority and no due date (auto)
     @Query("""
         SELECT * FROM tasks

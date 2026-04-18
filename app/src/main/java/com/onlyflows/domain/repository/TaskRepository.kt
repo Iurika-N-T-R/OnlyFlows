@@ -25,6 +25,7 @@ interface TaskRepository {
     fun observeSomeday(): Flow<List<Task>>
     fun observeDependents(taskId: String): Flow<List<Task>>
     suspend fun setDependsOn(id: String, dependsOnId: String?)
+    suspend fun setGoals(id: String, goalIds: List<String>)
     suspend fun setScheduledGroup(id: String, group: TaskGroup?)
     fun search(query: String): Flow<List<Task>>
     fun searchByDate(date: LocalDate): Flow<List<Task>>

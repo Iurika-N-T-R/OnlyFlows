@@ -25,6 +25,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.foundation.background
 import com.onlyflows.domain.model.AgendaEvent
 import com.onlyflows.domain.model.TaskPriority
 import com.onlyflows.ui.screens.search.DateQuery
@@ -39,6 +40,7 @@ fun QuickFindScreen(
     initialQuery: String = "",
     onTaskClick: (String) -> Unit    = {},
     onProjectClick: (String) -> Unit = {},
+    onGoalClick: (String) -> Unit    = {},
     onDateClick: (LocalDate) -> Unit = {},
     onBack: () -> Unit               = {},
     viewModel: QuickFindViewModel    = viewModel(),
@@ -104,7 +106,7 @@ fun QuickFindScreen(
                     .padding(padding),
             ) {
                 Text(
-                    "Search for tasks, projects, or tags",
+                    "Search for tasks, projects, goals, or tags",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -353,6 +355,69 @@ fun QuickFindScreen(
                     }
                 }
 
+                // ── Goals ─────────────────────────────────────────────────────
+                if (state.goalResults.isNotEmpty()) {
+                    item(key = "goal_header") {
+                        Text(
+                            "Goals",
+                            style    = MaterialTheme.typography.labelMedium,
+                            color    = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                        )
+                    }
+                    items(state.goalResults, key = { "goal_${it.id}" }) { goal ->
+                        val goalColor = remember(goal.colorHex) {
+                            runCatching { Color(android.graphics.Color.parseColor(goal.colorHex)) }
+                                .getOrDefault(Color(0xFF4A90D9))
+                        }
+                        val pct = if (goal.targetCount > 0)
+                            (goal.currentCount.toFloat() / goal.targetCount * 100).toInt() else 0
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onGoalClick(goal.id) }
+                                .padding(horizontal = 20.dp, vertical = 10.dp),
+                        ) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(goalColor.copy(alpha = 0.18f)),
+                            ) {
+                                Text(goal.emoji, style = MaterialTheme.typography.bodyMedium)
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text     = goal.title,
+                                    style    = MaterialTheme.typography.bodyMedium,
+                                    color    = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Text(
+                                    text  = "${goal.currentCount}/${goal.targetCount} · $pct%",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            Icon(
+                                Icons.Outlined.ChevronRight,
+                                contentDescription = null,
+                                tint     = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(16.dp),
+                            )
+                        }
+                        HorizontalDivider(
+                            modifier  = Modifier.padding(start = 64.dp),
+                            color     = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                            thickness = 0.5.dp,
+                        )
+                    }
+                }
+
                 // ── Tasks ─────────────────────────────────────────────────────
                 if (state.taskResults.isNotEmpty()) {
                     item(key = "task_header") {
@@ -444,7 +509,7 @@ fun QuickFindScreen(
                 }
 
                 // ── No results ────────────────────────────────────────────────
-                if (state.taskResults.isEmpty() && state.projectResults.isEmpty() && state.dateQuery == null && state.eventResults.isEmpty()) {
+                if (state.taskResults.isEmpty() && state.projectResults.isEmpty() && state.goalResults.isEmpty() && state.dateQuery == null && state.eventResults.isEmpty()) {
                     item(key = "no_results") {
                         Box(
                             contentAlignment = Alignment.Center,

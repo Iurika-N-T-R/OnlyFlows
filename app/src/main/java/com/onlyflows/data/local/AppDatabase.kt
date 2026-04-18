@@ -50,7 +50,7 @@ import kotlinx.coroutines.launch
         GoalEntity::class,
         GoalLogEntity::class,
     ],
-    version = 26,
+    version = 27,
     exportSchema = false,
 )
 @TypeConverters(Converters::class)

@@ -47,15 +47,19 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.foundation.BorderStroke
 import com.onlyflows.domain.model.Attachment
 import com.onlyflows.domain.model.ChecklistItem
+import com.onlyflows.domain.model.Goal
 import com.onlyflows.domain.model.RecurrenceBasis
 import com.onlyflows.domain.model.RecurrenceRule
 import com.onlyflows.domain.model.RecurrenceType
 import com.onlyflows.domain.model.Tag
 import com.onlyflows.domain.model.TaskGroup
+import kotlin.math.roundToInt
 import com.onlyflows.ui.components.TagChip
 import com.onlyflows.ui.overlays.DatePickerModal
+import com.onlyflows.ui.overlays.GoalPickerSheet
 import com.onlyflows.ui.overlays.SmartMoveSheet
 import com.onlyflows.ui.overlays.TagsPickerModal
 import com.onlyflows.ui.theme.*
@@ -85,6 +89,7 @@ fun TaskDetailScreen(
         viewModel.loadReminders(taskId)
         viewModel.loadAttachments(taskId)
         viewModel.loadProjects()
+        viewModel.loadGoals()
     }
 
     val state       by viewModel.uiState.collectAsStateWithLifecycle()
@@ -243,12 +248,12 @@ fun TaskDetailScreen(
                             tint = flagTint,
                         )
                     }
-                    // Tags
-                    IconButton(onClick = { viewModel.onEvent(TaskDetailEvent.ShowTagsPicker) }) {
+                    // Goal
+                    IconButton(onClick = { viewModel.onEvent(TaskDetailEvent.ShowGoalPicker) }) {
                         Icon(
-                            Icons.Outlined.Label,
-                            contentDescription = "Tags",
-                            tint = if (task.tagIds.isNotEmpty()) MaterialTheme.colorScheme.primary
+                            Icons.Outlined.TrackChanges,
+                            contentDescription = "Goal",
+                            tint = if (task.goalIds.isNotEmpty()) MaterialTheme.colorScheme.primary
                                    else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
@@ -291,18 +296,18 @@ fun TaskDetailScreen(
                 }
             }
         },
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.surfaceVariant,
     ) { padding ->
 
         LazyColumn(
             contentPadding = PaddingValues(
-                top    = padding.calculateTopPadding(),
-                bottom = padding.calculateBottomPadding() + 16.dp,
+                top    = padding.calculateTopPadding() + 4.dp,
+                bottom = padding.calculateBottomPadding() + 24.dp,
             ),
             modifier = Modifier.fillMaxSize(),
         ) {
 
-            // ── Checkbox + Title ─────────────────────────────────────────────
+            // ── Checkbox + Title (no card) ────────────────────────────────────
             item(key = "title") {
                 Row(
                     verticalAlignment = Alignment.Top,
@@ -322,7 +327,7 @@ fun TaskDetailScreen(
                                 if (task.isCompleted)
                                     Modifier.background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f))
                                 else
-                                    Modifier.border(1.5.dp, MaterialTheme.colorScheme.outlineVariant, shape)
+                                    Modifier.border(1.5.dp, MaterialTheme.colorScheme.outline, shape)
                             )
                             .clickable { viewModel.onEvent(TaskDetailEvent.ToggleComplete) },
                     ) {
@@ -360,8 +365,9 @@ fun TaskDetailScreen(
                 }
             }
 
-            // ── Note ─────────────────────────────────────────────────────────
-            item(key = "note") {
+            // ── Notes + Checklist card ───────────────────────────────────────
+            item(key = "notes_card") {
+                SectionCard {
                 var noteText      by remember(task.id) { mutableStateOf(task.note) }
                 var isEditMode    by remember(task.id) { mutableStateOf(false) }
                 val noteFocus     = remember { FocusRequester() }
@@ -369,7 +375,7 @@ fun TaskDetailScreen(
                 val hasUrls       = remember(noteText) { URL_REGEX.containsMatchIn(noteText) }
                 val noteModifier  = Modifier
                     .fillMaxWidth()
-                    .padding(start = 58.dp, end = 20.dp, bottom = 16.dp)
+                    .padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 12.dp)
 
                 if (isEditMode) {
                     LaunchedEffect(Unit) { noteFocus.requestFocus() }
@@ -428,60 +434,33 @@ fun TaskDetailScreen(
                         }
                     }
                 }
-            }
 
-            // ── Checklist ─────────────────────────────────────────────────────
-            if (task.checklistItems.isNotEmpty()) {
-                item(key = "checklist_divider") {
-                    HorizontalDivider(
-                        modifier  = Modifier.padding(horizontal = 20.dp),
-                        color     = MaterialTheme.colorScheme.outlineVariant,
-                        thickness = 0.5.dp,
-                    )
+                // Checklist inside the notes card
+                if (task.checklistItems.isNotEmpty()) {
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+                    task.checklistItems.forEach { item ->
+                        ChecklistDetailRow(
+                            item        = item,
+                            onToggle    = { viewModel.onEvent(TaskDetailEvent.ToggleChecklistItem(item.id, item.isCompleted)) },
+                            onDateClick = { viewModel.onEvent(TaskDetailEvent.ShowChecklistDatePicker(item.id)) },
+                        )
+                        HorizontalDivider(modifier = Modifier.padding(start = 54.dp, end = 16.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+                    }
                 }
-                items(task.checklistItems, key = { it.id }) { item ->
-                    ChecklistDetailRow(
-                        item        = item,
-                        onToggle    = {
-                            viewModel.onEvent(TaskDetailEvent.ToggleChecklistItem(item.id, item.isCompleted))
-                        },
-                        onDateClick = {
-                            viewModel.onEvent(TaskDetailEvent.ShowChecklistDatePicker(item.id))
-                        },
-                    )
-                    HorizontalDivider(
-                        modifier  = Modifier.padding(start = 54.dp, end = 20.dp),
-                        color     = MaterialTheme.colorScheme.outlineVariant,
-                        thickness = 0.5.dp,
-                    )
-                }
-            }
 
-            // ── Add checklist item ────────────────────────────────────────────
-            item(key = "add_checklist") {
+                // New item row
                 var newItem by remember { mutableStateOf("") }
-                val focusRequester = remember { FocusRequester() }
-
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 10.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(18.dp)
-                            .clip(CircleShape)
-                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), CircleShape),
-                    )
+                    Box(modifier = Modifier.size(18.dp).clip(CircleShape).border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), CircleShape))
                     Spacer(Modifier.width(14.dp))
                     BasicTextField(
-                        value = newItem,
+                        value         = newItem,
                         onValueChange = { newItem = it },
-                        textStyle = MaterialTheme.typography.bodyMedium.copy(
-                            color = MaterialTheme.colorScheme.onSurface,
-                        ),
-                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                        textStyle     = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
+                        cursorBrush   = SolidColor(MaterialTheme.colorScheme.primary),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                         keyboardActions = KeyboardActions(onDone = {
                             if (newItem.isNotBlank()) {
@@ -490,316 +469,174 @@ fun TaskDetailScreen(
                             }
                         }),
                         decorationBox = { inner ->
-                            if (newItem.isEmpty()) {
-                                Text(
-                                    "New item",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
-                                )
-                            }
+                            if (newItem.isEmpty()) Text("New item", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f))
                             inner()
                         },
                         singleLine = true,
-                        modifier = Modifier.weight(1f).focusRequester(focusRequester),
+                        modifier   = Modifier.weight(1f),
+                    )
+                }
+                } // end SectionCard notes
+            }
+
+            // ── Goal card ─────────────────────────────────────────────────────
+            item(key = "goal_card") {
+                SectionCard {
+                    val goalValue = when {
+                        task.goalIds.isEmpty() -> null
+                        task.goalIds.size == 1 -> state.allGoals.find { it.id == task.goalIds[0] }?.let { "${it.emoji} ${it.title}" }
+                        else -> "${task.goalIds.size} goals"
+                    }
+                    MetaRow(
+                        icon    = Icons.Outlined.TrackChanges,
+                        label   = "Goal",
+                        value   = goalValue,
+                        onClick = { viewModel.onEvent(TaskDetailEvent.ShowGoalPicker) },
+                    )
+                    val linkedGoals = state.allGoals.filter { it.id in task.goalIds }
+                    if (linkedGoals.isNotEmpty()) {
+                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+                        linkedGoals.forEach { goal -> GoalPreviewCard(goal = goal) }
+                    }
+                }
+            }
+
+            // ── Time Tracking card ────────────────────────────────────────────
+            item(key = "time_card") {
+                SectionCard {
+                    TimerRow(
+                        timerState = timerState,
+                        onStart    = { viewModel.onEvent(TaskDetailEvent.StartTimer) },
+                        onPause    = { viewModel.onEvent(TaskDetailEvent.PauseTimer) },
+                        onStop     = { viewModel.onEvent(TaskDetailEvent.StopTimer) },
                     )
                 }
             }
 
-            // ── Metadata section ──────────────────────────────────────────────
-            item(key = "meta_divider") {
-                Spacer(Modifier.height(8.dp))
-                HorizontalDivider(
-                    color     = MaterialTheme.colorScheme.outlineVariant,
-                    thickness = 0.5.dp,
-                )
-            }
-
-            // Project
-            if (state.projectName != null) {
-                item(key = "project") {
+            // ── Metadata card (Project → Pièces jointes) ─────────────────────
+            item(key = "meta_card") {
+                val use24h  = com.onlyflows.ui.theme.LocalUse24hFormat.current
+                val timePat = if (use24h) "HH:mm" else "hh:mm a"
+                SectionCard {
+                    // Project
+                    if (state.projectName != null) {
+                        MetaRow(icon = Icons.Outlined.FolderOpen, label = "Project", value = state.projectName, onClick = { viewModel.onEvent(TaskDetailEvent.ShowSmartMove) })
+                        HorizontalDivider(modifier = Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+                    }
+                    // Priority
+                    val priorityLabel = when (task.priority) { TaskPriority.HIGH -> "High"; TaskPriority.MEDIUM -> "Medium"; TaskPriority.LOW -> "Low"; TaskPriority.NONE -> null }
+                    val priorityColor = when (task.priority) { TaskPriority.HIGH -> Color(0xFFDC3545); TaskPriority.MEDIUM -> Color(0xFFFF8800); TaskPriority.LOW -> Color(0xFF4A90D9); TaskPriority.NONE -> null }
                     MetaRow(
-                        icon  = Icons.Outlined.FolderOpen,
-                        label = "Project",
-                        value = state.projectName,
-                        onClick = { viewModel.onEvent(TaskDetailEvent.ShowSmartMove) },
+                        icon    = Icons.Outlined.Flag, label = "Priority", value = null,
+                        onClick = { viewModel.onEvent(TaskDetailEvent.ShowPriorityPicker) },
+                        trailing = if (priorityLabel != null && priorityColor != null) { {
+                            Surface(color = priorityColor.copy(alpha = 0.15f), shape = RoundedCornerShape(20.dp)) {
+                                Text(priorityLabel, style = MaterialTheme.typography.labelMedium, color = priorityColor, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
+                            }
+                        } } else null,
                     )
                     HorizontalDivider(modifier = Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
-                }
-            }
-
-            // Priority
-            item(key = "priority") {
-                val priorityValue = when (task.priority) {
-                    TaskPriority.HIGH   -> "High"
-                    TaskPriority.MEDIUM -> "Medium"
-                    TaskPriority.LOW    -> "Low"
-                    TaskPriority.NONE   -> null
-                }
-                val priorityColor = when (task.priority) {
-                    TaskPriority.HIGH   -> Color(0xFFDC3545)
-                    TaskPriority.MEDIUM -> Color(0xFFFF8800)
-                    TaskPriority.LOW    -> Color(0xFF4A90D9)
-                    TaskPriority.NONE   -> null
-                }
-                MetaRow(
-                    icon       = Icons.Outlined.Flag,
-                    label      = "Priority",
-                    value      = priorityValue,
-                    valueColor = priorityColor,
-                    onClick    = { viewModel.onEvent(TaskDetailEvent.ShowPriorityPicker) },
-                )
-                HorizontalDivider(modifier = Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
-            }
-
-            // Depends on (blocking task)
-            item(key = "depends_on") {
-                MetaRow(
-                    icon  = Icons.Outlined.Lock,
-                    label = "Dépend de",
-                    value = state.blockingTask?.title,
-                    valueColor = if (state.blockingTask?.isCompleted == false)
-                        MaterialTheme.colorScheme.error else null,
-                    onClick = { viewModel.onEvent(TaskDetailEvent.ShowDependencyPicker) },
-                )
-                HorizontalDivider(modifier = Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
-            }
-
-            // Interdépendant de (tasks that depend on this one) — read-only
-            if (state.dependingTasks.isNotEmpty()) {
-                item(key = "dependents") {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 20.dp, vertical = 14.dp),
-                    ) {
-                        Icon(
-                            imageVector        = Icons.Outlined.AccountTree,
-                            contentDescription = null,
-                            tint               = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier           = Modifier.size(18.dp),
-                        )
-                        Spacer(Modifier.width(14.dp))
-                        Column {
-                            Text(
-                                text  = "Interdépendant de",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Spacer(Modifier.height(4.dp))
-                            state.dependingTasks.forEach { dep ->
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(vertical = 2.dp),
-                                ) {
-                                    Icon(
-                                        imageVector        = Icons.Outlined.SubdirectoryArrowRight,
-                                        contentDescription = null,
-                                        tint               = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                        modifier           = Modifier.size(14.dp),
-                                    )
-                                    Spacer(Modifier.width(6.dp))
-                                    Text(
-                                        text  = dep.title,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-                                        maxLines = 1,
-                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                                    )
+                    // Depends on
+                    MetaRow(
+                        icon = Icons.Outlined.Lock, label = "Depends on",
+                        value = state.blockingTask?.title ?: "–",
+                        valueColor = if (state.blockingTask?.isCompleted == false) MaterialTheme.colorScheme.error
+                                     else if (state.blockingTask == null) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f) else null,
+                        onClick = { viewModel.onEvent(TaskDetailEvent.ShowDependencyPicker) },
+                    )
+                    HorizontalDivider(modifier = Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+                    // Dependents read-only
+                    if (state.dependingTasks.isNotEmpty()) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp)) {
+                            Icon(Icons.Outlined.AccountTree, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(14.dp))
+                            Column {
+                                Text("Interdépendant de", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Spacer(Modifier.height(4.dp))
+                                state.dependingTasks.forEach { dep ->
+                                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 2.dp)) {
+                                        Icon(Icons.Outlined.SubdirectoryArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), modifier = Modifier.size(14.dp))
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(dep.title, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                    }
                                 }
                             }
                         }
+                        HorizontalDivider(modifier = Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
                     }
+                    // When
+                    val whenValue = when (task.scheduledGroup) { TaskGroup.TODAY -> "Today"; TaskGroup.THIS_EVENING -> "This Evening"; TaskGroup.SOMEDAY -> "Someday"; TaskGroup.ANYTIME -> "Anytime"; null -> "–" }
+                    MetaRow(icon = Icons.Outlined.WbSunny, label = "When", value = whenValue, valueColor = if (task.scheduledGroup == null) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f) else null, onClick = { viewModel.onEvent(TaskDetailEvent.ShowWhenPicker) })
+                    HorizontalDivider(modifier = Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+                    // Start Date
+                    if (task.startDate != null) {
+                        MetaRow(icon = Icons.Outlined.PlayArrow, label = "Start Date", value = task.startDate.format(DateTimeFormatter.ofPattern("EEE, d MMM")), onClick = { viewModel.onEvent(TaskDetailEvent.ShowStartDatePicker) })
+                        HorizontalDivider(modifier = Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+                    }
+                    // Deadline
+                    MetaRow(
+                        icon = Icons.Outlined.CalendarToday, label = "Deadline",
+                        value = task.dueDate?.let { date ->
+                            val days = ChronoUnit.DAYS.between(LocalDate.now(), date).toInt()
+                            val formatted = date.format(DateTimeFormatter.ofPattern("EEE, d MMM"))
+                            val tp = task.dueTime?.let { t -> val tf = t.format(DateTimeFormatter.ofPattern(timePat)); task.endTime?.let { e -> " · $tf → ${e.format(DateTimeFormatter.ofPattern(timePat))}" } ?: " · $tf" } ?: ""
+                            when { days < 0 -> "$formatted$tp · Overdue"; days == 0 -> "$formatted$tp · Today"; else -> "$formatted$tp" }
+                        },
+                        valueColor = task.dueDate?.let { date -> if (ChronoUnit.DAYS.between(LocalDate.now(), date).toInt() < 0) MaterialTheme.colorScheme.error else null },
+                        onClick = { viewModel.onEvent(TaskDetailEvent.ShowDatePicker) },
+                        trailing = if (task.dueDate != null) { { IconButton(onClick = { viewModel.onEvent(TaskDetailEvent.SetDueDate(null)) }, modifier = Modifier.size(32.dp)) { Icon(Icons.Outlined.Close, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp)) } } } else null,
+                    )
+                    HorizontalDivider(modifier = Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+                    // Repeat
+                    MetaRow(icon = Icons.Outlined.Repeat, label = "Repeat", value = task.recurrence?.toLabel() ?: "Never", valueColor = if (task.recurrence == null) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f) else null, onClick = { viewModel.onEvent(TaskDetailEvent.ShowRecurrencePicker) })
+                    if (task.recurrence != null) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(start = 52.dp, end = 20.dp, bottom = 8.dp)) {
+                            Surface(color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f), shape = RoundedCornerShape(6.dp)) { Text("${task.recurrenceDoneCount}× done", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)) }
+                            Surface(color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f), shape = RoundedCornerShape(6.dp)) { Text("${task.recurrenceAbandonedCount}× abandoned", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)) }
+                        }
+                    }
+                    HorizontalDivider(modifier = Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+                    // Reminder
+                    RemindersMetaSection(reminders = state.reminders, onAdd = { viewModel.onEvent(TaskDetailEvent.ShowReminderPicker) }, onDelete = { viewModel.onEvent(TaskDetailEvent.DeleteReminder(it)) })
+                    HorizontalDivider(modifier = Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+                    // Tags
+                    val taskTags = state.tags.filter { it.id in task.tagIds }
+                    MetaRow(icon = Icons.Outlined.Label, label = "Tags", value = null, onClick = { viewModel.onEvent(TaskDetailEvent.ShowTagsPicker) }, trailing = if (taskTags.isNotEmpty()) { { TagsRow(taskTags) } } else null)
+                    HorizontalDivider(modifier = Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+                    // Pièces jointes
+                    AttachmentsMetaSection(
+                        attachments = state.attachments,
+                        onAdd       = { filePicker.launch(arrayOf("*/*")) },
+                        onDelete    = { viewModel.onEvent(TaskDetailEvent.DeleteAttachment(it)) },
+                        onOpen      = { att ->
+                            val uri = Uri.parse(att.uri)
+                            val intent = Intent(Intent.ACTION_VIEW).apply { setDataAndType(uri, att.mimeType); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+                            runCatching { context.startActivity(intent) }
+                        },
+                    )
                 }
             }
 
-            // When (schedule)
-            item(key = "when") {
-                MetaRow(
-                    icon     = Icons.Outlined.WbSunny,
-                    label    = "When",
-                    value    = when (task.scheduledGroup) {
-                        TaskGroup.TODAY        -> "Today"
-                        TaskGroup.THIS_EVENING -> "This Evening"
-                        TaskGroup.SOMEDAY      -> "Someday"
-                        TaskGroup.ANYTIME      -> "Anytime"
-                        null                   -> null
-                    },
-                    onClick  = { viewModel.onEvent(TaskDetailEvent.ShowWhenPicker) },
-                )
-                HorizontalDivider(
-                    modifier  = Modifier.padding(start = 52.dp),
-                    color     = MaterialTheme.colorScheme.outlineVariant,
-                    thickness = 0.5.dp,
-                )
-            }
-
-            // Time tracker
-            item(key = "time_tracker") {
-                TimerRow(
-                    timerState = timerState,
-                    onStart    = { viewModel.onEvent(TaskDetailEvent.StartTimer) },
-                    onPause    = { viewModel.onEvent(TaskDetailEvent.PauseTimer) },
-                    onStop     = { viewModel.onEvent(TaskDetailEvent.StopTimer) },
-                )
-                HorizontalDivider(modifier = Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
-            }
-
-            // Start Date
-            item(key = "start_date") {
-                MetaRow(
-                    icon    = Icons.Outlined.PlayArrow,
-                    label   = "Start Date",
-                    value   = task.startDate?.format(DateTimeFormatter.ofPattern("EEE, d MMM")),
-                    onClick = { viewModel.onEvent(TaskDetailEvent.ShowStartDatePicker) },
-                )
-                HorizontalDivider(modifier = Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
-            }
-
-            // Deadline (due date)
-            item(key = "deadline") {
-                val use24h   = com.onlyflows.ui.theme.LocalUse24hFormat.current
-                val timePat  = if (use24h) "HH:mm" else "hh:mm a"
-                MetaRow(
-                    icon    = Icons.Outlined.CalendarToday,
-                    label   = "Deadline",
-                    value   = task.dueDate?.let { date ->
-                        val days = ChronoUnit.DAYS.between(LocalDate.now(), date).toInt()
-                        val formatted = date.format(DateTimeFormatter.ofPattern("EEE, d MMM"))
-                        val timePart = task.dueTime?.let { t ->
-                            val tf = t.format(DateTimeFormatter.ofPattern(timePat))
-                            task.endTime?.let { e -> " · $tf → ${e.format(DateTimeFormatter.ofPattern(timePat))}" } ?: " · $tf"
-                        } ?: ""
-                        when {
-                            days < 0  -> "$formatted$timePart · Overdue"
-                            days == 0 -> "$formatted$timePart · Today"
-                            else      -> "$formatted$timePart"
-                        }
-                    },
-                    valueColor = task.dueDate?.let { date ->
-                        val days = ChronoUnit.DAYS.between(LocalDate.now(), date).toInt()
-                        if (days < 0) MaterialTheme.colorScheme.error else null
-                    },
-                    onClick = { viewModel.onEvent(TaskDetailEvent.ShowDatePicker) },
-                    trailing = if (task.dueDate != null) {
-                        {
-                            IconButton(
-                                onClick  = { viewModel.onEvent(TaskDetailEvent.SetDueDate(null)) },
-                                modifier = Modifier.size(32.dp),
-                            ) {
-                                Icon(
-                                    Icons.Outlined.Close, null,
-                                    tint     = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(16.dp),
-                                )
-                            }
-                        }
-                    } else null,
-                )
-                HorizontalDivider(
-                    modifier  = Modifier.padding(start = 52.dp),
-                    color     = MaterialTheme.colorScheme.outlineVariant,
-                    thickness = 0.5.dp,
-                )
-            }
-
-            // Recurrence
-            item(key = "recurrence") {
-                MetaRow(
-                    icon    = Icons.Outlined.Repeat,
-                    label   = "Repeat",
-                    value   = task.recurrence?.toLabel(),
-                    onClick = { viewModel.onEvent(TaskDetailEvent.ShowRecurrencePicker) },
-                )
-                if (task.recurrence != null) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.padding(start = 52.dp, end = 20.dp, bottom = 8.dp),
-                    ) {
-                        Surface(
-                            color  = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
-                            shape  = RoundedCornerShape(6.dp),
-                        ) {
-                            Text(
-                                text     = "${task.recurrenceDoneCount}× done",
-                                style    = MaterialTheme.typography.labelSmall,
-                                color    = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                            )
-                        }
-                        Surface(
-                            color  = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
-                            shape  = RoundedCornerShape(6.dp),
-                        ) {
-                            Text(
-                                text     = "${task.recurrenceAbandonedCount}× abandoned",
-                                style    = MaterialTheme.typography.labelSmall,
-                                color    = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                            )
-                        }
-                    }
+            // ── Comments card ─────────────────────────────────────────────────
+            item(key = "comments_card") {
+                SectionCard {
+                    Text(
+                        text     = "COMMENTS",
+                        style    = MaterialTheme.typography.labelSmall,
+                        color    = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 4.dp),
+                    )
+                    com.onlyflows.ui.components.CommentsSection(
+                        comments = state.comments,
+                        onAdd    = { viewModel.onEvent(TaskDetailEvent.AddComment(it)) },
+                        onEdit   = { id, content -> viewModel.onEvent(TaskDetailEvent.EditComment(id, content)) },
+                        onDelete = { viewModel.onEvent(TaskDetailEvent.DeleteComment(it)) },
+                    )
                 }
-                HorizontalDivider(modifier = Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
             }
 
-            // Reminders
-            item(key = "reminders") {
-                RemindersMetaSection(
-                    reminders = state.reminders,
-                    onAdd     = { viewModel.onEvent(TaskDetailEvent.ShowReminderPicker) },
-                    onDelete  = { viewModel.onEvent(TaskDetailEvent.DeleteReminder(it)) },
-                )
-                HorizontalDivider(modifier = Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
-            }
-
-            // Tags
-            item(key = "tags") {
-                val taskTags = state.tags.filter { it.id in task.tagIds }
-                MetaRow(
-                    icon    = Icons.Outlined.Label,
-                    label   = "Tags",
-                    value   = null,
-                    onClick = { viewModel.onEvent(TaskDetailEvent.ShowTagsPicker) },
-                    trailing = if (taskTags.isNotEmpty()) {
-                        { TagsRow(taskTags) }
-                    } else null,
-                )
-                HorizontalDivider(
-                    modifier  = Modifier.padding(start = 52.dp),
-                    color     = MaterialTheme.colorScheme.outlineVariant,
-                    thickness = 0.5.dp,
-                )
-            }
-
-            // Attachments
-            item(key = "attachments") {
-                AttachmentsMetaSection(
-                    attachments = state.attachments,
-                    onAdd       = { filePicker.launch(arrayOf("*/*")) },
-                    onDelete    = { viewModel.onEvent(TaskDetailEvent.DeleteAttachment(it)) },
-                    onOpen      = { att ->
-                        val uri  = Uri.parse(att.uri)
-                        val intent = Intent(Intent.ACTION_VIEW).apply {
-                            setDataAndType(uri, att.mimeType)
-                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                        }
-                        runCatching { context.startActivity(intent) }
-                    },
-                )
-                HorizontalDivider(modifier = Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
-            }
-
-            // Comments
-            item(key = "comments") {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
-                com.onlyflows.ui.components.CommentsSection(
-                    comments = state.comments,
-                    onAdd    = { viewModel.onEvent(TaskDetailEvent.AddComment(it)) },
-                    onEdit   = { id, content -> viewModel.onEvent(TaskDetailEvent.EditComment(id, content)) },
-                    onDelete = { viewModel.onEvent(TaskDetailEvent.DeleteComment(it)) },
-                )
-            }
+            item(key = "spacer_bottom") { Spacer(Modifier.height(8.dp)) }
         }
     }
 
@@ -905,6 +742,25 @@ fun TaskDetailScreen(
                 viewModel.onEvent(TaskDetailEvent.MoveTask(group, projectId, sectionId))
             },
             onDismiss   = { viewModel.onEvent(TaskDetailEvent.HideSmartMove) },
+        )
+    }
+
+    if (state.showGoalPicker) {
+        GoalPickerSheet(
+            allGoals        = state.allGoals,
+            selectedGoalIds = task.goalIds,
+            onDismiss       = { viewModel.onEvent(TaskDetailEvent.HideGoalPicker) },
+            onAttach        = { ids -> viewModel.onEvent(TaskDetailEvent.SetGoals(ids)) },
+            onNavigateToGoals = { viewModel.onEvent(TaskDetailEvent.ShowAddGoal) },
+        )
+    }
+
+    if (state.showAddGoal) {
+        com.onlyflows.ui.overlays.AddGoalSheet(
+            onConfirm = { title, frequency, target, color, emoji, deadline, tags ->
+                viewModel.onEvent(TaskDetailEvent.CreateAndAttachGoal(title, frequency, target, color, emoji, deadline, tags))
+            },
+            onDismiss = { viewModel.onEvent(TaskDetailEvent.HideAddGoal) },
         )
     }
 }
@@ -2147,16 +2003,16 @@ internal fun TimerRow(
         verticalAlignment     = Alignment.CenterVertically,
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 10.dp),
+            .padding(horizontal = 20.dp, vertical = 12.dp),
     ) {
         Icon(
             imageVector        = Icons.Outlined.Timer,
             contentDescription = null,
             tint               = if (isRunning) MaterialTheme.colorScheme.primary
                                  else MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier           = Modifier.size(24.dp),
+            modifier           = Modifier.size(18.dp),
         )
-        Spacer(Modifier.width(16.dp))
+        Spacer(Modifier.width(14.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text  = "Time Tracking",
@@ -2165,24 +2021,45 @@ internal fun TimerRow(
             )
             if (hasTime) {
                 Text(
-                    text  = formatDuration(timerState.displaySeconds),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = if (isRunning) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                    text  = "${formatDuration(timerState.displaySeconds)} this week",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
-        // Controls
+        // Controls — filled circle button matching design
         if (isRunning) {
-            IconButton(onClick = onPause) {
-                Icon(Icons.Outlined.Pause, contentDescription = "Pause", tint = MaterialTheme.colorScheme.primary)
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary)
+                    .clickable { onPause() },
+            ) {
+                Icon(Icons.Outlined.Pause, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(18.dp))
             }
-            IconButton(onClick = onStop) {
-                Icon(Icons.Outlined.Stop, contentDescription = "Stop", tint = MaterialTheme.colorScheme.error)
+            Spacer(Modifier.width(8.dp))
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.errorContainer)
+                    .clickable { onStop() },
+            ) {
+                Icon(Icons.Outlined.Stop, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
             }
         } else {
-            IconButton(onClick = onStart) {
-                Icon(Icons.Outlined.PlayArrow, contentDescription = "Start", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary)
+                    .clickable { onStart() },
+            ) {
+                Icon(Icons.Outlined.PlayArrow, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(20.dp))
             }
         }
     }
@@ -2194,4 +2071,77 @@ private fun formatDuration(totalSeconds: Long): String {
     val s = totalSeconds % 60
     return if (h > 0) "%dh %02dm %02ds".format(h, m, s)
     else "%dm %02ds".format(m, s)
+}
+
+// ── Card layout helpers ───────────────────────────────────────────────────────
+
+@Composable
+private fun SectionCard(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Surface(
+        shape          = RoundedCornerShape(14.dp),
+        color          = MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp,
+        border         = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+        modifier       = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 5.dp),
+    ) {
+        Column(content = content)
+    }
+}
+
+@Composable
+private fun GoalPreviewCard(goal: Goal) {
+    val pct = if (goal.targetCount > 0)
+        (goal.currentCount.toFloat() / goal.targetCount * 100).roundToInt() else 0
+    val barColor = runCatching { Color(android.graphics.Color.parseColor(goal.colorHex)) }
+        .getOrDefault(MaterialTheme.colorScheme.primary)
+    val deadlineFmt = remember { DateTimeFormatter.ofPattern("MMM d") }
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+    ) {
+        Text(goal.emoji, fontSize = 24.sp)
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    goal.title,
+                    style      = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color      = MaterialTheme.colorScheme.onSurface,
+                    modifier   = Modifier.weight(1f),
+                )
+                goal.deadline?.let { d ->
+                    Text(
+                        d.format(deadlineFmt),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    )
+                }
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "${goal.currentCount}/${goal.targetCount} · $pct%",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(4.dp))
+            LinearProgressIndicator(
+                progress    = { (pct / 100f).coerceIn(0f, 1f) },
+                modifier    = Modifier
+                    .fillMaxWidth()
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(2.dp)),
+                color       = barColor,
+                trackColor  = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+            )
+        }
+    }
 }

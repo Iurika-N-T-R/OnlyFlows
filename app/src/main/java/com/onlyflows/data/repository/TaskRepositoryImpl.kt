@@ -96,6 +96,10 @@ class TaskRepositoryImpl(
         taskDao.setDependsOn(id, dependsOnId, LocalDateTime.now().toString())
     }
 
+    override suspend fun setGoals(id: String, goalIds: List<String>) {
+        taskDao.setGoals(id, goalIds.joinToString(","), LocalDateTime.now().toString())
+    }
+
     override fun observeAnytime(): Flow<List<Task>> =
         taskDao.observeAnytimeWithItems().map { list -> list.map { it.toDomain() } }
 
