@@ -18,36 +18,41 @@ class BootReceiver : BroadcastReceiver() {
         val taskRepo     = container.taskRepository
         val scheduler    = ReminderScheduler(context)
 
+        val pendingResult = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
-            // Reschedule task reminders + re-register geofences
-            val reminders      = reminderRepo.getFutureReminders()
-            val locationRepo   = container.savedLocationRepository
-            val geofenceManager = GeofenceManager(context)
+            try {
+                // Reschedule task reminders + re-register geofences
+                val reminders      = reminderRepo.getFutureReminders()
+                val locationRepo   = container.savedLocationRepository
+                val geofenceManager = GeofenceManager(context)
 
-            reminders.forEach { reminder ->
-                // Fetch task title/note for the notification
-                taskRepo.observeById(reminder.taskId).collect { task ->
-                    if (task != null) {
-                        scheduler.schedule(reminder.taskId, task.title, task.note, reminder.scheduledAt)
+                reminders.forEach { reminder ->
+                    // Fetch task title/note for the notification
+                    taskRepo.observeById(reminder.taskId).collect { task ->
+                        if (task != null) {
+                            scheduler.schedule(reminder.taskId, task.title, task.note, reminder.scheduledAt)
+                        }
+                        return@collect
                     }
-                    return@collect
-                }
-                // Re-register geofence if this reminder has a location
-                reminder.locationId?.let { locId ->
-                    locationRepo.getById(locId)?.let { loc ->
-                        geofenceManager.register(loc.id, loc.latitude, loc.longitude, loc.radiusMeters)
+                    // Re-register geofence if this reminder has a location
+                    reminder.locationId?.let { locId ->
+                        locationRepo.getById(locId)?.let { loc ->
+                            geofenceManager.register(loc.id, loc.latitude, loc.longitude, loc.radiusMeters)
+                        }
                     }
                 }
+
+                // Reschedule daily alerts
+                val alertPrefs     = container.dailyAlertPreferences
+                val alertScheduler = DailyAlertScheduler(context)
+                alertScheduler.scheduleAll(
+                    alertPrefs.enabled.first(),
+                    alertPrefs.times.first(),
+                    alertPrefs.days.first(),
+                )
+            } finally {
+                pendingResult.finish()
             }
-
-            // Reschedule daily alerts
-            val alertPrefs     = container.dailyAlertPreferences
-            val alertScheduler = DailyAlertScheduler(context)
-            alertScheduler.scheduleAll(
-                alertPrefs.enabled.first(),
-                alertPrefs.times.first(),
-                alertPrefs.days.first(),
-            )
         }
     }
 }

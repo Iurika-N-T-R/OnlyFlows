@@ -15,6 +15,11 @@ local.properties
 # Project-specific exclusions
 Screenshot/
 .claude/
+# Stray reference screenshots at repo root
+/*.jpg
+/*.png
+!app/src/**/*.png
+!app/src/**/*.jpg
 
 # Keystore / secrets
 *.jks

@@ -50,6 +50,11 @@ import com.onlyflows.domain.repository.TagRepository
 import com.onlyflows.domain.repository.TaskRepository
 import com.onlyflows.domain.sync.ConflictResolver
 import com.onlyflows.domain.sync.SyncRepository
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 class AppContainer(context: Context) {
     private val db = AppDatabase.getInstance(context)
@@ -111,12 +116,15 @@ class AppContainer(context: Context) {
     val syncPreferences: SyncPreferences           = SyncPreferences(context)
     val lanDiscoveryManager: LanDiscoveryManager   = LanDiscoveryManager(context)
     private val syncServer: SyncServer             = SyncServer(db, syncDao, syncPreferences, context.contentResolver)
-    // SyncClient needs thisDeviceId; we lazily resolve it via runBlocking at init time is avoided —
-    // instead we pass a placeholder and update after first getDeviceIdNow() call in SyncRepositoryImpl.
-    // The cleaner approach: SyncClient is created with the stable ID read from preferences.
-    // Since AppContainer is created on the main thread we use a lazy wrapper.
+
+    // Pre-warm the device ID from DataStore on IO so the lazy below never blocks the main thread.
+    private val deviceIdDeferred = CompletableDeferred<String>().also { deferred ->
+        CoroutineScope(Dispatchers.IO).launch {
+            deferred.complete(syncPreferences.getDeviceIdNow())
+        }
+    }
     private val syncClient: SyncClient by lazy {
-        kotlinx.coroutines.runBlocking { SyncClient(syncPreferences.getDeviceIdNow()) }
+        runBlocking { SyncClient(deviceIdDeferred.await()) }
     }
     private val conflictResolver: ConflictResolver = ConflictResolver()
     private val attachmentSyncer: AttachmentSyncer by lazy { AttachmentSyncer(context, syncClient, syncDao, syncPreferences) }

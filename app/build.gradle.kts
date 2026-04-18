@@ -15,17 +15,32 @@ android {
         applicationId = "com.onlyflows"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 29
+        versionName = "0.29.0"
+    }
+
+    signingConfigs {
+        create("release") {
+            storeFile = file(project.findProperty("KEYSTORE_PATH") as String? ?: "keystore.jks")
+            storePassword = project.findProperty("KEYSTORE_PASSWORD") as String? ?: ""
+            keyAlias = project.findProperty("KEY_ALIAS") as String? ?: ""
+            keyPassword = project.findProperty("KEY_PASSWORD") as String? ?: ""
+        }
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("release")
+        }
+        debug {
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
         }
     }
 
@@ -42,6 +57,12 @@ android {
         compose = true
         buildConfig = true
     }
+}
+
+// Export Room schema JSON so migrations can be tested against the frozen snapshot
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+    arg("room.incremental", "true")
 }
 
 dependencies {

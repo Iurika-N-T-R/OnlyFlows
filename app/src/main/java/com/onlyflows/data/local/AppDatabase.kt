@@ -51,7 +51,7 @@ import kotlinx.coroutines.launch
         GoalLogEntity::class,
     ],
     version = 27,
-    exportSchema = false,
+    exportSchema = true,
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
@@ -84,7 +84,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "onlyflows.db",
                 )
-                .fallbackToDestructiveMigration()
+                .fallbackToDestructiveMigrationOnDowngrade()
                 .addCallback(SeedCallback())
                 .build()
                 .also { INSTANCE = it }

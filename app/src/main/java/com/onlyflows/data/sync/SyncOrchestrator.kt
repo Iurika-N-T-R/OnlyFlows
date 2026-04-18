@@ -51,6 +51,6 @@ class SyncOrchestrator(
         Log.d(TAG, "Stopping sync orchestrator")
         peerWatchJob?.cancel()
         periodicJob?.cancel()
-        scope.launch { syncRepository.stopServer() }
+        scope.launch { syncRepository.stopServer() }.invokeOnCompletion { scope.cancel() }
     }
 }

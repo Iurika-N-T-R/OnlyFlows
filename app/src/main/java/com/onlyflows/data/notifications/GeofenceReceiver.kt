@@ -23,16 +23,21 @@ class GeofenceReceiver : BroadcastReceiver() {
         val reminderRepo   = container.reminderRepository
         val locationRepo   = container.savedLocationRepository
 
+        val pendingResult = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
-            triggeredIds.forEach { locationId ->
-                val location = locationRepo.getById(locationId) ?: return@forEach
-                // Find all future reminders linked to this location
-                val reminders = reminderRepo.getFutureReminders()
-                    .filter { it.locationId == locationId }
+            try {
+                triggeredIds.forEach { locationId ->
+                    val location = locationRepo.getById(locationId) ?: return@forEach
+                    // Find all future reminders linked to this location
+                    val reminders = reminderRepo.getFutureReminders()
+                        .filter { it.locationId == locationId }
 
-                reminders.forEach { reminder ->
-                    showNotification(context, location.label, reminder.id.hashCode())
+                    reminders.forEach { reminder ->
+                        showNotification(context, location.label, reminder.id.hashCode())
+                    }
                 }
+            } finally {
+                pendingResult.finish()
             }
         }
     }
