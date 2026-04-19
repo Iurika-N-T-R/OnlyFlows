@@ -226,4 +226,68 @@ interface SyncDao {
 
     @Query("UPDATE attachments SET uri = :uri WHERE id = :id")
     suspend fun updateAttachmentUri(id: String, uri: String)
+
+    // ── Goals & GoalLogs ──────────────────────────────────────────────────────
+
+    @Insert(onConflict = androidx.room.OnConflictStrategy.REPLACE)
+    suspend fun upsertGoal(entity: com.onlyflows.data.local.entity.GoalEntity)
+
+    @Insert(onConflict = androidx.room.OnConflictStrategy.REPLACE)
+    suspend fun upsertGoalLog(entity: com.onlyflows.data.local.entity.GoalLogEntity)
+
+    @Query("SELECT updatedAt FROM goals WHERE id = :id")
+    suspend fun getGoalUpdatedAt(id: String): java.time.LocalDateTime?
+
+    @Query("SELECT loggedAt FROM goal_logs WHERE id = :id")
+    suspend fun getGoalLogLoggedAt(id: String): java.time.LocalDateTime?
+
+    @Query("DELETE FROM goals WHERE id = :id")
+    suspend fun deleteGoal(id: String)
+
+    @Query("DELETE FROM goal_logs WHERE id = :id")
+    suspend fun deleteGoalLog(id: String)
+
+    // ── Full-table reads for initial export ───────────────────────────────────
+
+    @Query("SELECT * FROM tasks")
+    suspend fun getAllTasks(): List<com.onlyflows.data.local.entity.TaskEntity>
+
+    @Query("SELECT * FROM projects")
+    suspend fun getAllProjects(): List<com.onlyflows.data.local.entity.ProjectEntity>
+
+    @Query("SELECT * FROM sections")
+    suspend fun getAllSections(): List<com.onlyflows.data.local.entity.SectionEntity>
+
+    @Query("SELECT * FROM checklist_items")
+    suspend fun getAllChecklistItems(): List<com.onlyflows.data.local.entity.ChecklistItemEntity>
+
+    @Query("SELECT * FROM tags")
+    suspend fun getAllTags(): List<com.onlyflows.data.local.entity.TagEntity>
+
+    @Query("SELECT * FROM folders")
+    suspend fun getAllFolders(): List<com.onlyflows.data.local.entity.FolderEntity>
+
+    @Query("SELECT * FROM notes")
+    suspend fun getAllNotes(): List<com.onlyflows.data.local.entity.NoteEntity>
+
+    @Query("SELECT * FROM comments")
+    suspend fun getAllComments(): List<com.onlyflows.data.local.entity.CommentEntity>
+
+    @Query("SELECT * FROM reminders")
+    suspend fun getAllReminders(): List<com.onlyflows.data.local.entity.ReminderEntity>
+
+    @Query("SELECT * FROM time_entries")
+    suspend fun getAllTimeEntries(): List<com.onlyflows.data.local.entity.TimeEntryEntity>
+
+    @Query("SELECT * FROM saved_locations")
+    suspend fun getAllSavedLocations(): List<com.onlyflows.data.local.entity.SavedLocationEntity>
+
+    @Query("SELECT * FROM attachments")
+    suspend fun getAllAttachments(): List<com.onlyflows.data.local.entity.AttachmentEntity>
+
+    @Query("SELECT * FROM goals")
+    suspend fun getAllGoals(): List<com.onlyflows.data.local.entity.GoalEntity>
+
+    @Query("SELECT * FROM goal_logs")
+    suspend fun getAllGoalLogs(): List<com.onlyflows.data.local.entity.GoalLogEntity>
 }

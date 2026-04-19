@@ -350,3 +350,65 @@ fun JSONObject.getUpdatedAt(): LocalDateTime = runCatching {
 fun projectJsonUpdatedAt(j: JSONObject): LocalDateTime = runCatching {
     LocalDateTime.parse(j.optString("updatedAt"))
 }.getOrDefault(LocalDateTime.MIN)
+
+// ── GoalEntity ────────────────────────────────────────────────────────────────
+
+fun GoalEntity.toJson(): JSONObject = JSONObject().apply {
+    put("id", id)
+    put("title", title)
+    put("note", note)
+    put("emoji", emoji)
+    put("colorHex", colorHex)
+    put("frequency", frequency)
+    put("targetCount", targetCount)
+    put("currentCount", currentCount)
+    put("sortOrder", sortOrder)
+    put("isCompleted", isCompleted)
+    putNullable("deadline", deadline)
+    put("tagsJson", tagsJson)
+    put("createdAt", createdAt.toString())
+    put("updatedAt", updatedAt.toString())
+    putNullable("deletedAt", deletedAt)
+}
+
+fun goalEntityFromJson(j: JSONObject) = GoalEntity(
+    id           = j.getString("id"),
+    title        = j.optString("title", ""),
+    note         = j.optString("note", ""),
+    emoji        = j.optString("emoji", "🎯"),
+    colorHex     = j.optString("colorHex", "#4A90D9"),
+    frequency    = j.optString("frequency", "DAILY"),
+    targetCount  = j.optInt("targetCount", 1),
+    currentCount = j.optInt("currentCount", 0),
+    sortOrder    = j.optInt("sortOrder", 0),
+    isCompleted  = j.optBoolean("isCompleted", false),
+    deadline     = j.getLocalDateOrNull("deadline"),
+    tagsJson     = j.optString("tagsJson", ""),
+    createdAt    = j.getLocalDateTime("createdAt"),
+    updatedAt    = j.getLocalDateTime("updatedAt"),
+    deletedAt    = j.getLocalDateTimeOrNull("deletedAt"),
+)
+
+// ── GoalLogEntity ─────────────────────────────────────────────────────────────
+
+fun GoalLogEntity.toJson(): JSONObject = JSONObject().apply {
+    put("id", id)
+    put("goalId", goalId)
+    put("label", label)
+    put("note", note)
+    put("tagsJson", tagsJson)
+    put("isStarred", isStarred)
+    put("loggedAt", loggedAt.toString())
+    putNullable("deletedAt", deletedAt)
+}
+
+fun goalLogEntityFromJson(j: JSONObject) = GoalLogEntity(
+    id        = j.getString("id"),
+    goalId    = j.getString("goalId"),
+    label     = j.optString("label", ""),
+    note      = j.optString("note", ""),
+    tagsJson  = j.optString("tagsJson", ""),
+    isStarred = j.optBoolean("isStarred", false),
+    loggedAt  = j.getLocalDateTime("loggedAt"),
+    deletedAt = j.getLocalDateTimeOrNull("deletedAt"),
+)

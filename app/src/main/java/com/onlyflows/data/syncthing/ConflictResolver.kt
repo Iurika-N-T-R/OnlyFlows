@@ -37,7 +37,7 @@ class ConflictResolver(
         val entityDirs = listOf(
             "tasks", "projects", "sections", "checklist_items", "tags",
             "folders", "notes", "comments", "reminders", "time_entries",
-            "saved_locations", "attachments/metadata",
+            "saved_locations", "goals", "goal_logs", "attachments/metadata",
         )
 
         for (subpath in entityDirs) {
@@ -143,6 +143,8 @@ class ConflictResolver(
                 "reminders"        -> syncDao.upsertReminder(reminderEntityFromJson(json))
                 "time_entries"     -> syncDao.upsertTimeEntry(timeEntryEntityFromJson(json))
                 "saved_locations"  -> syncDao.upsertSavedLocation(savedLocationEntityFromJson(json))
+                "goals"            -> syncDao.upsertGoal(goalEntityFromJson(json))
+                "goal_logs"        -> syncDao.upsertGoalLog(goalLogEntityFromJson(json))
                 "attachments/metadata" -> { /* metadata only — file handled by importer */ }
             }
         }.onFailure { AppLog.e(TAG, "Failed to upsert $entityType/$id after conflict resolution", it) }

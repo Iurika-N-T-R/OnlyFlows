@@ -301,20 +301,24 @@ class TaskRepositoryImpl(
 
     override suspend fun addChecklistItem(item: ChecklistItem) {
         checklistDao.insert(item.toEntity())
+        syncthingWriter?.writeChecklistItem(item.toEntity())
         AppLog.d("TaskRepo", "addChecklist: \"${item.title}\" taskId=${item.taskId}")
     }
 
     override suspend fun toggleChecklistItem(id: String, completed: Boolean) {
         checklistDao.setCompleted(id, completed)
+        checklistDao.getById(id)?.let { syncthingWriter?.writeChecklistItem(it) }
         AppLog.d("TaskRepo", "toggleChecklist: id=$id completed=$completed")
     }
 
     override suspend fun deleteChecklistItem(id: String) {
+        syncthingWriter?.writeTombstone("checklist_items", id, LocalDateTime.now())
         checklistDao.delete(id)
     }
 
     override suspend fun updateChecklistItem(item: ChecklistItem) {
         checklistDao.update(item.toEntity())
+        syncthingWriter?.writeChecklistItem(item.toEntity())
     }
 
     override suspend fun reorderTasks(idsInOrder: List<String>) {

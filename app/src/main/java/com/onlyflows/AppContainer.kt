@@ -42,6 +42,7 @@ import com.onlyflows.domain.repository.TagRepository
 import com.onlyflows.domain.repository.TaskRepository
 import com.onlyflows.data.syncthing.ConflictResolver
 import com.onlyflows.data.syncthing.SyncthingCoordinator
+import com.onlyflows.data.syncthing.SyncthingExporter
 import com.onlyflows.data.syncthing.SyncthingImporter
 import com.onlyflows.data.syncthing.SyncthingPreferences
 import com.onlyflows.data.syncthing.SyncthingStatusMonitor
@@ -57,12 +58,14 @@ class AppContainer(context: Context) {
     val syncthingStatusMonitor: SyncthingStatusMonitor = SyncthingStatusMonitor(context, syncthingPreferences)
     val conflictResolver: ConflictResolver            = ConflictResolver(context, syncDao, syncthingPreferences)
     val syncthingImporter: SyncthingImporter          = SyncthingImporter(context, syncDao, syncthingPreferences)
+    val syncthingExporter: SyncthingExporter          = SyncthingExporter(syncDao, syncthingWriter)
     val syncthingCoordinator: SyncthingCoordinator    = SyncthingCoordinator(
-        context         = context,
-        prefs           = syncthingPreferences,
-        monitor         = syncthingStatusMonitor,
-        importer        = syncthingImporter,
+        context          = context,
+        prefs            = syncthingPreferences,
+        monitor          = syncthingStatusMonitor,
+        importer         = syncthingImporter,
         conflictResolver = conflictResolver,
+        writer           = syncthingWriter,
     )
 
     // ── Repositories ──────────────────────────────────────────────────────────
@@ -87,8 +90,8 @@ class AppContainer(context: Context) {
         syncthingWriter = syncthingWriter,
     )
 
-    val goalRepository: GoalRepository       = GoalRepositoryImpl(db.goalDao())
-    val goalLogRepository: GoalLogRepository = GoalLogRepositoryImpl(db.goalLogDao())
+    val goalRepository: GoalRepository       = GoalRepositoryImpl(db.goalDao(), syncDao, syncthingWriter)
+    val goalLogRepository: GoalLogRepository = GoalLogRepositoryImpl(db.goalLogDao(), syncDao, syncthingWriter)
 
     val folderRepository: FolderRepository = FolderRepositoryImpl(
         folderDao       = db.folderDao(),
