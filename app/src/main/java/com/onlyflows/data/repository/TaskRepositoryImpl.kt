@@ -4,6 +4,7 @@ import com.onlyflows.data.debug.AppLog
 import com.onlyflows.data.local.dao.ChecklistItemDao
 import com.onlyflows.data.local.dao.SyncDao
 import com.onlyflows.data.local.dao.TaskDao
+import com.onlyflows.data.syncthing.SyncthingWriter
 import com.onlyflows.data.local.entity.DeletedEntityEntity
 import com.onlyflows.data.local.entity.TaskWithChecklistItems
 import com.onlyflows.data.local.entity.toDomain
@@ -26,17 +27,24 @@ class TaskRepositoryImpl(
     private val checklistDao: ChecklistItemDao,
     private val actionLog: ActionLogRepository? = null,
     private val syncDao: SyncDao? = null,
+    private val syncthingWriter: SyncthingWriter? = null,
 ) : TaskRepository {
 
+    private suspend fun syncWrite(id: String) {
+        taskDao.getById(id)?.let { syncthingWriter?.writeTask(it) }
+    }
+
     private suspend fun tombstone(id: String) {
+        val now = LocalDateTime.now()
         syncDao?.insertTombstone(
             DeletedEntityEntity(
                 id         = "tomb_$id",
                 entityType = "tasks",
                 entityId   = id,
-                deletedAt  = LocalDateTime.now(),
+                deletedAt  = now,
             )
         )
+        syncthingWriter?.writeTombstone("tasks", id, now)
     }
 
     private suspend fun log(type: ActionType, taskId: String, label: String, extra: String? = null) {
@@ -123,18 +131,21 @@ class TaskRepositoryImpl(
     override suspend fun insert(task: Task) {
         taskDao.insert(task.toEntity())
         checklistDao.insertAll(task.checklistItems.map { it.toEntity() })
+        syncthingWriter?.writeTask(task.toEntity())
         log(ActionType.TASK_CREATED, task.id, task.title)
         AppLog.d("TaskRepo", "insert: \"${task.title}\" id=${task.id} group=${task.scheduledGroup} due=${task.dueDate} project=${task.projectId}")
     }
 
     override suspend fun update(task: Task) {
         taskDao.update(task.toEntity())
+        syncthingWriter?.writeTask(task.toEntity())
         AppLog.d("TaskRepo", "update: \"${task.title}\" id=${task.id} due=${task.dueDate} start=${task.startDate} group=${task.scheduledGroup} priority=${task.priority} project=${task.projectId}")
     }
 
     override suspend fun setCompleted(id: String, completed: Boolean) {
         taskDao.setCompleted(id, completed, LocalDateTime.now().toString())
         val label = taskDao.getById(id)?.title ?: id
+        syncWrite(id)
         log(if (completed) ActionType.TASK_COMPLETED else ActionType.TASK_UNCOMPLETED, id, label)
         AppLog.d("TaskRepo", "${if (completed) "complete" else "uncomplete"}: \"$label\" id=$id")
     }
@@ -142,6 +153,7 @@ class TaskRepositoryImpl(
     override suspend fun setArchived(id: String, archived: Boolean) {
         taskDao.setArchived(id, archived, LocalDateTime.now().toString())
         val label = taskDao.getById(id)?.title ?: id
+        syncWrite(id)
         log(if (archived) ActionType.TASK_ARCHIVED else ActionType.TASK_RESTORED, id, label)
         AppLog.d("TaskRepo", "${if (archived) "archive" else "restore"}: \"$label\" id=$id")
     }
@@ -185,6 +197,8 @@ class TaskRepositoryImpl(
                 }
             )
         }
+        syncWrite(id)
+        syncWrite(nextTask.id)
     }
 
     override suspend fun abandonTask(id: String) {
@@ -238,12 +252,14 @@ class TaskRepositoryImpl(
 
     override suspend fun setStarred(id: String, starred: Boolean) {
         taskDao.setStarred(id, starred, LocalDateTime.now().toString())
+        syncWrite(id)
         AppLog.d("TaskRepo", "${if (starred) "star" else "unstar"}: id=$id")
     }
 
     override suspend fun moveTask(id: String, projectId: String?, sectionId: String?) {
         taskDao.moveTask(id, projectId, sectionId, LocalDateTime.now().toString())
         val label = taskDao.getById(id)?.title ?: id
+        syncWrite(id)
         log(ActionType.TASK_MOVED, id, label, extra = projectId ?: "inbox")
         AppLog.d("TaskRepo", "move: \"$label\" id=$id → project=${projectId ?: "inbox"} section=$sectionId")
     }
@@ -263,6 +279,7 @@ class TaskRepositoryImpl(
     override suspend fun softDelete(id: String) {
         val label = taskDao.getById(id)?.title ?: id
         taskDao.softDelete(id, LocalDateTime.now().toString())
+        syncWrite(id)
         log(ActionType.TASK_DELETED, id, label)
         AppLog.d("TaskRepo", "softDelete: \"$label\" id=$id")
     }
@@ -272,6 +289,7 @@ class TaskRepositoryImpl(
 
     override suspend fun restoreFromTrash(id: String) {
         taskDao.restoreFromTrash(id)
+        syncWrite(id)
         val label = taskDao.getById(id)?.title ?: id
         log(ActionType.TASK_RESTORED, id, label)
     }

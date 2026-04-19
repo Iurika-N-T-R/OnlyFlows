@@ -40,20 +40,34 @@ import com.onlyflows.domain.repository.NoteRepository
 import com.onlyflows.domain.repository.ProjectRepository
 import com.onlyflows.domain.repository.TagRepository
 import com.onlyflows.domain.repository.TaskRepository
+import com.onlyflows.data.syncthing.ConflictResolver
+import com.onlyflows.data.syncthing.SyncthingImporter
+import com.onlyflows.data.syncthing.SyncthingPreferences
+import com.onlyflows.data.syncthing.SyncthingStatusMonitor
+import com.onlyflows.data.syncthing.SyncthingWriter
 
 class AppContainer(context: Context) {
     private val db = AppDatabase.getInstance(context)
     private val syncDao = db.syncDao()
 
+    // ── Syncthing (declared first — repos depend on it) ───────────────────────
+    val syncthingPreferences: SyncthingPreferences  = SyncthingPreferences(context)
+    val syncthingWriter: SyncthingWriter             = SyncthingWriter(context, syncthingPreferences)
+    val syncthingStatusMonitor: SyncthingStatusMonitor = SyncthingStatusMonitor(context, syncthingPreferences)
+    val conflictResolver: ConflictResolver           = ConflictResolver(context, syncDao, syncthingPreferences)
+    val syncthingImporter: SyncthingImporter         = SyncthingImporter(context, syncDao, syncthingPreferences)
+
+    // ── Repositories ──────────────────────────────────────────────────────────
     val actionLogRepository: ActionLogRepository       = ActionLogRepositoryImpl(db.actionLogDao())
     val savedLocationRepository: SavedLocationRepository = SavedLocationRepositoryImpl(db.savedLocationDao(), syncDao)
     val geofenceManager: GeofenceManager               = GeofenceManager(context)
 
     val taskRepository: TaskRepository = TaskRepositoryImpl(
-        taskDao      = db.taskDao(),
-        checklistDao = db.checklistItemDao(),
-        actionLog    = actionLogRepository,
-        syncDao      = syncDao,
+        taskDao         = db.taskDao(),
+        checklistDao    = db.checklistItemDao(),
+        actionLog       = actionLogRepository,
+        syncDao         = syncDao,
+        syncthingWriter = syncthingWriter,
     )
 
     val projectRepository: ProjectRepository = ProjectRepositoryImpl(
@@ -65,13 +79,11 @@ class AppContainer(context: Context) {
         syncDao      = syncDao,
     )
 
-    val goalRepository: GoalRepository = GoalRepositoryImpl(db.goalDao())
+    val goalRepository: GoalRepository    = GoalRepositoryImpl(db.goalDao())
     val goalLogRepository: GoalLogRepository = GoalLogRepositoryImpl(db.goalLogDao())
     val folderRepository: FolderRepository = FolderRepositoryImpl(db.folderDao(), syncDao)
-
-    val tagRepository: TagRepository = TagRepositoryImpl(db.tagDao(), syncDao)
-
-    val noteRepository: NoteRepository = NoteRepositoryImpl(db.noteDao(), syncDao)
+    val tagRepository: TagRepository       = TagRepositoryImpl(db.tagDao(), syncDao)
+    val noteRepository: NoteRepository     = NoteRepositoryImpl(db.noteDao(), syncDao)
 
     val notificationPreferences: NotificationPreferences = NotificationPreferences(context)
     val sidebarPreferences: SidebarPreferences   = SidebarPreferences(context)
@@ -95,5 +107,4 @@ class AppContainer(context: Context) {
     )
     val reminderRepository: ReminderRepository     = ReminderRepositoryImpl(db.reminderDao(), syncDao)
     val attachmentRepository: AttachmentRepository = AttachmentRepositoryImpl(db.attachmentDao(), syncDao)
-
 }

@@ -10,6 +10,7 @@ import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.SyncAlt
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.NotificationsNone
@@ -35,6 +36,7 @@ fun SettingsScreen(
     onStatisticsClick: () -> Unit = {},
     onAboutClick: () -> Unit = {},
     onLogsClick: () -> Unit = {},
+    onSyncthingClick: () -> Unit = {},
 ) {
     Scaffold(
         topBar = {
@@ -93,6 +95,12 @@ fun SettingsScreen(
                 icon    = Icons.Outlined.CloudUpload,
                 label   = "Sauvegarde",
                 onClick = onBackupClick,
+            )
+            Divider()
+            SettingsRow(
+                icon    = Icons.Outlined.SyncAlt,
+                label   = "Synchronisation Syncthing",
+                onClick = onSyncthingClick,
             )
             Divider()
             SettingsRow(

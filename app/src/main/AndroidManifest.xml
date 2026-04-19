@@ -85,4 +85,10 @@
         </activity>
     </application>
 
+
+    <queries>
+        <package android:name="com.github.catfriend1.syncthingandroid" />
+        <package android:name="com.nutomic.syncthingandroid" />
+    </queries>
+
 </manifest>
