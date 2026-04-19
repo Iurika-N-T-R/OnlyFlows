@@ -10,7 +10,7 @@ Jetpack Compose × Room × Syncthing × WorkManager
 [![kotlin](https://img.shields.io/badge/kotlin-2.1.0-7F52FF?style=flat-square&logo=kotlin&logoColor=white)](https://kotlinlang.org)
 [![android](https://img.shields.io/badge/android-8.0%2B-3DDC84?style=flat-square&logo=android&logoColor=white)](https://developer.android.com)
 [![minSdk](https://img.shields.io/badge/minSdk-26-green?style=flat-square)](https://developer.android.com/about/versions/oreo)
-[![license](https://img.shields.io/badge/license-MIT-yellow?style=flat-square)](LICENSE)
+[![license](https://img.shields.io/badge/license-Proprietary-red?style=flat-square)](LICENSE)
 
 </div>
 
