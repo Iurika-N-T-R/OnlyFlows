@@ -21,7 +21,6 @@ sealed class Screen(val route: String) {
     data object GeneralSettings        : Screen("settings/general")
     data object LocationsSettings      : Screen("settings/locations")
     data object Statistics             : Screen("settings/statistics")
-    data object SyncSettings           : Screen("settings/sync")
     data object Logs                   : Screen("settings/logs")
 
     data object Goals          : Screen("goals")

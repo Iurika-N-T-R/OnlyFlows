@@ -25,7 +25,6 @@ import com.onlyflows.data.preferences.BackupPreferences
 import com.onlyflows.data.preferences.CalendarPreferences
 import com.onlyflows.data.preferences.NotificationPreferences
 import com.onlyflows.data.preferences.SidebarPreferences
-import com.onlyflows.data.preferences.SyncPreferences
 import com.onlyflows.data.preferences.WidgetPreferences
 import com.onlyflows.data.repository.GoalRepositoryImpl
 import com.onlyflows.data.repository.GoalLogRepositoryImpl
@@ -34,13 +33,6 @@ import com.onlyflows.data.repository.NoteRepositoryImpl
 import com.onlyflows.data.repository.ProjectRepositoryImpl
 import com.onlyflows.data.repository.TagRepositoryImpl
 import com.onlyflows.data.repository.TaskRepositoryImpl
-import com.onlyflows.data.sync.AttachmentSyncer
-import com.onlyflows.data.sync.SyncForegroundService
-import com.onlyflows.data.sync.SyncOrchestrator
-import com.onlyflows.data.sync.SyncRepositoryImpl
-import com.onlyflows.data.sync.network.LanDiscoveryManager
-import com.onlyflows.data.sync.network.SyncClient
-import com.onlyflows.data.sync.network.SyncServer
 import com.onlyflows.domain.repository.GoalRepository
 import com.onlyflows.domain.repository.GoalLogRepository
 import com.onlyflows.domain.repository.FolderRepository
@@ -48,13 +40,6 @@ import com.onlyflows.domain.repository.NoteRepository
 import com.onlyflows.domain.repository.ProjectRepository
 import com.onlyflows.domain.repository.TagRepository
 import com.onlyflows.domain.repository.TaskRepository
-import com.onlyflows.domain.sync.ConflictResolver
-import com.onlyflows.domain.sync.SyncRepository
-import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 
 class AppContainer(context: Context) {
     private val db = AppDatabase.getInstance(context)
@@ -111,34 +96,4 @@ class AppContainer(context: Context) {
     val reminderRepository: ReminderRepository     = ReminderRepositoryImpl(db.reminderDao(), syncDao)
     val attachmentRepository: AttachmentRepository = AttachmentRepositoryImpl(db.attachmentDao(), syncDao)
 
-    // ── LAN Sync ──────────────────────────────────────────────────────────────
-
-    val syncPreferences: SyncPreferences           = SyncPreferences(context)
-    val lanDiscoveryManager: LanDiscoveryManager   = LanDiscoveryManager(context)
-    private val syncServer: SyncServer             = SyncServer(db, syncDao, syncPreferences, context.contentResolver)
-
-    // Pre-warm the device ID from DataStore on IO so the lazy below never blocks the main thread.
-    private val deviceIdDeferred = CompletableDeferred<String>().also { deferred ->
-        CoroutineScope(Dispatchers.IO).launch {
-            deferred.complete(syncPreferences.getDeviceIdNow())
-        }
-    }
-    private val syncClient: SyncClient by lazy {
-        runBlocking { SyncClient(deviceIdDeferred.await()) }
-    }
-    private val conflictResolver: ConflictResolver = ConflictResolver()
-    private val attachmentSyncer: AttachmentSyncer by lazy { AttachmentSyncer(context, syncClient, syncDao, syncPreferences) }
-
-    val syncRepository: SyncRepository by lazy {
-        SyncRepositoryImpl(
-            syncDao            = syncDao,
-            syncPreferences    = syncPreferences,
-            discoveryManager   = lanDiscoveryManager,
-            syncServer         = syncServer,
-            syncClient         = syncClient,
-            conflictResolver   = conflictResolver,
-            attachmentSyncer   = attachmentSyncer,
-        )
-    }
-    val syncOrchestrator: SyncOrchestrator by lazy { SyncOrchestrator(syncRepository, syncPreferences) }
 }

@@ -27,7 +27,6 @@ import com.onlyflows.ui.screens.settings.GeneralSettingsScreen
 import com.onlyflows.ui.screens.settings.LocationsSettingsScreen
 import com.onlyflows.ui.screens.settings.NotificationSettingsScreen
 import com.onlyflows.ui.screens.settings.SettingsScreen
-import com.onlyflows.ui.screens.settings.SyncSettingsScreen
 import com.onlyflows.ui.screens.logs.LogsScreen
 import com.onlyflows.ui.screens.task.TaskDetailScreen
 import com.onlyflows.ui.screens.today.TodayScreen
@@ -196,7 +195,6 @@ fun AppNavigation(
                 onGeneralSettingsClick       = { navController.navigate(Screen.GeneralSettings.route) },
                 onLocationsSettingsClick     = { navController.navigate(Screen.LocationsSettings.route) },
                 onStatisticsClick            = { navController.navigate(Screen.Statistics.route) },
-                onSyncSettingsClick          = { navController.navigate(Screen.SyncSettings.route) },
                 onLogsClick                  = { navController.navigate(Screen.Logs.route) },
             )
         }
@@ -237,8 +235,5 @@ fun AppNavigation(
             com.onlyflows.ui.screens.settings.StatisticsScreen(onBack = { navController.popBackStack() })
         }
 
-        composable(Screen.SyncSettings.route) {
-            SyncSettingsScreen(onBack = { navController.popBackStack() })
-        }
     }
 }

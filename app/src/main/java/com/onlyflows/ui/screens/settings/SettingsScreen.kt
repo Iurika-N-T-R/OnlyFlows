@@ -11,7 +11,6 @@ import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.LocationOn
-import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.Palette
@@ -35,7 +34,6 @@ fun SettingsScreen(
     onLocationsSettingsClick: () -> Unit = {},
     onStatisticsClick: () -> Unit = {},
     onAboutClick: () -> Unit = {},
-    onSyncSettingsClick: () -> Unit = {},
     onLogsClick: () -> Unit = {},
 ) {
     Scaffold(
@@ -101,12 +99,6 @@ fun SettingsScreen(
                 icon    = Icons.Outlined.LocationOn,
                 label   = "Locations",
                 onClick = onLocationsSettingsClick,
-            )
-            Divider()
-            SettingsRow(
-                icon    = Icons.Outlined.Sync,
-                label   = "Synchronisation LAN",
-                onClick = onSyncSettingsClick,
             )
             Divider()
             SettingsRow(
