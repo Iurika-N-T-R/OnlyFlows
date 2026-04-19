@@ -1,84 +1,98 @@
 # OnlyFlows
 
-Application Android native de gestion de tâches et projets.
-Style minimal, éditorial, local-first. Inspiré de Things 3, conçu pour Android.
+A native Android task and project manager — minimal, editorial, local-first.
+Inspired by Things 3, built for Android.
 
-**Version actuelle : 0.18.0**
-
----
-
-## Stack technique
-
-| Couche | Technologie |
-|---|---|
-| UI | Jetpack Compose + Material Design 3 |
-| State | ViewModel + StateFlow (UDF strict) |
-| Persistance | Room v20 — SQLite local-first |
-| Préférences | DataStore Preferences |
-| Navigation | Navigation Compose (routes type-safe) |
-| Drag & Drop | sh.calvin.reorderable |
-| Async | Kotlin Coroutines + Flow |
-| DI | AppContainer (injection manuelle) |
-| Notifications | AlarmManager (exact alarms) + BroadcastReceiver |
-| Intégration | CalendarProvider, FileProvider, WorkManager |
+**Current version: 0.30.3**
 
 ---
 
-## Fonctionnalités implémentées
+## Features
 
-### Tâches
-- Création rapide (AddTaskSheet) avec titre, priorité, projet/section, date
-- Détail complet : note, checklist, date de début, date d'échéance (créneau horaire), priorité, tags, récurrence, dépendances, rappels, pièces jointes, commentaires, chronomètre
-- Complétion avec swipe ou toggle ; auto-complétion à 100% checklist (délai 800 ms)
-- Récurrence complète : HOURLY / DAILY / WEEKLY / MONTHLY / YEARLY / WEEKDAYS, basis COMPLETION_DATE / DUE_DATE / SPECIFIC_DATE, skip weekends
-- Dépendances inter-tâches (`dependsOnTaskId`) avec badge 🔒 et section "interdépendant de"
-- Convert Task → Project (checklist → tâches du projet)
-- Suppression douce (Corbeille) avec restore
-- Multi-sélection (long-press) : Move, Delete, More (Star / Priorité / Tag / Planifier / **Démarrer le minuteur**)
+### Tasks
+- Quick creation via AddTaskSheet (title, priority, project/section, date)
+- Full task detail: note, checklist, start date, due date (with time slot), priority, tags, recurrence, dependencies, reminders, attachments, comments, time tracker
+- Complete via swipe or toggle; auto-complete at 100% checklist (800 ms delay)
+- Full recurrence: HOURLY / DAILY / WEEKLY / MONTHLY / YEARLY / WEEKDAYS, basis COMPLETION_DATE / DUE_DATE / SPECIFIC_DATE, skip weekends option
+- Task dependencies (`dependsOnTaskId`) with lock badge and "blocked by" section
+- Convert Task → Project (checklist items → project tasks)
+- Soft delete (Trash) with restore
+- Multi-selection (long-press): Move, Delete, More (Star / Priority / Tag / Schedule / **Start Timer**)
 
-### Vues principales
-| Vue | Description |
+### Views
+| View | Description |
 |---|---|
-| **Today** | Tâches du jour groupées Overdue / Today / This Evening, tri intelligent |
-| **Upcoming** | Scroll infini −14 j → +365 j, mode semaine / mois, drag-to-reschedule |
-| **Inbox** | Tâches non traitées (sans projet ni groupe planifié) |
-| **Anytime** | Tâches de projet sans date + priorité, ou déplacées explicitement |
-| **Someday** | Tâches de projet sans date sans priorité, ou déplacées explicitement |
-| **Projects** | Kanban (board 4 colonnes) + liste toggle |
-| **Project Detail** | Sections, drag-to-reorder, filtres tag/priorité, pie chart, chrono total, notes, commentaires |
-| **Task Detail** | Écran d'édition complet |
-| **Logbook** | Projets archivés |
-| **Trash** | Tâches supprimées softement avec restore |
-| **QuickFind** | Recherche temps-réel + parsing date naturelle FR/EN |
+| **Today** | Tasks for today grouped Overdue / Today / This Evening, smart sort |
+| **Upcoming** | Infinite scroll −14d → +365d, week / month mode, drag-to-reschedule |
+| **Inbox** | Unprocessed tasks (no project, no planned group) |
+| **Anytime** | Project tasks without date + priority, or explicitly moved here |
+| **Someday** | Project tasks without date without priority, or explicitly moved here |
+| **Projects** | Kanban (4-column board) + list toggle |
+| **Project Detail** | Sections, drag-to-reorder, tag/priority filters, pie chart, total time, notes, comments |
+| **Task Detail** | Full edit screen |
+| **Logbook** | Archived projects |
+| **Trash** | Soft-deleted tasks with restore |
+| **QuickFind** | Real-time search + natural date parsing FR/EN |
 
-### Projets
-- Types : PROJECT, LIST, NOTE
-- Statuts : NOT_STARTED / IN_PROGRESS / WAITING / DONE (auto-DONE à 100%)
-- Sections drag-to-reorder, deadline avec countdown coloré
-- Total temps suivi (somme des TimeEntries de toutes les tâches)
-- Historique des changements de statut (`StatusLogEntry`)
-- Notes inline éditables, commentaires timeline, listes enfants (sous-projets)
+### Goals
+- Create goals with target value, unit, and deadline
+- Track progress via goal log entries
+- Link tasks to goals
+- Goal card UI with progress indicator
+- Filter action log by goal tag
 
-### Rappels & Notifications
-- Rappels multiples par tâche (AlarmManager exact, exemption Doze)
-- Canaux séparés son/silencieux, bypass DND, vibration configurable
-- Reschedule automatique au reboot (BootReceiver)
+### Projects
+- Types: PROJECT, LIST, NOTE
+- Statuses: NOT_STARTED / IN_PROGRESS / WAITING / DONE (auto-DONE at 100%)
+- Sections with drag-to-reorder, deadline with colored countdown
+- Total tracked time (sum of all task TimeEntries)
+- Status change history (`StatusLogEntry`)
+- Inline editable notes, comment timeline, child lists (sub-projects)
 
-### Chronomètre (Time Tracking)
-- Start / Pause / Stop par tâche dans TaskDetailScreen
-- Ticker temps réel (mise à jour chaque seconde)
-- Démarrage rapide depuis la multi-sélection (long-press → More → "Démarrer le minuteur")
-- Total affiché dans ProjectDetailScreen (somme de toutes les entrées terminées)
+### Reminders & Notifications
+- Multiple reminders per task (exact AlarmManager, Doze exemption)
+- Separate sound/silent channels, bypass DND, configurable vibration
+- Auto-reschedule on reboot (BootReceiver)
+- Daily alert at fixed times (configurable days Mon–Sun)
+- Geofence-based alerts (GPS offline, named saved locations)
 
-### Paramètres
-| Écran | Options |
+### Time Tracking
+- Start / Pause / Stop per task in TaskDetailScreen
+- Real-time ticker (1-second updates)
+- Quick start from multi-selection (long-press → More → "Start Timer")
+- Total displayed in ProjectDetailScreen (sum of all completed entries)
+
+### Syncthing Sync
+- Peer-to-peer sync via Syncthing (no cloud, no account)
+- Automatic import when files change (FileObserver, real-time)
+- Periodic background scan every 15 min via WorkManager (fallback)
+- Last-Write-Wins conflict resolution on `updatedAt` field
+- Tombstone-based delete propagation (`_meta/tombstones.json`)
+- Initial export when folder is first configured
+- Device info written to `_meta/device.json` at each start
+- Force sync button in settings
+- Status indicator: FolderNotSet / WaitingToSync / Importing / Ready / Error
+
+### Attachments
+- Add file attachments to tasks
+- Physical file copy to Syncthing folder for sync
+- Metadata JSON for each attachment
+
+### Tablet Support
+- Permanent sidebar on wide screens (`WindowWidthSizeClass.EXPANDED`)
+- Hardware keyboard shortcuts
+- Adaptive layout (`AdaptiveAppLayout`)
+
+### Settings
+| Screen | Options |
 |---|---|
-| Général | Format heure 24 h / 12 h, URLs cliquables dans les notes |
-| Apparence | Thème Dark / Light / System |
-| Notifications | Son, vibration, bypass DND |
-| Calendrier | Intégration agendas locaux |
-| Sauvegarde | Export / import |
-| À propos | Version, stack, licences |
+| General | 24h/12h time format, clickable URLs in notes, text size |
+| Appearance | Dark / Light / System theme |
+| Notifications | Sound, vibration, bypass DND |
+| Calendar | Local calendar integration |
+| Backup | Export / import |
+| Syncthing | Folder picker, sync status, force sync |
+| About | Version, stack, licenses |
 
 ---
 
@@ -88,55 +102,71 @@ Style minimal, éditorial, local-first. Inspiré de Things 3, conçu pour Androi
 app/src/main/java/com/onlyflows/
 ├── data/
 │   ├── local/
-│   │   ├── AppDatabase.kt          Room v20, seed callback
+│   │   ├── AppDatabase.kt          Room v22, 14 entities, seed callback
 │   │   ├── Converters.kt           LocalDate / LocalDateTime / JSON
-│   │   ├── entity/                 TaskEntity, ProjectEntity, TimeEntryEntity…
-│   │   └── dao/                    TaskDao, TimeEntryDao, ReminderDao…
-│   ├── repository/                 Implémentations (TaskRepositoryImpl…)
-│   ├── notifications/              ReminderScheduler, ReminderReceiver, BootReceiver
-│   ├── preferences/                AppPreferences, NotificationPreferences…
+│   │   ├── entity/                 TaskEntity, ProjectEntity, GoalEntity…
+│   │   └── dao/                    TaskDao, SyncDao, GoalDao…
+│   ├── repository/                 RepositoryImpl classes
+│   ├── syncthing/                  SyncthingWriter, Importer, ConflictResolver…
+│   ├── notifications/              ReminderScheduler, DailyAlertScheduler, GeofenceManager
+│   ├── preferences/                AppPreferences, SyncthingPreferences…
 │   ├── calendar/                   CalendarRepository
 │   └── backup/                     BackupManager
 ├── domain/
-│   ├── model/Models.kt             Task, Project, TimeEntry, Reminder, Tag…
-│   └── repository/                 Interfaces repository
+│   ├── model/Models.kt             Task, Project, Goal, TimeEntry, Reminder…
+│   ├── repository/                 Repository interfaces
+│   └── RecurrenceScheduler.kt      nextDueDate() pure function
 ├── ui/
 │   ├── screens/                    today / inbox / upcoming / anytime / someday /
 │   │                               projects / project / task / logbook / trash /
-│   │                               search / settings
+│   │                               search / settings (+ syncthing)
 │   ├── components/                 TaskItem, SelectionBar, TaskFilterBar…
-│   ├── overlays/                   BulkMoreSheet, AddTaskSheet, DatePicker…
-│   ├── layout/                     AdaptiveAppLayout (smartphone + tablette)
+│   ├── overlays/                   AddTaskSheet, DatePicker, QuickFindPopup…
+│   ├── layout/                     AdaptiveAppLayout (phone + tablet)
 │   ├── navigation/                 AppNavigation, Screen
-│   └── theme/                      Tokens couleur, typo, Material 3
-├── AppContainer.kt                 Injection manuelle de toutes les dépendances
-├── OnlyFlowsApp.kt
+│   └── theme/                      Color tokens, typography, Material 3
+├── AppContainer.kt                 Manual DI root
+├── OnlyFlowsApp.kt                 Application class
 └── MainActivity.kt
 ```
 
----
-
-## Conventions de développement
-
-- **UDF strict** — état immutable (`data class UiState`), événements explicites (`sealed interface Event`), aucun side-effect dans les composables
-- **Pas de navigation dans les ViewModels** — les screens reçoivent des callbacks de navigation, le VM expose un `StateFlow` uniquement
-- **Room = source de vérité** — l'UI observe des `Flow<List<T>>`, pas d'état local dupliqué sauf transitions purement visuelles (ex : `movingToCompletedIds`)
-- **Soft delete systématique** — `deletedAt: LocalDateTime?` sur les tâches ; toutes les queries filtrent `deletedAt IS NULL`
-- **Repository pattern strict** — les ViewModels n'accèdent jamais aux DAOs directement
-- **Injection manuelle** — `AppContainer` instancie et câble tous les repositories ; les ViewModels le récupèrent via `(app as OnlyFlowsApp).container`
+**Key patterns:**
+- **Strict UDF** — immutable `data class UiState`, explicit `sealed interface Event`, no side-effects in composables
+- **No navigation in ViewModels** — screens receive navigation lambdas; VMs expose `StateFlow` only
+- **Room as source of truth** — UI observes `Flow<List<T>>`; no duplicated local state except visual transitions
+- **Systematic soft delete** — `deletedAt: LocalDateTime?` on all deletable entities; all DAO queries filter `WHERE deletedAt IS NULL`
+- **Strict repository pattern** — ViewModels never access DAOs directly
+- **Manual injection** — `AppContainer` wires all dependencies; ViewModels retrieve via `(app as OnlyFlowsApp).container`
 
 ---
 
-## Roadmap
+## Tech Stack
 
-| Priorité | Feature | Complexité |
-|---|---|---|
-| ✅ Done | About screen | Facile |
-| ✅ Done | Paramètres généraux (24 h/12 h, URLs) | Facile–Moyen |
-| ✅ Done | Démarrer le minuteur depuis multi-sélection | Moyen |
-| 🔜 Next | Total temps suivi par projet (réactif) | Moyen |
-| 🔜 Next | Alerte journalière — heures fixes + jours Mo–Di | Moyen–Difficile |
-| 🔜 Next | Logbook étendu — journal de toutes les actions | Difficile |
-| 🔜 Next | Rappels géolocalisés — GPS offline, lieux nommés | Très difficile |
-| 🗓 Tablette | Master-detail ProjectDetail, sidebar permanente, panel Task latéral | — |
-| 🗓 Long terme | Auth, sync backend, export JSON/CSV, widget Android | — |
+| Layer | Technology |
+|---|---|
+| UI | Jetpack Compose + Material Design 3 |
+| State | ViewModel + StateFlow (strict UDF) |
+| Persistence | Room v2.6.1 — local-first SQLite |
+| Preferences | DataStore Preferences |
+| Navigation | Navigation Compose (type-safe routes) |
+| Drag & Drop | sh.calvin.reorderable |
+| Async | Kotlin Coroutines + Flow |
+| DI | AppContainer (manual injection) |
+| Notifications | AlarmManager (exact alarms) + BroadcastReceiver |
+| Background | WorkManager |
+| Sync | Syncthing (SAF + FileObserver + WorkManager) |
+| Integration | CalendarProvider, FileProvider |
+
+---
+
+## Docs
+
+- [docs/BUILD.md](docs/BUILD.md) — How to build from source
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — Full file & structure reference
+- [docs/SYNC.md](docs/SYNC.md) — How the Syncthing sync system works
+
+---
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md).
