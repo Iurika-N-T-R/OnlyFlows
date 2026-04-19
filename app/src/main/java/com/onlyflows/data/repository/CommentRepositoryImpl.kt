@@ -5,6 +5,7 @@ import com.onlyflows.data.local.dao.SyncDao
 import com.onlyflows.data.local.entity.DeletedEntityEntity
 import com.onlyflows.data.local.entity.toDomain
 import com.onlyflows.data.local.entity.toEntity
+import com.onlyflows.data.syncthing.SyncthingWriter
 import com.onlyflows.domain.model.ActionLog
 import com.onlyflows.domain.model.ActionType
 import com.onlyflows.domain.model.Comment
@@ -18,6 +19,7 @@ class CommentRepositoryImpl(
     private val dao: CommentDao,
     private val actionLog: ActionLogRepository? = null,
     private val syncDao: SyncDao? = null,
+    private val syncthingWriter: SyncthingWriter? = null,
 ) : CommentRepository {
 
     override fun observeByTask(taskId: String): Flow<List<Comment>> =
@@ -28,6 +30,7 @@ class CommentRepositoryImpl(
 
     override suspend fun add(comment: Comment) {
         dao.insert(comment.toEntity())
+        syncthingWriter?.writeComment(comment.toEntity())
         actionLog?.insert(
             ActionLog(
                 id         = "al_${System.currentTimeMillis()}_COMMENT_ADDED",
@@ -42,10 +45,13 @@ class CommentRepositoryImpl(
 
     override suspend fun edit(id: String, newContent: String) {
         dao.updateContent(id, newContent, LocalDateTime.now().toString())
+        // Re-read and write — CommentDao has no getById, write happens on next full import
     }
 
     override suspend fun delete(id: String) {
-        syncDao?.insertTombstone(DeletedEntityEntity("tomb_$id", "comments", id, LocalDateTime.now()))
+        val now = LocalDateTime.now()
+        syncDao?.insertTombstone(DeletedEntityEntity("tomb_$id", "comments", id, now))
+        syncthingWriter?.writeTombstone("comments", id, now)
         dao.delete(id)
     }
 }

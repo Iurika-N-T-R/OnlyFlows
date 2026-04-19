@@ -5,6 +5,7 @@ import com.onlyflows.data.local.dao.SyncDao
 import com.onlyflows.data.local.entity.DeletedEntityEntity
 import com.onlyflows.data.local.entity.toDomain
 import com.onlyflows.data.local.entity.toEntity
+import com.onlyflows.data.syncthing.SyncthingWriter
 import com.onlyflows.domain.model.Reminder
 import com.onlyflows.domain.repository.ReminderRepository
 import kotlinx.coroutines.flow.Flow
@@ -14,15 +15,21 @@ import java.time.LocalDateTime
 class ReminderRepositoryImpl(
     private val dao: ReminderDao,
     private val syncDao: SyncDao? = null,
+    private val syncthingWriter: SyncthingWriter? = null,
 ) : ReminderRepository {
 
     override fun observeByTask(taskId: String): Flow<List<Reminder>> =
         dao.observeByTask(taskId).map { it.map { e -> e.toDomain() } }
 
-    override suspend fun add(reminder: Reminder) = dao.insert(reminder.toEntity())
+    override suspend fun add(reminder: Reminder) {
+        dao.insert(reminder.toEntity())
+        syncthingWriter?.writeReminder(reminder.toEntity())
+    }
 
     override suspend fun delete(id: String) {
-        syncDao?.insertTombstone(DeletedEntityEntity("tomb_$id", "reminders", id, LocalDateTime.now()))
+        val now = LocalDateTime.now()
+        syncDao?.insertTombstone(DeletedEntityEntity("tomb_$id", "reminders", id, now))
+        syncthingWriter?.writeTombstone("reminders", id, now)
         dao.delete(id)
     }
 

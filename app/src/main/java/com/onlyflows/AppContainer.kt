@@ -51,16 +51,15 @@ class AppContainer(context: Context) {
     private val syncDao = db.syncDao()
 
     // ── Syncthing (declared first — repos depend on it) ───────────────────────
-    val syncthingPreferences: SyncthingPreferences  = SyncthingPreferences(context)
-    val syncthingWriter: SyncthingWriter             = SyncthingWriter(context, syncthingPreferences)
+    val syncthingPreferences: SyncthingPreferences   = SyncthingPreferences(context)
+    val syncthingWriter: SyncthingWriter              = SyncthingWriter(context, syncthingPreferences)
     val syncthingStatusMonitor: SyncthingStatusMonitor = SyncthingStatusMonitor(context, syncthingPreferences)
-    val conflictResolver: ConflictResolver           = ConflictResolver(context, syncDao, syncthingPreferences)
-    val syncthingImporter: SyncthingImporter         = SyncthingImporter(context, syncDao, syncthingPreferences)
+    val conflictResolver: ConflictResolver            = ConflictResolver(context, syncDao, syncthingPreferences)
+    val syncthingImporter: SyncthingImporter          = SyncthingImporter(context, syncDao, syncthingPreferences)
 
     // ── Repositories ──────────────────────────────────────────────────────────
-    val actionLogRepository: ActionLogRepository       = ActionLogRepositoryImpl(db.actionLogDao())
-    val savedLocationRepository: SavedLocationRepository = SavedLocationRepositoryImpl(db.savedLocationDao(), syncDao)
-    val geofenceManager: GeofenceManager               = GeofenceManager(context)
+    val actionLogRepository: ActionLogRepository        = ActionLogRepositoryImpl(db.actionLogDao())
+    val geofenceManager: GeofenceManager                = GeofenceManager(context)
 
     val taskRepository: TaskRepository = TaskRepositoryImpl(
         taskDao         = db.taskDao(),
@@ -71,19 +70,41 @@ class AppContainer(context: Context) {
     )
 
     val projectRepository: ProjectRepository = ProjectRepositoryImpl(
-        projectDao   = db.projectDao(),
-        sectionDao   = db.sectionDao(),
-        statusLogDao = db.statusLogDao(),
-        taskDao      = db.taskDao(),
-        actionLog    = actionLogRepository,
-        syncDao      = syncDao,
+        projectDao      = db.projectDao(),
+        sectionDao      = db.sectionDao(),
+        statusLogDao    = db.statusLogDao(),
+        taskDao         = db.taskDao(),
+        actionLog       = actionLogRepository,
+        syncDao         = syncDao,
+        syncthingWriter = syncthingWriter,
     )
 
-    val goalRepository: GoalRepository    = GoalRepositoryImpl(db.goalDao())
+    val goalRepository: GoalRepository       = GoalRepositoryImpl(db.goalDao())
     val goalLogRepository: GoalLogRepository = GoalLogRepositoryImpl(db.goalLogDao())
-    val folderRepository: FolderRepository = FolderRepositoryImpl(db.folderDao(), syncDao)
-    val tagRepository: TagRepository       = TagRepositoryImpl(db.tagDao(), syncDao)
-    val noteRepository: NoteRepository     = NoteRepositoryImpl(db.noteDao(), syncDao)
+
+    val folderRepository: FolderRepository = FolderRepositoryImpl(
+        folderDao       = db.folderDao(),
+        syncDao         = syncDao,
+        syncthingWriter = syncthingWriter,
+    )
+
+    val tagRepository: TagRepository = TagRepositoryImpl(
+        tagDao          = db.tagDao(),
+        syncDao         = syncDao,
+        syncthingWriter = syncthingWriter,
+    )
+
+    val noteRepository: NoteRepository = NoteRepositoryImpl(
+        noteDao         = db.noteDao(),
+        syncDao         = syncDao,
+        syncthingWriter = syncthingWriter,
+    )
+
+    val savedLocationRepository: SavedLocationRepository = SavedLocationRepositoryImpl(
+        dao             = db.savedLocationDao(),
+        syncDao         = syncDao,
+        syncthingWriter = syncthingWriter,
+    )
 
     val notificationPreferences: NotificationPreferences = NotificationPreferences(context)
     val sidebarPreferences: SidebarPreferences   = SidebarPreferences(context)
@@ -96,15 +117,29 @@ class AppContainer(context: Context) {
     val reminderScheduler: ReminderScheduler     = ReminderScheduler(context)
     val dailyAlertPreferences: DailyAlertPreferences = DailyAlertPreferences(context)
     val dailyAlertScheduler: DailyAlertScheduler     = DailyAlertScheduler(context)
+
     val timeEntryRepository: TimeEntryRepository = TimeEntryRepositoryImpl(
-        dao       = db.timeEntryDao(),
-        actionLog = actionLogRepository,
+        dao             = db.timeEntryDao(),
+        actionLog       = actionLogRepository,
+        syncthingWriter = syncthingWriter,
     )
+
     val commentRepository: CommentRepository = CommentRepositoryImpl(
-        dao       = db.commentDao(),
-        actionLog = actionLogRepository,
-        syncDao   = syncDao,
+        dao             = db.commentDao(),
+        actionLog       = actionLogRepository,
+        syncDao         = syncDao,
+        syncthingWriter = syncthingWriter,
     )
-    val reminderRepository: ReminderRepository     = ReminderRepositoryImpl(db.reminderDao(), syncDao)
-    val attachmentRepository: AttachmentRepository = AttachmentRepositoryImpl(db.attachmentDao(), syncDao)
+
+    val reminderRepository: ReminderRepository = ReminderRepositoryImpl(
+        dao             = db.reminderDao(),
+        syncDao         = syncDao,
+        syncthingWriter = syncthingWriter,
+    )
+
+    val attachmentRepository: AttachmentRepository = AttachmentRepositoryImpl(
+        dao             = db.attachmentDao(),
+        syncDao         = syncDao,
+        syncthingWriter = syncthingWriter,
+    )
 }

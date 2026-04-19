@@ -12,6 +12,7 @@ import com.onlyflows.data.local.entity.DeletedEntityEntity
 import com.onlyflows.data.local.entity.StatusLogEntity
 import com.onlyflows.data.local.entity.toDomain
 import com.onlyflows.data.local.entity.toEntity
+import com.onlyflows.data.syncthing.SyncthingWriter
 import com.onlyflows.domain.model.ActionLog
 import com.onlyflows.domain.model.ActionType
 import com.onlyflows.domain.model.Folder
@@ -38,17 +39,13 @@ class ProjectRepositoryImpl(
     private val taskDao: TaskDao,
     private val actionLog: ActionLogRepository? = null,
     private val syncDao: SyncDao? = null,
+    private val syncthingWriter: SyncthingWriter? = null,
 ) : ProjectRepository {
 
     private suspend fun tombstone(id: String, type: String) {
-        syncDao?.insertTombstone(
-            DeletedEntityEntity(
-                id         = "tomb_$id",
-                entityType = type,
-                entityId   = id,
-                deletedAt  = java.time.LocalDateTime.now(),
-            )
-        )
+        val now = LocalDateTime.now()
+        syncDao?.insertTombstone(DeletedEntityEntity("tomb_$id", type, id, now))
+        syncthingWriter?.writeTombstone(type, id, now)
     }
 
     private suspend fun log(type: ActionType, projectId: String, label: String, extra: String? = null) {
@@ -60,7 +57,7 @@ class ProjectRepositoryImpl(
                 entityType = "project",
                 label      = label,
                 extra      = extra,
-                occurredAt = java.time.LocalDateTime.now(),
+                occurredAt = LocalDateTime.now(),
             )
         )
     }
@@ -73,23 +70,15 @@ class ProjectRepositoryImpl(
                     project.toDomain(sections)
                 }
             }
-            if (flows.isEmpty()) {
-                kotlinx.coroutines.flow.flowOf(emptyList())
-            } else {
-                combine(flows) { it.toList() }
-            }
+            if (flows.isEmpty()) kotlinx.coroutines.flow.flowOf(emptyList())
+            else combine(flows) { it.toList() }
         }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun observeById(id: String): Flow<Project?> =
         projectDao.observeById(id).flatMapLatest { entity ->
-            if (entity == null) {
-                kotlinx.coroutines.flow.flowOf(null)
-            } else {
-                sectionDao.observeByProject(id).map { sections ->
-                    entity.toDomain(sections)
-                }
-            }
+            if (entity == null) kotlinx.coroutines.flow.flowOf(null)
+            else sectionDao.observeByProject(id).map { sections -> entity.toDomain(sections) }
         }
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -115,12 +104,16 @@ class ProjectRepositoryImpl(
                 changedAt = LocalDateTime.now().toString(),
             )
         )
+        syncthingWriter?.writeProject(project.toEntity())
+        project.sections.forEach { syncthingWriter?.writeSection(it.toEntity()) }
         log(ActionType.PROJECT_CREATED, project.id, project.title)
         AppLog.i("ProjectRepo", "Project created: ${project.title}")
     }
 
     override suspend fun update(project: Project) {
-        projectDao.update(project.copy(updatedAt = LocalDateTime.now()).toEntity())
+        val entity = project.copy(updatedAt = LocalDateTime.now()).toEntity()
+        projectDao.update(entity)
+        syncthingWriter?.writeProject(entity)
     }
 
     override suspend fun delete(id: String) {
@@ -132,6 +125,7 @@ class ProjectRepositoryImpl(
 
     override suspend fun archive(id: String) {
         projectDao.archive(id)
+        // No full entity available without re-read; archive is a soft status change — importer handles on next scan
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -142,11 +136,8 @@ class ProjectRepositoryImpl(
                     project.toDomain(sections)
                 }
             }
-            if (flows.isEmpty()) {
-                kotlinx.coroutines.flow.flowOf(emptyList())
-            } else {
-                combine(flows) { it.toList() }
-            }
+            if (flows.isEmpty()) kotlinx.coroutines.flow.flowOf(emptyList())
+            else combine(flows) { it.toList() }
         }
 
     override suspend fun updateStatus(id: String, status: ProjectStatus) {
@@ -164,16 +155,18 @@ class ProjectRepositoryImpl(
 
     override suspend fun insertSection(section: Section) {
         sectionDao.insert(section.toEntity())
+        syncthingWriter?.writeSection(section.toEntity())
         log(ActionType.SECTION_CREATED, section.id, section.title)
     }
 
     override suspend fun updateSection(section: Section) {
         sectionDao.update(section.toEntity())
+        syncthingWriter?.writeSection(section.toEntity())
     }
 
     override suspend fun deleteSection(sectionId: String) {
         tombstone(sectionId, "sections")
-        taskDao.clearSection(sectionId, java.time.LocalDateTime.now().toString())
+        taskDao.clearSection(sectionId, LocalDateTime.now().toString())
         sectionDao.delete(sectionId)
         log(ActionType.SECTION_DELETED, sectionId, sectionId)
     }
@@ -185,15 +178,26 @@ class ProjectRepositoryImpl(
 class FolderRepositoryImpl(
     private val folderDao: FolderDao,
     private val syncDao: SyncDao? = null,
+    private val syncthingWriter: SyncthingWriter? = null,
 ) : FolderRepository {
 
     override fun observeAll(): Flow<List<Folder>> =
         folderDao.observeAll().map { list -> list.map { it.toDomain() } }
 
-    override suspend fun insert(folder: Folder) { folderDao.insert(folder.toEntity()) }
-    override suspend fun update(folder: Folder) { folderDao.update(folder.toEntity()) }
+    override suspend fun insert(folder: Folder) {
+        folderDao.insert(folder.toEntity())
+        syncthingWriter?.writeFolder(folder.toEntity())
+    }
+
+    override suspend fun update(folder: Folder) {
+        folderDao.update(folder.toEntity())
+        syncthingWriter?.writeFolder(folder.toEntity())
+    }
+
     override suspend fun delete(id: String) {
-        syncDao?.insertTombstone(DeletedEntityEntity("tomb_$id", "folders", id, java.time.LocalDateTime.now()))
+        val now = LocalDateTime.now()
+        syncDao?.insertTombstone(DeletedEntityEntity("tomb_$id", "folders", id, now))
+        syncthingWriter?.writeTombstone("folders", id, now)
         folderDao.delete(id)
     }
 }
@@ -201,15 +205,26 @@ class FolderRepositoryImpl(
 class TagRepositoryImpl(
     private val tagDao: TagDao,
     private val syncDao: SyncDao? = null,
+    private val syncthingWriter: SyncthingWriter? = null,
 ) : TagRepository {
 
     override fun observeAll(): Flow<List<Tag>> =
         tagDao.observeAll().map { list -> list.map { it.toDomain() } }
 
-    override suspend fun insert(tag: Tag)  { tagDao.insert(tag.toEntity()) }
-    override suspend fun update(tag: Tag)  { tagDao.update(tag.toEntity()) }
+    override suspend fun insert(tag: Tag) {
+        tagDao.insert(tag.toEntity())
+        syncthingWriter?.writeTag(tag.toEntity())
+    }
+
+    override suspend fun update(tag: Tag) {
+        tagDao.update(tag.toEntity())
+        syncthingWriter?.writeTag(tag.toEntity())
+    }
+
     override suspend fun delete(id: String) {
-        syncDao?.insertTombstone(DeletedEntityEntity("tomb_$id", "tags", id, java.time.LocalDateTime.now()))
+        val now = LocalDateTime.now()
+        syncDao?.insertTombstone(DeletedEntityEntity("tomb_$id", "tags", id, now))
+        syncthingWriter?.writeTombstone("tags", id, now)
         tagDao.delete(id)
     }
 }

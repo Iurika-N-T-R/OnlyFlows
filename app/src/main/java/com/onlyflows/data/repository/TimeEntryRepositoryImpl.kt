@@ -3,6 +3,7 @@ package com.onlyflows.data.repository
 import com.onlyflows.data.local.dao.TimeEntryDao
 import com.onlyflows.data.local.entity.toDomain
 import com.onlyflows.data.local.entity.toEntity
+import com.onlyflows.data.syncthing.SyncthingWriter
 import com.onlyflows.domain.model.ActionLog
 import com.onlyflows.domain.model.ActionType
 import com.onlyflows.domain.model.TimeEntry
@@ -16,6 +17,7 @@ import java.time.temporal.ChronoUnit
 class TimeEntryRepositoryImpl(
     private val dao: TimeEntryDao,
     private val actionLog: ActionLogRepository? = null,
+    private val syncthingWriter: SyncthingWriter? = null,
 ) : TimeEntryRepository {
 
     private suspend fun log(type: ActionType, entryId: String, taskId: String, extra: String? = null) {
@@ -43,13 +45,16 @@ class TimeEntryRepositoryImpl(
 
     override suspend fun insert(entry: TimeEntry) {
         dao.insert(entry.toEntity())
+        syncthingWriter?.writeTimeEntry(entry.toEntity())
         log(ActionType.TIMER_STARTED, entry.id, entry.taskId)
     }
 
     override suspend fun stopEntry(id: String) {
         val entity = dao.getById(id) ?: return
         val endedAt = LocalDateTime.now()
-        dao.update(entity.copy(endedAt = endedAt))
+        val updated = entity.copy(endedAt = endedAt)
+        dao.update(updated)
+        syncthingWriter?.writeTimeEntry(updated)
         val duration = ChronoUnit.SECONDS.between(entity.startedAt, endedAt)
         log(ActionType.TIMER_STOPPED, id, entity.taskId, extra = "${duration}s")
     }
