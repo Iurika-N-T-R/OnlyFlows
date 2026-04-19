@@ -41,6 +41,7 @@ import com.onlyflows.domain.repository.ProjectRepository
 import com.onlyflows.domain.repository.TagRepository
 import com.onlyflows.domain.repository.TaskRepository
 import com.onlyflows.data.syncthing.ConflictResolver
+import com.onlyflows.data.syncthing.SyncthingCoordinator
 import com.onlyflows.data.syncthing.SyncthingImporter
 import com.onlyflows.data.syncthing.SyncthingPreferences
 import com.onlyflows.data.syncthing.SyncthingStatusMonitor
@@ -56,6 +57,13 @@ class AppContainer(context: Context) {
     val syncthingStatusMonitor: SyncthingStatusMonitor = SyncthingStatusMonitor(context, syncthingPreferences)
     val conflictResolver: ConflictResolver            = ConflictResolver(context, syncDao, syncthingPreferences)
     val syncthingImporter: SyncthingImporter          = SyncthingImporter(context, syncDao, syncthingPreferences)
+    val syncthingCoordinator: SyncthingCoordinator    = SyncthingCoordinator(
+        context         = context,
+        prefs           = syncthingPreferences,
+        monitor         = syncthingStatusMonitor,
+        importer        = syncthingImporter,
+        conflictResolver = conflictResolver,
+    )
 
     // ── Repositories ──────────────────────────────────────────────────────────
     val actionLogRepository: ActionLogRepository        = ActionLogRepositoryImpl(db.actionLogDao())
