@@ -1,9 +1,18 @@
+<div align="center">
+
 # OnlyFlows
 
-A native Android task and project manager — minimal, editorial, local-first.
-Inspired by Things 3, built for Android.
+Task & project manager — minimal, editorial, local-first
 
-**Current version: 0.30.3**
+Jetpack Compose × Room × Syncthing × WorkManager
+
+[![version](https://img.shields.io/badge/version-0.30.3-blue?style=flat-square)](https://github.com/Iurika-N-T-R/OnlyFlows/releases)
+[![kotlin](https://img.shields.io/badge/kotlin-2.1.0-7F52FF?style=flat-square&logo=kotlin&logoColor=white)](https://kotlinlang.org)
+[![android](https://img.shields.io/badge/android-8.0%2B-3DDC84?style=flat-square&logo=android&logoColor=white)](https://developer.android.com)
+[![minSdk](https://img.shields.io/badge/minSdk-26-green?style=flat-square)](https://developer.android.com/about/versions/oreo)
+[![license](https://img.shields.io/badge/license-MIT-yellow?style=flat-square)](LICENSE)
+
+</div>
 
 ---
 
