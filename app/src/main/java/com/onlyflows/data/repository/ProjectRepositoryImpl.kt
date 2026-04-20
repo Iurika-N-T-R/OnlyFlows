@@ -141,7 +141,7 @@ class ProjectRepositoryImpl(
         }
 
     override suspend fun updateStatus(id: String, status: ProjectStatus) {
-        projectDao.updateStatus(id, status.name)
+        projectDao.updateStatus(id, status.name, LocalDateTime.now().toString())
         statusLogDao.insert(
             StatusLogEntity(
                 id        = "log_${id}_${System.currentTimeMillis()}",
@@ -166,7 +166,8 @@ class ProjectRepositoryImpl(
 
     override suspend fun deleteSection(sectionId: String) {
         tombstone(sectionId, "sections")
-        taskDao.clearSection(sectionId, LocalDateTime.now().toString())
+        val now = LocalDateTime.now().toString()
+        taskDao.softDeleteBySection(sectionId, now)
         sectionDao.delete(sectionId)
         log(ActionType.SECTION_DELETED, sectionId, sectionId)
     }
@@ -211,6 +212,12 @@ class TagRepositoryImpl(
     override fun observeAll(): Flow<List<Tag>> =
         tagDao.observeAll().map { list -> list.map { it.toDomain() } }
 
+    override fun observeUnused(): Flow<List<Tag>> =
+        tagDao.observeUnused().map { list -> list.map { it.toDomain() } }
+
+    override fun observeUsageCount(tagId: String): Flow<Int> =
+        tagDao.observeUsageCount(tagId)
+
     override suspend fun insert(tag: Tag) {
         tagDao.insert(tag.toEntity())
         syncthingWriter?.writeTag(tag.toEntity())
@@ -226,5 +233,9 @@ class TagRepositoryImpl(
         syncDao?.insertTombstone(DeletedEntityEntity("tomb_$id", "tags", id, now))
         syncthingWriter?.writeTombstone("tags", id, now)
         tagDao.delete(id)
+    }
+
+    override suspend fun deleteUnused() {
+        tagDao.deleteUnused()
     }
 }

@@ -18,7 +18,6 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.util.UUID
 
 data class InboxUiState(
     val tasks: List<Task>            = emptyList(),
@@ -37,6 +36,7 @@ sealed interface InboxEvent {
     data object ShowAddTask                                              : InboxEvent
     data object HideAddTask                                              : InboxEvent
     data class AddTask(
+        val id: String,
         val title: String,
         val priority: TaskPriority = TaskPriority.NONE,
         val projectId: String? = null,
@@ -117,7 +117,7 @@ class InboxViewModel(app: Application) : AndroidViewModel(app) {
             InboxEvent.HideAddTask -> _uiState.update { it.copy(showAddTask = false) }
             is InboxEvent.AddTask -> viewModelScope.launch {
                 val task = Task(
-                    id        = UUID.randomUUID().toString(),
+                    id        = event.id,
                     title     = event.title,
                     priority  = event.priority,
                     projectId = event.projectId,

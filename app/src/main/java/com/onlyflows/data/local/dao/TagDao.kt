@@ -24,4 +24,22 @@ interface TagDao {
 
     @Query("DELETE FROM tags WHERE id = :id")
     suspend fun delete(id: String)
+
+    /** Tags whose id doesn't appear in any non-deleted task's tagIds JSON column. */
+    @Query("""
+        SELECT * FROM tags
+        WHERE NOT EXISTS (
+            SELECT 1 FROM tasks
+            WHERE tagIds LIKE '%' || tags.id || '%'
+              AND deletedAt IS NULL
+        )
+        ORDER BY name ASC
+    """)
+    fun observeUnused(): Flow<List<TagEntity>>
+
+    @Query("SELECT COUNT(*) FROM tasks WHERE tagIds LIKE '%' || :tagId || '%' AND deletedAt IS NULL")
+    fun observeUsageCount(tagId: String): Flow<Int>
+
+    @Query("DELETE FROM tags WHERE NOT EXISTS (SELECT 1 FROM tasks WHERE tagIds LIKE '%' || tags.id || '%' AND deletedAt IS NULL)")
+    suspend fun deleteUnused()
 }

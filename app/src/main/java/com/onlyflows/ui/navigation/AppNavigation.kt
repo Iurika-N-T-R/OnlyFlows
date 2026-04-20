@@ -198,7 +198,12 @@ fun AppNavigation(
                 onStatisticsClick            = { navController.navigate(Screen.Statistics.route) },
                 onLogsClick                  = { navController.navigate(Screen.Logs.route) },
                 onSyncthingClick             = { navController.navigate(Screen.SyncthingSettings.route) },
+                onTagsClick                  = { navController.navigate(Screen.Tags.route) },
             )
+        }
+
+        composable(Screen.Tags.route) {
+            com.onlyflows.ui.screens.tags.TagsScreen(onBack = { navController.popBackStack() })
         }
 
         composable(Screen.Logs.route) {

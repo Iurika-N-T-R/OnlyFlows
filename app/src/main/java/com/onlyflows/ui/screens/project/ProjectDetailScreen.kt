@@ -655,11 +655,12 @@ fun ProjectDetailScreen(
 
     if (state.showAddTask) {
         AddTaskSheet(
-            tags      = state.tags,
-            onAdd     = { title, _, _, priority, _, _ ->
-                viewModel.onEvent(ProjectDetailEvent.AddTask(title, state.addTaskSectionId, priority))
+            tags          = state.tags,
+            onAdd         = { id, title, _, _, priority, _, _ ->
+                viewModel.onEvent(ProjectDetailEvent.AddTask(id, title, state.addTaskSectionId, priority))
             },
-            onDismiss = { viewModel.onEvent(ProjectDetailEvent.HideAddTask) },
+            onDismiss     = { viewModel.onEvent(ProjectDetailEvent.HideAddTask) },
+            onTaskCreated = { onTaskClick(it) },
         )
     }
 
@@ -1184,27 +1185,27 @@ private fun SectionMenuHeader(
     var menuExpanded  by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf(false) }
 
-    Box {
-        SectionHeader(
-            title       = section.title,
-            accentColor = accentColor,
-            showMenu    = true,
-            onMenuClick = { menuExpanded = true },
-        )
-        DropdownMenu(
-            expanded        = menuExpanded,
-            onDismissRequest = { menuExpanded = false },
-        ) {
-            DropdownMenuItem(
-                text    = { Text("Rename") },
-                onClick = { menuExpanded = false; showRenameDialog = true },
-            )
-            DropdownMenuItem(
-                text    = { Text("Delete", color = MaterialTheme.colorScheme.error) },
-                onClick = { menuExpanded = false; onDelete() },
-            )
-        }
-    }
+    SectionHeader(
+        title       = section.title,
+        accentColor = accentColor,
+        showMenu    = true,
+        onMenuClick = { menuExpanded = true },
+        menuContent = {
+            DropdownMenu(
+                expanded         = menuExpanded,
+                onDismissRequest = { menuExpanded = false },
+            ) {
+                DropdownMenuItem(
+                    text    = { Text("Rename") },
+                    onClick = { menuExpanded = false; showRenameDialog = true },
+                )
+                DropdownMenuItem(
+                    text    = { Text("Delete", color = MaterialTheme.colorScheme.error) },
+                    onClick = { menuExpanded = false; onDelete() },
+                )
+            }
+        },
+    )
 
     if (showRenameDialog) {
         var draft by remember { mutableStateOf(section.title) }

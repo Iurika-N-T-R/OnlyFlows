@@ -153,7 +153,7 @@ fun DatePickerModal(
                 painter    = painterResource(R.drawable.ic_nav_someday),
                 label      = "Someday",
                 isSelected = false,
-                onClick    = { onDismiss() },
+                onClick    = { fireResult(null); onDismiss() },
             )
 
             // ── Time option (deadline picker only) ────────────────────────────

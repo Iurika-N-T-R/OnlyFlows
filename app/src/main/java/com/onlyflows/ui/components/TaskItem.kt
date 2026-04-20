@@ -498,19 +498,28 @@ fun DateBadge(date: LocalDate, dueTime: java.time.LocalTime? = null, modifier: M
 
 @Composable
 fun TagChip(tag: Tag, modifier: Modifier = Modifier) {
-    val fc = MaterialTheme.flowColors
-    Surface(
-        color    = fc.tagChipBg,
-        shape    = RoundedCornerShape(12.dp),
-        modifier = modifier,
+    val base = parseTagColor(tag.colorHex)
+    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.05f
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier
+            .clip(RoundedCornerShape(6.dp))
+            .background(base.copy(alpha = if (isDark) 0.18f else 0.12f))
+            .border(0.8.dp, base.copy(alpha = if (isDark) 0.45f else 0.30f), RoundedCornerShape(6.dp))
+            .padding(horizontal = 7.dp, vertical = 3.dp),
     ) {
         Text(
-            text     = tag.name,
-            style    = MaterialTheme.typography.labelSmall,
-            color    = fc.tagChipFg,
-            modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+            text       = tag.name,
+            style      = MaterialTheme.typography.labelSmall,
+            color      = base,
+            fontWeight = FontWeight.SemiBold,
         )
     }
+}
+
+private fun Color.luminance(): Float {
+    if (this == Color.Unspecified) return 0f
+    return 0.2126f * red + 0.7152f * green + 0.0722f * blue
 }
 
 // ── Preview ───────────────────────────────────────────────────────────────────

@@ -19,6 +19,7 @@ class OnlyFlowsApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        AppLog.init(filesDir)
         installUncaughtExceptionLogger()
         container = AppContainer(this)
         container.syncthingCoordinator.start()

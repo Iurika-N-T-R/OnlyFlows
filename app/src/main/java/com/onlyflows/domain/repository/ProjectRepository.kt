@@ -33,7 +33,10 @@ interface FolderRepository {
 
 interface TagRepository {
     fun observeAll(): Flow<List<Tag>>
+    fun observeUnused(): Flow<List<Tag>>
+    fun observeUsageCount(tagId: String): Flow<Int>
     suspend fun insert(tag: Tag)
     suspend fun update(tag: Tag)
     suspend fun delete(id: String)
+    suspend fun deleteUnused()
 }

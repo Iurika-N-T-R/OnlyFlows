@@ -423,13 +423,14 @@ fun TodayScreen(
     // Add task sheet
     if (state.showAddTask) {
         AddTaskSheet(
-            defaultGroup = com.onlyflows.domain.model.TaskGroup.TODAY,
-            tags         = state.tags,
-            projects     = state.allProjects,
-            onAdd        = { title, _, _, priority, projectId, sectionId ->
-                viewModel.onEvent(TodayEvent.AddTask(title, priority, projectId, sectionId))
+            defaultGroup  = com.onlyflows.domain.model.TaskGroup.TODAY,
+            tags          = state.tags,
+            projects      = state.allProjects,
+            onAdd         = { id, title, _, _, priority, projectId, sectionId ->
+                viewModel.onEvent(TodayEvent.AddTask(id, title, priority, projectId, sectionId))
             },
-            onDismiss    = { viewModel.onEvent(TodayEvent.HideAddTask) },
+            onDismiss     = { viewModel.onEvent(TodayEvent.HideAddTask) },
+            onTaskCreated = { onTaskClick(it) },
         )
     }
 

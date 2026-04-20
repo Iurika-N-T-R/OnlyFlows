@@ -28,6 +28,7 @@ import com.onlyflows.domain.model.TaskPriority
 import com.onlyflows.ui.theme.FlowGold
 import com.onlyflows.ui.theme.OnlyFlowsTheme
 import java.time.LocalDate
+import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,9 +36,11 @@ fun AddTaskSheet(
     defaultGroup: TaskGroup = TaskGroup.TODAY,
     tags: List<Tag> = emptyList(),
     projects: List<Project> = emptyList(),
-    onAdd: (title: String, group: TaskGroup, dueDate: LocalDate?, priority: TaskPriority, projectId: String?, sectionId: String?) -> Unit,
+    onAdd: (id: String, title: String, group: TaskGroup, dueDate: LocalDate?, priority: TaskPriority, projectId: String?, sectionId: String?) -> Unit,
     onDismiss: () -> Unit,
+    onTaskCreated: ((taskId: String) -> Unit)? = null,
 ) {
+    val taskId = remember { UUID.randomUUID().toString() }
     var title    by remember { mutableStateOf("") }
     var note     by remember { mutableStateOf("") }
     var group    by remember { mutableStateOf(defaultGroup) }
@@ -293,11 +296,33 @@ fun AddTaskSheet(
                         }
                     }
                 }
+                // Open in full view button
+                if (onTaskCreated != null) {
+                    IconButton(
+                        onClick = {
+                            if (title.isNotBlank()) {
+                                onAdd(taskId, title.trim(), group, dueDate, priority, selectedProjectId, selectedSectionId)
+                                onTaskCreated(taskId)
+                                onDismiss()
+                            }
+                        },
+                        enabled = title.isNotBlank(),
+                    ) {
+                        Icon(
+                            imageVector        = Icons.Outlined.OpenInFull,
+                            contentDescription = "Save and open",
+                            tint               = if (title.isNotBlank())
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            else
+                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
+                        )
+                    }
+                }
                 // Submit button
                 IconButton(
                     onClick  = {
                         if (title.isNotBlank()) {
-                            onAdd(title.trim(), group, dueDate, priority, selectedProjectId, selectedSectionId)
+                            onAdd(taskId, title.trim(), group, dueDate, priority, selectedProjectId, selectedSectionId)
                             onDismiss()
                         }
                     },
@@ -319,8 +344,13 @@ fun AddTaskSheet(
     if (showDatePicker) {
         DatePickerModal(
             initialDate    = dueDate,
-            onDateSelected = {
-                dueDate = it
+            onDateSelected = { picked ->
+                dueDate = picked
+                group = when {
+                    picked == null              -> TaskGroup.SOMEDAY
+                    picked == java.time.LocalDate.now() -> TaskGroup.TODAY
+                    else                        -> TaskGroup.SOMEDAY
+                }
                 showDatePicker = false
             },
             onDismiss = { showDatePicker = false },
@@ -343,7 +373,7 @@ private fun AddTaskSheetPreview() {
     OnlyFlowsTheme {
         AddTaskSheet(
             tags      = MockData.tags,
-            onAdd     = { _, _, _, _, _, _ -> },
+            onAdd     = { _, _, _, _, _, _, _ -> },
             onDismiss = {},
         )
     }

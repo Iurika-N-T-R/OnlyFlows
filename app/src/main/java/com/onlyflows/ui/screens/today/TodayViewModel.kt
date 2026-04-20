@@ -68,6 +68,7 @@ sealed interface TodayEvent {
     data object ShowAddTask                                             : TodayEvent
     data object HideAddTask                                             : TodayEvent
     data class AddTask(
+        val id: String,
         val title: String,
         val priority: TaskPriority = TaskPriority.NONE,
         val projectId: String? = null,
@@ -210,7 +211,7 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
             is TodayEvent.ClearSelection -> _uiState.update { it.copy(selectedTaskIds = emptySet()) }
             is TodayEvent.ShowAddTask    -> _uiState.update { it.copy(showAddTask = true) }
             is TodayEvent.HideAddTask    -> _uiState.update { it.copy(showAddTask = false) }
-            is TodayEvent.AddTask        -> { AppLog.d("TodayVM", "addTask: \"${event.title}\" project=${event.projectId}"); addTask(event.title, event.priority, event.projectId, event.sectionId) }
+            is TodayEvent.AddTask        -> { AppLog.d("TodayVM", "addTask: \"${event.title}\" project=${event.projectId}"); addTask(event.id, event.title, event.priority, event.projectId, event.sectionId) }
             is TodayEvent.DeleteSelected -> { AppLog.d("TodayVM", "deleteSelected: ${event.ids.size} tasks"); deleteSelected(event.ids) }
             is TodayEvent.ToggleChecklistItem -> viewModelScope.launch {
                 taskRepo.toggleChecklistItem(event.itemId, event.completed)
@@ -308,11 +309,11 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    private fun addTask(title: String, priority: TaskPriority = TaskPriority.NONE, projectId: String? = null, sectionId: String? = null) {
+    private fun addTask(id: String, title: String, priority: TaskPriority = TaskPriority.NONE, projectId: String? = null, sectionId: String? = null) {
         if (title.isBlank()) return
         viewModelScope.launch {
             val newTask = Task(
-                id             = "task_${System.currentTimeMillis()}",
+                id             = id,
                 title          = title,
                 priority       = priority,
                 projectId      = projectId,

@@ -14,6 +14,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.onlyflows.ui.theme.OnlyFlowsTheme
+import androidx.compose.foundation.layout.BoxScope
 
 @Composable
 fun SectionHeader(
@@ -22,6 +23,7 @@ fun SectionHeader(
     accentColor: Color = MaterialTheme.colorScheme.primary,
     showMenu: Boolean = false,
     onMenuClick: () -> Unit = {},
+    menuContent: @Composable BoxScope.() -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -45,13 +47,16 @@ fun SectionHeader(
             modifier   = Modifier.weight(1f),
         )
         if (showMenu) {
-            IconButton(onClick = onMenuClick, modifier = Modifier.size(36.dp)) {
-                Icon(
-                    imageVector        = Icons.Outlined.MoreHoriz,
-                    contentDescription = "Section menu",
-                    tint               = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                    modifier           = Modifier.size(18.dp),
-                )
+            Box {
+                IconButton(onClick = onMenuClick, modifier = Modifier.size(36.dp)) {
+                    Icon(
+                        imageVector        = Icons.Outlined.MoreHoriz,
+                        contentDescription = "Section menu",
+                        tint               = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        modifier           = Modifier.size(18.dp),
+                    )
+                }
+                menuContent()
             }
         }
     }

@@ -10,6 +10,7 @@ import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Label
 import androidx.compose.material.icons.outlined.SyncAlt
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Tune
@@ -37,6 +38,7 @@ fun SettingsScreen(
     onAboutClick: () -> Unit = {},
     onLogsClick: () -> Unit = {},
     onSyncthingClick: () -> Unit = {},
+    onTagsClick: () -> Unit = {},
 ) {
     Scaffold(
         topBar = {
@@ -113,6 +115,12 @@ fun SettingsScreen(
                 icon    = Icons.Outlined.BarChart,
                 label   = "Statistiques",
                 onClick = onStatisticsClick,
+            )
+            Divider()
+            SettingsRow(
+                icon    = Icons.Outlined.Label,
+                label   = "Tags",
+                onClick = onTagsClick,
             )
             Divider()
             SettingsGroupLabel("Application")

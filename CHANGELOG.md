@@ -5,6 +5,25 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.31.0] — 2026-04-20 · Tags Manager + Bug Fixes
+
+### Ajouté
+
+- **Tags Manager** — nouvel écran accessible via Paramètres → Tags. Permet de créer, renommer, recolorer et supprimer des tags. Bouton "Remove unused" pour nettoyer les tags non utilisés d'un seul tap.
+- **Système de couleur des tags** — police vive (colorHex pleine opacité), fond semi-transparent (12 % / 18 % dark), bordure légère (30 % / 45 % dark). Fonctionne en light et dark mode.
+- **TagChip cohérent** — tous les affichages de tags (TaskItem, TagsPickerModal, TagsScreen) utilisent le même composant `TagChip` avec le nouveau système de couleur.
+- **Log persistant** — les logs sont maintenant écrits dans `filesDir/logs/app.log` (max 1 Mo) ; les crashs en arrière-plan sont conservés après redémarrage.
+
+### Corrigé
+
+- **Suppression de section → tâches orphelines** — supprimer une section ne supprimait que la section (les tâches gardaient leur `projectId` et réapparaissaient dans Anytime/Someday). Corrigé : les tâches sont maintenant soft-deleted avec la section.
+- **Statut "Won't do" non synchronisé** — la requête `updateStatus` n'incluait pas `updatedAt`, la sync ignorait le changement. Corrigé.
+- **Menu "..." de section à gauche** — le `DropdownMenu` était ancré au coin supérieur gauche de la Row complète. Corrigé via un slot `menuContent` wrappant uniquement le bouton.
+- **Bouton "Today" / "Someday" sans effet** — dans `AddTaskSheet`, `onDateSelected` ne mettait pas à jour `group`. "Someday" appelait `onDismiss()` sans `fireResult`. Les deux corrigés.
+- **Ouvrir une tâche immédiatement après création** — ajout d'un bouton `OpenInFull` dans `AddTaskSheet` : sauvegarde la tâche et navigue directement vers son détail.
+
+---
+
 ## [0.25.0] — 2026-04-16 · UI Bug Fixes — Dark Mode + QuickFind Date Search
 
 ### Corrigé

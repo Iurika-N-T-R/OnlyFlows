@@ -37,8 +37,8 @@ interface ProjectDao {
     @Query("DELETE FROM projects WHERE id = :id")
     suspend fun delete(id: String)
 
-    @Query("UPDATE projects SET status = :status WHERE id = :id")
-    suspend fun updateStatus(id: String, status: String)
+    @Query("UPDATE projects SET status = :status, updatedAt = :now WHERE id = :id")
+    suspend fun updateStatus(id: String, status: String, now: String)
 }
 
 @Dao

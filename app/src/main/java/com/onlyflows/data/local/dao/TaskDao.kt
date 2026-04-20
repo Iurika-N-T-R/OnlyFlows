@@ -221,6 +221,9 @@ interface TaskDao {
     @Query("UPDATE tasks SET sectionId = NULL, updatedAt = :now WHERE sectionId = :sectionId")
     suspend fun clearSection(sectionId: String, now: String)
 
+    @Query("UPDATE tasks SET deletedAt = :now, updatedAt = :now WHERE sectionId = :sectionId AND deletedAt IS NULL")
+    suspend fun softDeleteBySection(sectionId: String, now: String)
+
     @Query("UPDATE tasks SET sortOrder = :sortOrder WHERE id = :id")
     suspend fun updateSortOrder(id: String, sortOrder: Int)
 

@@ -11,7 +11,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.Label
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,6 +22,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.onlyflows.data.mock.MockData
 import com.onlyflows.domain.model.Tag
+import com.onlyflows.ui.components.TagChip
 import com.onlyflows.ui.theme.ModalDark
 import com.onlyflows.ui.theme.OnlyFlowsTheme
 
@@ -81,21 +81,11 @@ fun TagsPickerModal(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable { onToggleTag(tag.id) }
-                            .padding(horizontal = 20.dp, vertical = 12.dp),
+                            .padding(horizontal = 20.dp, vertical = 10.dp),
                     ) {
-                        Icon(
-                            imageVector        = Icons.Outlined.Label,
-                            contentDescription = null,
-                            tint               = Color.White.copy(alpha = 0.6f),
-                            modifier           = Modifier.size(18.dp),
-                        )
-                        Spacer(Modifier.width(14.dp))
-                        Text(
-                            text     = tag.name,
-                            style    = MaterialTheme.typography.titleMedium,
-                            color    = Color.White,
-                            modifier = Modifier.weight(1f),
-                        )
+                        // Colored chip instead of plain icon
+                        TagChip(tag = tag)
+                        Spacer(Modifier.weight(1f))
                         if (isSelected) {
                             Icon(
                                 imageVector        = Icons.Outlined.Check,
