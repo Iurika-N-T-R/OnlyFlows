@@ -3,6 +3,8 @@ package com.onlyflows.ui.overlays
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.outlined.*
@@ -17,6 +19,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
 import com.onlyflows.R
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.onlyflows.data.mock.MockData
@@ -36,7 +39,7 @@ fun AddTaskSheet(
     defaultGroup: TaskGroup = TaskGroup.TODAY,
     tags: List<Tag> = emptyList(),
     projects: List<Project> = emptyList(),
-    onAdd: (id: String, title: String, group: TaskGroup, dueDate: LocalDate?, priority: TaskPriority, projectId: String?, sectionId: String?) -> Unit,
+    onAdd: (id: String, title: String, group: TaskGroup, dueDate: LocalDate?, priority: TaskPriority, projectId: String?, sectionId: String?, checklistItems: List<String>) -> Unit,
     onDismiss: () -> Unit,
     onTaskCreated: ((taskId: String) -> Unit)? = null,
 ) {
@@ -53,6 +56,9 @@ fun AddTaskSheet(
     var showPriorityMenu   by remember { mutableStateOf(false) }
     var showProjectMenu    by remember { mutableStateOf(false) }
     var showSectionMenu    by remember { mutableStateOf(false) }
+    var showChecklist      by remember { mutableStateOf(false) }
+    var checklistItems     by remember { mutableStateOf(listOf<String>()) }
+    var checklistDraft     by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
 
     val selectedProject: Project? = projects.find { it.id == selectedProjectId }
@@ -120,6 +126,50 @@ fun AddTaskSheet(
                 singleLine = false,
                 modifier   = Modifier.fillMaxWidth(),
             )
+
+            // ── Checklist items (shown when toggled) ─────────────────────────────
+            if (showChecklist) {
+                Spacer(Modifier.height(8.dp))
+                checklistItems.forEachIndexed { index, item ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                    ) {
+                        Icon(Icons.Outlined.CheckBoxOutlineBlank, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.width(8.dp))
+                        Text(item, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                        IconButton(onClick = { checklistItems = checklistItems.toMutableList().also { it.removeAt(index) } }, modifier = Modifier.size(24.dp)) {
+                            Icon(Icons.Outlined.Close, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                ) {
+                    Icon(Icons.Outlined.Add, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.width(8.dp))
+                    BasicTextField(
+                        value = checklistDraft,
+                        onValueChange = { checklistDraft = it },
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
+                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = {
+                            if (checklistDraft.isNotBlank()) {
+                                checklistItems = checklistItems + checklistDraft.trim()
+                                checklistDraft = ""
+                            }
+                        }),
+                        decorationBox = { inner ->
+                            if (checklistDraft.isEmpty()) Text("Add item…", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+                            inner()
+                        },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
 
             // ── Project / section picker row (only when projects are provided) ──
             if (projects.isNotEmpty()) {
@@ -262,8 +312,8 @@ fun AddTaskSheet(
                     Icon(Icons.Outlined.Label, "Tags", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 // Checklist icon
-                IconButton(onClick = {}) {
-                    Icon(Icons.Outlined.ChecklistRtl, "Checklist", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                IconButton(onClick = { showChecklist = !showChecklist }) {
+                    Icon(Icons.Outlined.ChecklistRtl, "Checklist", tint = if (showChecklist || checklistItems.isNotEmpty()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 // Priority flag
                 Box {
@@ -301,7 +351,7 @@ fun AddTaskSheet(
                     IconButton(
                         onClick = {
                             if (title.isNotBlank()) {
-                                onAdd(taskId, title.trim(), group, dueDate, priority, selectedProjectId, selectedSectionId)
+                                onAdd(taskId, title.trim(), group, dueDate, priority, selectedProjectId, selectedSectionId, checklistItems)
                                 onTaskCreated(taskId)
                                 onDismiss()
                             }
@@ -322,7 +372,7 @@ fun AddTaskSheet(
                 IconButton(
                     onClick  = {
                         if (title.isNotBlank()) {
-                            onAdd(taskId, title.trim(), group, dueDate, priority, selectedProjectId, selectedSectionId)
+                            onAdd(taskId, title.trim(), group, dueDate, priority, selectedProjectId, selectedSectionId, checklistItems)
                             onDismiss()
                         }
                     },
@@ -373,7 +423,7 @@ private fun AddTaskSheetPreview() {
     OnlyFlowsTheme {
         AddTaskSheet(
             tags      = MockData.tags,
-            onAdd     = { _, _, _, _, _, _, _ -> },
+            onAdd     = { _, _, _, _, _, _, _, _ -> },
             onDismiss = {},
         )
     }

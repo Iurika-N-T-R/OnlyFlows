@@ -5,6 +5,30 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.32.0] — 2026-04-21 · Bug Fixes + UX Improvements + Collapsible Sections
+
+### Corrigé
+
+- **Commentaires disparaissent** — les commentaires étaient observés dans une coroutine séparée de `loadTask`, créant une condition de course. Fusion dans le même `combine` pour des mises à jour atomiques.
+- **Statut projet non synchronisé** — `updateStatus()` ne déclenchait pas `syncthingWriter.writeProject()`. Corrigé.
+- **Tâche "Won't do" non synchronisée** — `abandonTask()` manquait un appel `syncWrite(id)`. Corrigé.
+- **Réordonnancement de sections non synchronisé** — `section.copy(sortOrder = index)` conservait l'ancien `updatedAt`, forçant le remote à ignorer le changement. Corrigé via `copy(updatedAt = LocalDateTime.now())` dans le repository.
+- **Bouton checklist dans AddTask non fonctionnel** — le `onClick` était vide. Implémenté : éditeur inline de checklist dans la fiche de création de tâche.
+
+### Ajouté
+
+- **Sections collapsibles** — tap sur le titre d'une section pour replier/déplier ses tâches. Chevron animé.
+- **Sélecteur de section dans TaskDetail** — nouvelle ligne "Section" dans les propriétés d'une tâche (si le projet a des sections).
+- **Masquer/afficher les tâches terminées** — nouveau menu "Masquer terminées / Afficher terminées" dans le `...` du projet.
+
+### Amélioré
+
+- **Commentaires triés du plus récent au plus ancien** (DESC).
+- **Saisie de commentaire + clavier** — `imePadding()` sur la LazyColumn + scroll automatique vers le bas à chaque nouveau commentaire.
+- **Tri auto — tâches terminées en bas** — le comparateur de tri automatique place désormais les tâches `isCompleted` en fin de section.
+
+---
+
 ## [0.31.0] — 2026-04-20 · Tags Manager + Bug Fixes
 
 ### Ajouté

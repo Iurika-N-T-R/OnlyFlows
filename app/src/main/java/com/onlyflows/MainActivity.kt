@@ -131,7 +131,7 @@ class MainActivity : ComponentActivity() {
                     if (showGlobalAddTask) {
                         AddTaskSheet(
                             defaultGroup = TaskGroup.TODAY,
-                            onAdd = { id, title, group, dueDate, priority, projectId, sectionId ->
+                            onAdd = { id, title, group, dueDate, priority, projectId, sectionId, checklistItems ->
                                 showGlobalAddTask = false
                                 val repo = app.container.taskRepository
                                 CoroutineScope(Dispatchers.IO).launch {
@@ -146,6 +146,14 @@ class MainActivity : ComponentActivity() {
                                         createdAt      = LocalDateTime.now(),
                                         updatedAt      = LocalDateTime.now(),
                                     ))
+                                    checklistItems.forEachIndexed { index, itemTitle ->
+                                        repo.addChecklistItem(com.onlyflows.domain.model.ChecklistItem(
+                                            id        = "cli_${System.currentTimeMillis()}_$index",
+                                            taskId    = id,
+                                            title     = itemTitle,
+                                            sortOrder = index,
+                                        ))
+                                    }
                                 }
                             },
                             onDismiss = { showGlobalAddTask = false },

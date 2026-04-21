@@ -22,6 +22,9 @@ interface ProjectDao {
     @Query("SELECT * FROM projects WHERE id = :id")
     fun observeById(id: String): Flow<ProjectEntity?>
 
+    @Query("SELECT * FROM projects WHERE id = :id")
+    suspend fun getById(id: String): ProjectEntity?
+
     @Query("UPDATE projects SET isArchived = 1 WHERE id = :id")
     suspend fun archive(id: String)
 

@@ -41,6 +41,7 @@ sealed interface InboxEvent {
         val priority: TaskPriority = TaskPriority.NONE,
         val projectId: String? = null,
         val sectionId: String? = null,
+        val checklistItems: List<String> = emptyList(),
     ) : InboxEvent
     data class ToggleChecklistItem(val itemId: String, val completed: Boolean) : InboxEvent
     data class ToggleSelect(val taskId: String)                         : InboxEvent
@@ -124,6 +125,14 @@ class InboxViewModel(app: Application) : AndroidViewModel(app) {
                     sectionId = event.sectionId,
                 )
                 taskRepo.insert(task)
+                event.checklistItems.forEachIndexed { index, itemTitle ->
+                    taskRepo.addChecklistItem(com.onlyflows.domain.model.ChecklistItem(
+                        id        = "cli_${System.currentTimeMillis()}_$index",
+                        taskId    = event.id,
+                        title     = itemTitle,
+                        sortOrder = index,
+                    ))
+                }
                 _uiState.update { it.copy(showAddTask = false) }
             }
             is InboxEvent.ToggleChecklistItem -> viewModelScope.launch {

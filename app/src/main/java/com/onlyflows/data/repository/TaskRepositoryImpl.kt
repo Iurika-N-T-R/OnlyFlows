@@ -204,6 +204,7 @@ class TaskRepositoryImpl(
     override suspend fun abandonTask(id: String) {
         taskDao.setArchived(id, true, LocalDateTime.now().toString())
         val label = taskDao.getById(id)?.title ?: id
+        syncWrite(id)
         log(ActionType.TASK_ABANDONED, id, label)
     }
 

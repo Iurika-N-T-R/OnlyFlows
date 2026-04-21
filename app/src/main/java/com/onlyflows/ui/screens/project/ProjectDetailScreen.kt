@@ -88,12 +88,12 @@ private val priorityOrder = mapOf(
     TaskPriority.NONE   to 3,
 )
 
-// Tasks with a due date first (sorted by date then priority),
-// then tasks without a due date (sorted by priority).
+// Completed tasks last, then dated tasks first (by date), then by priority.
 private val taskAutoSort: Comparator<Task> = compareBy<Task>(
-    { if (it.dueDate != null) 0 else 1 },          // dated first
-    { it.dueDate?.toEpochDay() ?: Long.MAX_VALUE }, // date ASC
-    { priorityOrder[it.priority] ?: 3 },            // priority HIGH→NONE
+    { if (it.isCompleted) 1 else 0 },               // completed last
+    { if (it.dueDate != null) 0 else 1 },            // dated first
+    { it.dueDate?.toEpochDay() ?: Long.MAX_VALUE },  // date ASC
+    { priorityOrder[it.priority] ?: 3 },             // priority HIGH→NONE
 )
 
 // ── Screen ────────────────────────────────────────────────────────────────────
@@ -279,6 +279,10 @@ fun ProjectDetailScreen(
                                     onClick = { showProjectMenu = false; showReorderSections = true },
                                 )
                             }
+                            DropdownMenuItem(
+                                text    = { Text(if (state.hideCompleted) "Afficher terminées" else "Masquer terminées") },
+                                onClick = { showProjectMenu = false; viewModel.onEvent(ProjectDetailEvent.ToggleHideCompleted) },
+                            )
                         }
                     }
                     IconButton(onClick = { /* expand/collapse */ }) {
@@ -550,9 +554,12 @@ fun ProjectDetailScreen(
                 when (item) {
                     is PdItem.Header -> {
                         if (hasFilter && item.section.id !in visibleSectionIds) return@items
+                        val sectionCollapsed = item.section.id in state.collapsedSectionIds
                         SectionMenuHeader(
-                            section     = item.section,
-                            accentColor = projectColor,
+                            section          = item.section,
+                            accentColor      = projectColor,
+                            isCollapsed      = sectionCollapsed,
+                            onToggleCollapse = { viewModel.onEvent(ProjectDetailEvent.ToggleSectionCollapse(item.section.id)) },
                             onRename    = { newTitle ->
                                 viewModel.onEvent(ProjectDetailEvent.RenameSection(item.section.id, newTitle))
                             },
@@ -569,6 +576,11 @@ fun ProjectDetailScreen(
 
                     is PdItem.TaskRow -> {
                         if (hasFilter && item.task.id !in visibleTaskIds) return@items
+                        // Skip tasks belonging to a collapsed section
+                        val taskSectionId = item.task.sectionId
+                        if (taskSectionId != null && taskSectionId in state.collapsedSectionIds) return@items
+                        // Skip completed tasks when hideCompleted is on
+                        if (state.hideCompleted && item.task.isCompleted) return@items
                         val isSelectionMode = state.selectedTaskIds.isNotEmpty()
                         TaskItem(
                             task            = item.task,
@@ -656,8 +668,8 @@ fun ProjectDetailScreen(
     if (state.showAddTask) {
         AddTaskSheet(
             tags          = state.tags,
-            onAdd         = { id, title, _, _, priority, _, _ ->
-                viewModel.onEvent(ProjectDetailEvent.AddTask(id, title, state.addTaskSectionId, priority))
+            onAdd         = { id, title, _, _, priority, _, _, checklistItems ->
+                viewModel.onEvent(ProjectDetailEvent.AddTask(id, title, state.addTaskSectionId, priority, checklistItems))
             },
             onDismiss     = { viewModel.onEvent(ProjectDetailEvent.HideAddTask) },
             onTaskCreated = { onTaskClick(it) },
@@ -1179,6 +1191,8 @@ private fun ProjectEditSheet(
 private fun SectionMenuHeader(
     section: com.onlyflows.domain.model.Section,
     accentColor: Color,
+    isCollapsed: Boolean = false,
+    onToggleCollapse: () -> Unit = {},
     onRename: (String) -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -1186,10 +1200,12 @@ private fun SectionMenuHeader(
     var showRenameDialog by remember { mutableStateOf(false) }
 
     SectionHeader(
-        title       = section.title,
-        accentColor = accentColor,
-        showMenu    = true,
-        onMenuClick = { menuExpanded = true },
+        title            = section.title,
+        accentColor      = accentColor,
+        showMenu         = true,
+        onMenuClick      = { menuExpanded = true },
+        isCollapsed      = isCollapsed,
+        onToggleCollapse = onToggleCollapse,
         menuContent = {
             DropdownMenu(
                 expanded         = menuExpanded,

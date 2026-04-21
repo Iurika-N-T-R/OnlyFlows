@@ -150,6 +150,7 @@ class ProjectRepositoryImpl(
                 changedAt = LocalDateTime.now().toString(),
             )
         )
+        projectDao.getById(id)?.let { syncthingWriter?.writeProject(it) }
         log(ActionType.PROJECT_STATUS_CHANGED, id, id, extra = status.name)
     }
 
@@ -160,8 +161,9 @@ class ProjectRepositoryImpl(
     }
 
     override suspend fun updateSection(section: Section) {
-        sectionDao.update(section.toEntity())
-        syncthingWriter?.writeSection(section.toEntity())
+        val entity = section.toEntity().copy(updatedAt = LocalDateTime.now())
+        sectionDao.update(entity)
+        syncthingWriter?.writeSection(entity)
     }
 
     override suspend fun deleteSection(sectionId: String) {

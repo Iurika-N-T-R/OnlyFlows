@@ -58,6 +58,8 @@ data class ProjectDetailUiState(
     val totalTrackedSeconds: Long                = 0L,   // display value = completed + elapsed (ticked)
     val comments: List<Comment>                  = emptyList(),
     val showBulkMore: Boolean                    = false,
+    val collapsedSectionIds: Set<String>         = emptySet(),
+    val hideCompleted: Boolean                   = false,
 )
 
 sealed interface ProjectDetailEvent {
@@ -66,7 +68,7 @@ sealed interface ProjectDetailEvent {
     data object ClearSelection                                          : ProjectDetailEvent
     data class ShowAddTask(val sectionId: String?)                      : ProjectDetailEvent
     data object HideAddTask                                             : ProjectDetailEvent
-    data class AddTask(val id: String, val title: String, val sectionId: String?, val priority: TaskPriority = TaskPriority.NONE) : ProjectDetailEvent
+    data class AddTask(val id: String, val title: String, val sectionId: String?, val priority: TaskPriority = TaskPriority.NONE, val checklistItems: List<String> = emptyList()) : ProjectDetailEvent
     data class DeleteSelected(val ids: Set<String>)                     : ProjectDetailEvent
     data class ReorderTasks(val idsInOrder: List<String>)                        : ProjectDetailEvent
     data class ToggleChecklistItem(val itemId: String, val completed: Boolean)   : ProjectDetailEvent
@@ -81,6 +83,8 @@ sealed interface ProjectDetailEvent {
     data class RenameSection(val sectionId: String, val title: String)         : ProjectDetailEvent
     data class DeleteSection(val sectionId: String)                             : ProjectDetailEvent
     data class ReorderSections(val orderedIds: List<String>)                    : ProjectDetailEvent
+    data class ToggleSectionCollapse(val sectionId: String)                     : ProjectDetailEvent
+    data object ToggleHideCompleted                                              : ProjectDetailEvent
     data class ToggleTagFilter(val tagId: String)                  : ProjectDetailEvent
     data class SetPriorityFilter(val priority: TaskPriority?)  : ProjectDetailEvent
     data object Archive                                        : ProjectDetailEvent
@@ -268,7 +272,7 @@ class ProjectDetailViewModel(app: Application) : AndroidViewModel(app) {
             is ProjectDetailEvent.ClearSelection -> _uiState.update { it.copy(selectedTaskIds = emptySet()) }
             is ProjectDetailEvent.ShowAddTask    -> _uiState.update { it.copy(showAddTask = true, addTaskSectionId = event.sectionId) }
             is ProjectDetailEvent.HideAddTask    -> _uiState.update { it.copy(showAddTask = false) }
-            is ProjectDetailEvent.AddTask        -> addTask(event.id, event.title, event.sectionId, event.priority)
+            is ProjectDetailEvent.AddTask        -> addTask(event.id, event.title, event.sectionId, event.priority, event.checklistItems)
             is ProjectDetailEvent.DeleteSelected -> deleteSelected(event.ids)
             is ProjectDetailEvent.ReorderTasks          -> viewModelScope.launch {
                 taskRepo.reorderTasks(event.idsInOrder)
@@ -333,6 +337,12 @@ class ProjectDetailViewModel(app: Application) : AndroidViewModel(app) {
                     }
                 }
             }
+            is ProjectDetailEvent.ToggleSectionCollapse -> _uiState.update { state ->
+                val id = event.sectionId
+                val current = state.collapsedSectionIds
+                state.copy(collapsedSectionIds = if (id in current) current - id else current + id)
+            }
+            ProjectDetailEvent.ToggleHideCompleted -> _uiState.update { it.copy(hideCompleted = !it.hideCompleted) }
             is ProjectDetailEvent.ToggleTagFilter -> _uiState.update { state ->
                 val current = state.activeTagFilter
                 val tagId   = event.tagId
@@ -493,7 +503,7 @@ class ProjectDetailViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    private fun addTask(id: String, title: String, sectionId: String?, priority: TaskPriority = TaskPriority.NONE) {
+    private fun addTask(id: String, title: String, sectionId: String?, priority: TaskPriority = TaskPriority.NONE, checklistItems: List<String> = emptyList()) {
         if (title.isBlank()) return
         viewModelScope.launch {
             val projectId = _uiState.value.project?.id ?: return@launch
@@ -507,6 +517,14 @@ class ProjectDetailViewModel(app: Application) : AndroidViewModel(app) {
                 updatedAt = LocalDateTime.now(),
             )
             taskRepo.insert(newTask)
+            checklistItems.forEachIndexed { index, itemTitle ->
+                taskRepo.addChecklistItem(com.onlyflows.domain.model.ChecklistItem(
+                    id        = "cli_${System.currentTimeMillis()}_$index",
+                    taskId    = id,
+                    title     = itemTitle,
+                    sortOrder = index,
+                ))
+            }
             _uiState.update { it.copy(showAddTask = false) }
         }
     }

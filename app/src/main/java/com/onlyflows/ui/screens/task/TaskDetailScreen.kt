@@ -95,6 +95,11 @@ fun TaskDetailScreen(
     val state       by viewModel.uiState.collectAsStateWithLifecycle()
     val timerState  by viewModel.timerState.collectAsStateWithLifecycle()
     val task  = state.task ?: return
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+
+    LaunchedEffect(state.comments.size) {
+        if (state.comments.isNotEmpty()) listState.animateScrollToItem(listState.layoutInfo.totalItemsCount - 1)
+    }
 
     LaunchedEffect(state.convertedProjectId) {
         val projId = state.convertedProjectId ?: return@LaunchedEffect
@@ -300,11 +305,12 @@ fun TaskDetailScreen(
     ) { padding ->
 
         LazyColumn(
+            state = listState,
             contentPadding = PaddingValues(
                 top    = padding.calculateTopPadding() + 4.dp,
                 bottom = padding.calculateBottomPadding() + 24.dp,
             ),
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().imePadding(),
         ) {
 
             // ── Checkbox + Title (no card) ────────────────────────────────────
@@ -522,6 +528,28 @@ fun TaskDetailScreen(
                     if (state.projectName != null) {
                         MetaRow(icon = Icons.Outlined.FolderOpen, label = "Project", value = state.projectName, onClick = { viewModel.onEvent(TaskDetailEvent.ShowSmartMove) })
                         HorizontalDivider(modifier = Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+                        // Section picker (only when the project has sections)
+                        val currentProject = state.projects.find { it.id == task.projectId }
+                        val projectSections = currentProject?.sections?.sortedBy { it.sortOrder } ?: emptyList()
+                        if (projectSections.isNotEmpty()) {
+                            var showSectionMenu by remember { mutableStateOf(false) }
+                            val currentSection = projectSections.find { it.id == task.sectionId }
+                            Box {
+                                MetaRow(
+                                    icon    = Icons.Outlined.List,
+                                    label   = "Section",
+                                    value   = currentSection?.title ?: "No section",
+                                    onClick = { showSectionMenu = true },
+                                )
+                                DropdownMenu(expanded = showSectionMenu, onDismissRequest = { showSectionMenu = false }) {
+                                    DropdownMenuItem(text = { Text("No section") }, onClick = { viewModel.onEvent(TaskDetailEvent.SetSection(null)); showSectionMenu = false })
+                                    projectSections.forEach { section ->
+                                        DropdownMenuItem(text = { Text(section.title) }, onClick = { viewModel.onEvent(TaskDetailEvent.SetSection(section.id)); showSectionMenu = false })
+                                    }
+                                }
+                            }
+                            HorizontalDivider(modifier = Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+                        }
                     }
                     // Priority
                     val priorityLabel = when (task.priority) { TaskPriority.HIGH -> "High"; TaskPriority.MEDIUM -> "Medium"; TaskPriority.LOW -> "Low"; TaskPriority.NONE -> null }

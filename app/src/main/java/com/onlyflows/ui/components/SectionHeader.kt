@@ -1,12 +1,17 @@
 package com.onlyflows.ui.components
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.text.font.FontWeight
@@ -24,14 +29,27 @@ fun SectionHeader(
     showMenu: Boolean = false,
     onMenuClick: () -> Unit = {},
     menuContent: @Composable BoxScope.() -> Unit = {},
+    isCollapsed: Boolean = false,
+    onToggleCollapse: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
+    val chevronAngle by animateFloatAsState(targetValue = if (isCollapsed) 0f else 90f, label = "chevron")
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .fillMaxWidth()
+            .then(if (onToggleCollapse != null) Modifier.clickable { onToggleCollapse() } else Modifier)
             .padding(start = 20.dp, end = 4.dp, top = 24.dp, bottom = 6.dp),
     ) {
+        if (onToggleCollapse != null) {
+            Icon(
+                imageVector        = Icons.Outlined.ChevronRight,
+                contentDescription = null,
+                tint               = accentColor.copy(alpha = 0.7f),
+                modifier           = Modifier.size(18.dp).rotate(chevronAngle),
+            )
+            Spacer(Modifier.width(4.dp))
+        }
         if (emoji != null) {
             Text(
                 text  = "$emoji ",
@@ -48,7 +66,7 @@ fun SectionHeader(
         )
         if (showMenu) {
             Box {
-                IconButton(onClick = onMenuClick, modifier = Modifier.size(36.dp)) {
+                IconButton(onClick = { onMenuClick() }, modifier = Modifier.size(36.dp)) {
                     Icon(
                         imageVector        = Icons.Outlined.MoreHoriz,
                         contentDescription = "Section menu",

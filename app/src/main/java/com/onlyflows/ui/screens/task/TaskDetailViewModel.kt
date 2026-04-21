@@ -126,6 +126,7 @@ sealed interface TaskDetailEvent {
         val projectId: String?,
         val sectionId: String?,
     ) : TaskDetailEvent
+    data class SetSection(val sectionId: String?)                               : TaskDetailEvent
     data object ConvertToProject                                                : TaskDetailEvent
     data object StartTimer                                                      : TaskDetailEvent
     data object PauseTimer                                                      : TaskDetailEvent
@@ -216,7 +217,8 @@ class TaskDetailViewModel(app: Application) : AndroidViewModel(app) {
                 val blockingFlow = snapshot.task.dependsOnTaskId?.let { bid ->
                     taskRepo.observeById(bid)
                 } ?: flowOf(null)
-                combine(projectFlow, blockingFlow) { projectName, blockingTask ->
+                val commentsFlow = commentRepo.observeByTask(taskId)
+                combine(projectFlow, blockingFlow, commentsFlow) { projectName, blockingTask, comments ->
                     TaskDetailUiState(
                         task           = snapshot.task,
                         tags           = snapshot.tags,
@@ -224,6 +226,7 @@ class TaskDetailViewModel(app: Application) : AndroidViewModel(app) {
                         blockingTask   = blockingTask,
                         dependingTasks = snapshot.dependingTasks,
                         allTasks       = snapshot.allTasks,
+                        comments       = comments,
                         isLoading      = false,
                         // preserve picker visibility
                         showDatePicker       = _uiState.value.showDatePicker,
@@ -241,7 +244,6 @@ class TaskDetailViewModel(app: Application) : AndroidViewModel(app) {
             .collect { newState ->
                 _uiState.update { current ->
                     newState.copy(
-                        comments       = current.comments,
                         reminders      = current.reminders,
                         attachments    = current.attachments,
                         allGoals       = current.allGoals,
@@ -255,11 +257,7 @@ class TaskDetailViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun loadComments(taskId: String) {
-        viewModelScope.launch {
-            commentRepo.observeByTask(taskId).collect { comments ->
-                _uiState.update { it.copy(comments = comments) }
-            }
-        }
+        // Comments are now observed inside loadTask's combine for atomic state updates.
     }
 
     fun loadReminders(taskId: String) {
@@ -417,6 +415,9 @@ class TaskDetailViewModel(app: Application) : AndroidViewModel(app) {
             TaskDetailEvent.HideTagsPicker -> _uiState.update { it.copy(showTagsPicker = false) }
             TaskDetailEvent.ShowWhenPicker -> _uiState.update { it.copy(showWhenPicker = true) }
             TaskDetailEvent.HideWhenPicker -> _uiState.update { it.copy(showWhenPicker = false) }
+            is TaskDetailEvent.SetSection -> viewModelScope.launch {
+                taskRepo.update(task.copy(sectionId = event.sectionId, updatedAt = LocalDateTime.now()))
+            }
             is TaskDetailEvent.SetPriority -> viewModelScope.launch {
                 AppLog.d("TaskDetailVM", "SetPriority: \"${task.title}\" ${task.priority} → ${event.priority}")
                 taskRepo.update(task.copy(priority = event.priority, updatedAt = LocalDateTime.now()))
