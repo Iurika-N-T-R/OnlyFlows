@@ -4,6 +4,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material3.*
@@ -31,6 +32,7 @@ fun SectionHeader(
     menuContent: @Composable BoxScope.() -> Unit = {},
     isCollapsed: Boolean = false,
     onToggleCollapse: (() -> Unit)? = null,
+    onAddTask: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val chevronAngle by animateFloatAsState(targetValue = if (isCollapsed) 0f else 90f, label = "chevron")
@@ -64,6 +66,16 @@ fun SectionHeader(
             color      = accentColor,
             modifier   = Modifier.weight(1f),
         )
+        if (onAddTask != null) {
+            IconButton(onClick = onAddTask, modifier = Modifier.size(36.dp)) {
+                Icon(
+                    imageVector        = Icons.Outlined.Add,
+                    contentDescription = "Add task to section",
+                    tint               = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    modifier           = Modifier.size(18.dp),
+                )
+            }
+        }
         if (showMenu) {
             Box {
                 IconButton(onClick = { onMenuClick() }, modifier = Modifier.size(36.dp)) {

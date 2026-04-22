@@ -212,6 +212,7 @@ fun TaskDetailScreen(
             Surface(
                 color = MaterialTheme.colorScheme.surface,
                 tonalElevation = 2.dp,
+                modifier = Modifier.imePadding(),
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,

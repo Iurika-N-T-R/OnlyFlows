@@ -351,7 +351,8 @@ fun AddTaskSheet(
                     IconButton(
                         onClick = {
                             if (title.isNotBlank()) {
-                                onAdd(taskId, title.trim(), group, dueDate, priority, selectedProjectId, selectedSectionId, checklistItems)
+                                val finalItems = if (checklistDraft.isNotBlank()) checklistItems + checklistDraft.trim() else checklistItems
+                                onAdd(taskId, title.trim(), group, dueDate, priority, selectedProjectId, selectedSectionId, finalItems)
                                 onTaskCreated(taskId)
                                 onDismiss()
                             }
@@ -372,7 +373,8 @@ fun AddTaskSheet(
                 IconButton(
                     onClick  = {
                         if (title.isNotBlank()) {
-                            onAdd(taskId, title.trim(), group, dueDate, priority, selectedProjectId, selectedSectionId, checklistItems)
+                            val finalItems = if (checklistDraft.isNotBlank()) checklistItems + checklistDraft.trim() else checklistItems
+                            onAdd(taskId, title.trim(), group, dueDate, priority, selectedProjectId, selectedSectionId, finalItems)
                             onDismiss()
                         }
                     },

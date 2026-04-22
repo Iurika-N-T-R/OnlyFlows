@@ -21,11 +21,11 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.ArrowDropDown
 import androidx.compose.material.icons.outlined.Article
 import androidx.compose.material.icons.outlined.CalendarToday
-import androidx.compose.material.icons.outlined.ExpandCircleDown
 import androidx.compose.material.icons.outlined.FormatListBulleted
 import androidx.compose.material.icons.outlined.DragIndicator
 import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -110,6 +110,7 @@ fun ProjectDetailScreen(
     LaunchedEffect(projectId) { viewModel.loadProject(projectId) }
 
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val isImporting by viewModel.isImporting.collectAsStateWithLifecycle()
 
     BackHandler(enabled = state.selectedTaskIds.isNotEmpty()) {
         viewModel.onEvent(ProjectDetailEvent.ClearSelection)
@@ -285,9 +286,6 @@ fun ProjectDetailScreen(
                             )
                         }
                     }
-                    IconButton(onClick = { /* expand/collapse */ }) {
-                        Icon(Icons.Outlined.ExpandCircleDown, contentDescription = "Expand")
-                    }
                 },
                 colors = TopAppBarDefaults.largeTopAppBarColors(
                     containerColor         = MaterialTheme.colorScheme.background,
@@ -327,13 +325,19 @@ fun ProjectDetailScreen(
             return@Scaffold
         }
 
+        PullToRefreshBox(
+            isRefreshing = isImporting,
+            onRefresh    = { viewModel.forceSync() },
+            modifier     = Modifier.fillMaxSize().padding(top = padding.calculateTopPadding()),
+        ) {
+
         LazyColumn(
             state = listState,
             contentPadding = PaddingValues(
                 top    = padding.calculateTopPadding() + 4.dp,
                 bottom = padding.calculateBottomPadding() + 88.dp,
             ),
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().imePadding(),
         ) {
             // Project info header (status, countdown, note) — always visible in scroll body
             if (project != null) {
@@ -560,6 +564,7 @@ fun ProjectDetailScreen(
                             accentColor      = projectColor,
                             isCollapsed      = sectionCollapsed,
                             onToggleCollapse = { viewModel.onEvent(ProjectDetailEvent.ToggleSectionCollapse(item.section.id)) },
+                            onAddTask        = { viewModel.onEvent(ProjectDetailEvent.ShowAddTask(item.section.id)) },
                             onRename    = { newTitle ->
                                 viewModel.onEvent(ProjectDetailEvent.RenameSection(item.section.id, newTitle))
                             },
@@ -663,6 +668,8 @@ fun ProjectDetailScreen(
                 )
             }
         }
+
+        } // end PullToRefreshBox
     }
 
     if (state.showAddTask) {
@@ -1193,6 +1200,7 @@ private fun SectionMenuHeader(
     accentColor: Color,
     isCollapsed: Boolean = false,
     onToggleCollapse: () -> Unit = {},
+    onAddTask: () -> Unit = {},
     onRename: (String) -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -1206,6 +1214,7 @@ private fun SectionMenuHeader(
         onMenuClick      = { menuExpanded = true },
         isCollapsed      = isCollapsed,
         onToggleCollapse = onToggleCollapse,
+        onAddTask        = onAddTask,
         menuContent = {
             DropdownMenu(
                 expanded         = menuExpanded,

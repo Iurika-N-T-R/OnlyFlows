@@ -126,6 +126,10 @@ class ProjectDetailViewModel(app: Application) : AndroidViewModel(app) {
     private val noteRepo: NoteRepository             = container.noteRepository
     private val timeRepo: TimeEntryRepository        = container.timeEntryRepository
     private val commentRepo: CommentRepository       = container.commentRepository
+    private val appPrefs                             = container.appPreferences
+    private val coordinator                          = container.syncthingCoordinator
+
+    val isImporting = coordinator.isImporting
 
     private val _uiState = MutableStateFlow(ProjectDetailUiState())
     val uiState: StateFlow<ProjectDetailUiState> = _uiState.asStateFlow()
@@ -148,6 +152,17 @@ class ProjectDetailViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun loadProject(projectId: String) {
+        // Load persisted UI prefs for this project
+        viewModelScope.launch {
+            appPrefs.collapsedSections(projectId).collect { ids ->
+                _uiState.update { it.copy(collapsedSectionIds = ids) }
+            }
+        }
+        viewModelScope.launch {
+            appPrefs.hideCompleted(projectId).collect { value ->
+                _uiState.update { it.copy(hideCompleted = value) }
+            }
+        }
         // Observe time entries reactively — updates totalCompletedSeconds + activeProjectEntry
         viewModelScope.launch {
             timeRepo.observeByProject(projectId).collect { entries ->
@@ -231,6 +246,10 @@ class ProjectDetailViewModel(app: Application) : AndroidViewModel(app) {
                         totalCompletedSeconds = state.totalCompletedSeconds,
                         activeProjectEntry    = state.activeProjectEntry,
                         totalTrackedSeconds   = state.totalTrackedSeconds,
+                        // Preserve state managed by independent coroutines
+                        comments              = state.comments,
+                        collapsedSectionIds   = state.collapsedSectionIds,
+                        hideCompleted         = state.hideCompleted,
                     )
                 }
             }
@@ -337,12 +356,19 @@ class ProjectDetailViewModel(app: Application) : AndroidViewModel(app) {
                     }
                 }
             }
-            is ProjectDetailEvent.ToggleSectionCollapse -> _uiState.update { state ->
+            is ProjectDetailEvent.ToggleSectionCollapse -> viewModelScope.launch {
+                val projectId = _uiState.value.project?.id ?: return@launch
                 val id = event.sectionId
-                val current = state.collapsedSectionIds
-                state.copy(collapsedSectionIds = if (id in current) current - id else current + id)
+                val newIds = _uiState.value.collapsedSectionIds.let { if (id in it) it - id else it + id }
+                _uiState.update { it.copy(collapsedSectionIds = newIds) }
+                appPrefs.setCollapsedSections(projectId, newIds)
             }
-            ProjectDetailEvent.ToggleHideCompleted -> _uiState.update { it.copy(hideCompleted = !it.hideCompleted) }
+            ProjectDetailEvent.ToggleHideCompleted -> viewModelScope.launch {
+                val projectId = _uiState.value.project?.id ?: return@launch
+                val newValue = !_uiState.value.hideCompleted
+                _uiState.update { it.copy(hideCompleted = newValue) }
+                appPrefs.setHideCompleted(projectId, newValue)
+            }
             is ProjectDetailEvent.ToggleTagFilter -> _uiState.update { state ->
                 val current = state.activeTagFilter
                 val tagId   = event.tagId
@@ -535,4 +561,6 @@ class ProjectDetailViewModel(app: Application) : AndroidViewModel(app) {
             _uiState.update { it.copy(selectedTaskIds = emptySet()) }
         }
     }
+
+    fun forceSync() = coordinator.forceSync()
 }

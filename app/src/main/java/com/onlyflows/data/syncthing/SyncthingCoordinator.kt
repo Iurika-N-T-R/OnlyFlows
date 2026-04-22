@@ -10,6 +10,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import java.io.File
 
@@ -43,7 +44,7 @@ class SyncthingCoordinator(
         }
 
         scope.launch {
-            monitor.status.collectLatest { status ->
+            monitor.status.distinctUntilChanged().collectLatest { status ->
                 if (status == SyncthingStatus.Ready) startObserver()
                 else stopObserver()
             }
@@ -56,7 +57,7 @@ class SyncthingCoordinator(
         if (uriStr.isBlank()) return
         val folder = safUriToFile(Uri.parse(uriStr)) ?: run {
             AppLog.w(TAG, "Cannot resolve real path — FileObserver unavailable, WorkManager covers it")
-            triggerImport()  // still do one immediate import via SAF
+            scope.launch { triggerImport() }
             return
         }
         if (!folder.exists()) return
@@ -71,13 +72,17 @@ class SyncthingCoordinator(
             AppLog.d(TAG, "FileObserver started on ${folder.absolutePath}")
         }
 
-        triggerImport()
+        scope.launch { triggerImport() }
     }
 
     private fun stopObserver() {
         observer?.stopWatching()
         observer = null
         debounceJob?.cancel()
+    }
+
+    fun forceSync() {
+        scope.launch { triggerImport() }
     }
 
     private fun scheduleImport() {

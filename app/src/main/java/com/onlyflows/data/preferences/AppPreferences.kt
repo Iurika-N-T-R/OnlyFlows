@@ -41,4 +41,26 @@ class AppPreferences(private val context: Context) {
     suspend fun setFontScale(scale: Float) {
         context.appDataStore.edit { prefs -> prefs[FONT_SCALE] = scale }
     }
+
+    fun collapsedSections(projectId: String): Flow<Set<String>> {
+        val key = stringPreferencesKey("collapsed_sections_$projectId")
+        return context.appDataStore.data.map { prefs ->
+            prefs[key]?.split(",")?.filter { it.isNotBlank() }?.toSet() ?: emptySet()
+        }
+    }
+
+    suspend fun setCollapsedSections(projectId: String, ids: Set<String>) {
+        val key = stringPreferencesKey("collapsed_sections_$projectId")
+        context.appDataStore.edit { prefs -> prefs[key] = ids.joinToString(",") }
+    }
+
+    fun hideCompleted(projectId: String): Flow<Boolean> {
+        val key = booleanPreferencesKey("hide_completed_$projectId")
+        return context.appDataStore.data.map { prefs -> prefs[key] ?: false }
+    }
+
+    suspend fun setHideCompleted(projectId: String, value: Boolean) {
+        val key = booleanPreferencesKey("hide_completed_$projectId")
+        context.appDataStore.edit { prefs -> prefs[key] = value }
+    }
 }
