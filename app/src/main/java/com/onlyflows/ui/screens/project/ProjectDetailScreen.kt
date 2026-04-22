@@ -328,7 +328,7 @@ fun ProjectDetailScreen(
         PullToRefreshBox(
             isRefreshing = isImporting,
             onRefresh    = { viewModel.forceSync() },
-            modifier     = Modifier.fillMaxSize().padding(top = padding.calculateTopPadding()),
+            modifier     = Modifier.fillMaxSize(),
         ) {
 
         LazyColumn(
