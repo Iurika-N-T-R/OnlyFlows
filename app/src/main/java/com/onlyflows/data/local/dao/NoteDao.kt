@@ -9,6 +9,9 @@ interface NoteDao {
     @Query("SELECT * FROM notes WHERE project_id = :projectId ORDER BY created_at DESC")
     fun observeByProject(projectId: String): Flow<List<NoteEntity>>
 
+    @Query("SELECT * FROM notes WHERE id = :id LIMIT 1")
+    suspend fun getById(id: String): NoteEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(note: NoteEntity)
 

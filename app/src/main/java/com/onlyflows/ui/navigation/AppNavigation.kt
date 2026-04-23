@@ -41,6 +41,7 @@ fun AppNavigation(
     isTablet: Boolean = false,
     onTaskSelected: ((String) -> Unit)? = null,
     onProjectSelected: ((String) -> Unit)? = null,
+    onNoteSelected: ((noteId: String, projectId: String) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     fun navigateToTask(id: String) {
@@ -135,10 +136,11 @@ fun AppNavigation(
         ) { backStack ->
             val projectId = backStack.arguments?.getString("projectId") ?: return@composable
             ProjectDetailScreen(
-                projectId   = projectId,
-                onTaskClick = { navigateToTask(it) },
-                onListClick = { navigateToProject(it) },
-                onBack      = { navController.popBackStack() },
+                projectId       = projectId,
+                onTaskClick     = { navigateToTask(it) },
+                onListClick     = { navigateToProject(it) },
+                onBack          = { navController.popBackStack() },
+                onNoteSelected  = if (isTablet) onNoteSelected else null,
             )
         }
 

@@ -72,6 +72,7 @@ fun AdaptiveAppLayout(
                         isTablet          = true,
                         onTaskSelected    = { detailPane = DetailPane.Task(it) },
                         onProjectSelected = { navigateToProject(it) },
+                        onNoteSelected    = { nId, pId -> detailPane = DetailPane.Note(nId, pId) },
                         modifier          = Modifier.weight(1f),
                     )
                 } else {
@@ -83,6 +84,7 @@ fun AdaptiveAppLayout(
                         isTablet          = true,
                         onTaskSelected    = { detailPane = DetailPane.Task(it) },
                         onProjectSelected = { navigateToProject(it) },
+                        onNoteSelected    = { nId, pId -> detailPane = DetailPane.Note(nId, pId) },
                         modifier          = Modifier.weight(0.38f),
                     )
                     VerticalDivider()

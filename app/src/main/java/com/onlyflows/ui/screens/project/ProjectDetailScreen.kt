@@ -105,6 +105,7 @@ fun ProjectDetailScreen(
     onTaskClick: (String) -> Unit = {},
     onListClick: (String) -> Unit = {},
     onBack: () -> Unit = {},
+    onNoteSelected: ((noteId: String, projectId: String) -> Unit)? = null,
     viewModel: ProjectDetailViewModel = viewModel(),
 ) {
     LaunchedEffect(projectId) { viewModel.loadProject(projectId) }
@@ -410,8 +411,14 @@ fun ProjectDetailScreen(
                     items(state.notes, key = { "note_${it.id}" }) { note ->
                         NoteCard(
                             note     = note,
-                            onClick  = { viewModel.onEvent(ProjectDetailEvent.OpenNoteViewer(note)) },
-                            onEdit   = { viewModel.onEvent(ProjectDetailEvent.OpenNoteEditor(note)) },
+                            onClick  = {
+                                if (onNoteSelected != null) onNoteSelected(note.id, projectId)
+                                else viewModel.onEvent(ProjectDetailEvent.OpenNoteViewer(note))
+                            },
+                            onEdit   = {
+                                if (onNoteSelected != null) onNoteSelected(note.id, projectId)
+                                else viewModel.onEvent(ProjectDetailEvent.OpenNoteEditor(note))
+                            },
                             onDelete = { viewModel.onEvent(ProjectDetailEvent.DeleteNoteItem(note.id)) },
                             modifier = Modifier
                                 .padding(horizontal = 16.dp, vertical = 6.dp)

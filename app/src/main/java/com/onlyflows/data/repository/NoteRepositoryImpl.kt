@@ -20,6 +20,8 @@ class NoteRepositoryImpl(
     override fun observeByProject(projectId: String): Flow<List<Note>> =
         noteDao.observeByProject(projectId).map { list -> list.map { it.toDomain() } }
 
+    override suspend fun getById(id: String): Note? = noteDao.getById(id)?.toDomain()
+
     override suspend fun insert(note: Note) {
         noteDao.insert(note.toEntity())
         syncthingWriter?.writeNote(note.toEntity())

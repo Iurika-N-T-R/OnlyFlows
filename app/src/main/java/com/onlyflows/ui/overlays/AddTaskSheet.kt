@@ -43,7 +43,7 @@ fun AddTaskSheet(
     onDismiss: () -> Unit,
     onTaskCreated: ((taskId: String) -> Unit)? = null,
 ) {
-    val taskId = remember { UUID.randomUUID().toString() }
+    var taskId   by remember { mutableStateOf(UUID.randomUUID().toString()) }
     var title    by remember { mutableStateOf("") }
     var note     by remember { mutableStateOf("") }
     var group    by remember { mutableStateOf(defaultGroup) }
@@ -60,6 +60,17 @@ fun AddTaskSheet(
     var checklistItems     by remember { mutableStateOf(listOf<String>()) }
     var checklistDraft     by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
+
+    fun resetForm() {
+        taskId          = UUID.randomUUID().toString()
+        title           = ""
+        note            = ""
+        dueDate         = null
+        priority        = TaskPriority.NONE
+        checklistItems  = emptyList()
+        checklistDraft  = ""
+        showChecklist   = false
+    }
 
     val selectedProject: Project? = projects.find { it.id == selectedProjectId }
     val selectedSection: Section? = selectedProject?.sections?.find { it.id == selectedSectionId }
@@ -368,6 +379,27 @@ fun AddTaskSheet(
                                 MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
                         )
                     }
+                }
+                // Save & add new button
+                IconButton(
+                    onClick = {
+                        if (title.isNotBlank()) {
+                            val finalItems = if (checklistDraft.isNotBlank()) checklistItems + checklistDraft.trim() else checklistItems
+                            onAdd(taskId, title.trim(), group, dueDate, priority, selectedProjectId, selectedSectionId, finalItems)
+                            resetForm()
+                            focusRequester.requestFocus()
+                        }
+                    },
+                    enabled = title.isNotBlank(),
+                ) {
+                    Icon(
+                        imageVector        = Icons.Outlined.AddTask,
+                        contentDescription = "Save and add new",
+                        tint               = if (title.isNotBlank())
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+                        else
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
+                    )
                 }
                 // Submit button
                 IconButton(

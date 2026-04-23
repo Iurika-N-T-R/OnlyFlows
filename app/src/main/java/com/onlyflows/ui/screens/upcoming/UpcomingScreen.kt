@@ -365,6 +365,7 @@ private fun UpcomingCalendarPermissionBanner(
 
 @Composable
 private fun AgendaEventCompactRow(event: AgendaEvent) {
+    val emoji = detectEventEmoji(event.title)
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -381,6 +382,10 @@ private fun AgendaEventCompactRow(event: AgendaEvent) {
             modifier = Modifier.size(width = 3.dp, height = 36.dp),
         ) {}
         Spacer(Modifier.width(10.dp))
+        if (emoji != null) {
+            Text(text = emoji, style = MaterialTheme.typography.bodyMedium)
+            Spacer(Modifier.width(6.dp))
+        }
         Column {
             Text(
                 text  = event.title,
@@ -405,6 +410,28 @@ private fun AgendaEventCompactRow(event: AgendaEvent) {
         }
     }
 }
+
+// ── Event emoji detection ─────────────────────────────────────────────────────
+
+private val EVENT_EMOJI_RULES: List<Pair<Regex, String>> = listOf(
+    Regex("\\b(birthday|anniversaire|bday)\\b", RegexOption.IGNORE_CASE)       to "🎂",
+    Regex("\\b(anniversary|anniv)\\b",           RegexOption.IGNORE_CASE)       to "💍",
+    Regex("\\b(wedding|mariage)\\b",             RegexOption.IGNORE_CASE)       to "💒",
+    Regex("\\b(holiday|vacation|vacances)\\b",   RegexOption.IGNORE_CASE)       to "🏖️",
+    Regex("\\b(party|fête|celebration)\\b",      RegexOption.IGNORE_CASE)       to "🎉",
+    Regex("\\b(meeting|réunion|call|appel)\\b",  RegexOption.IGNORE_CASE)       to "📞",
+    Regex("\\b(doctor|médecin|dentist|dentiste|appointment|rdv)\\b", RegexOption.IGNORE_CASE) to "🏥",
+    Regex("\\b(gym|workout|sport|fitness|entrainement)\\b", RegexOption.IGNORE_CASE)          to "💪",
+    Regex("\\b(flight|vol|travel|voyage|trip)\\b", RegexOption.IGNORE_CASE)     to "✈️",
+    Regex("\\b(dinner|dîner|lunch|déjeuner|brunch|restaurant)\\b", RegexOption.IGNORE_CASE)   to "🍽️",
+    Regex("\\b(interview|entretien)\\b",         RegexOption.IGNORE_CASE)       to "💼",
+    Regex("\\b(deadline|échéance)\\b",           RegexOption.IGNORE_CASE)       to "⏰",
+    Regex("\\b(concert|show|spectacle)\\b",      RegexOption.IGNORE_CASE)       to "🎵",
+    Regex("\\b(school|école|cours|class)\\b",    RegexOption.IGNORE_CASE)       to "📚",
+)
+
+private fun detectEventEmoji(title: String): String? =
+    EVENT_EMOJI_RULES.firstOrNull { (regex, _) -> regex.containsMatchIn(title) }?.second
 
 // ── Group headers ─────────────────────────────────────────────────────────────
 

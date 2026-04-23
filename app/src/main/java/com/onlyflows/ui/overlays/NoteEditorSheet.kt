@@ -23,17 +23,44 @@ import com.onlyflows.ui.components.buildMarkdownAnnotatedString
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NoteEditorSheet(
-    note: Note?,                  // null = new note
+    note: Note?,
     startInViewMode: Boolean = false,
     onSave: (id: String?, title: String, content: String) -> Unit,
     onDismiss: () -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState       = sheetState,
+        containerColor   = MaterialTheme.colorScheme.surface,
+        dragHandle       = null,
+    ) {
+        NoteEditorContent(
+            note            = note,
+            startInViewMode = startInViewMode,
+            onSave          = onSave,
+            onDismiss       = onDismiss,
+            modifier        = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight()
+                .navigationBarsPadding(),
+        )
+    }
+}
+
+@Composable
+fun NoteEditorContent(
+    note: Note?,
+    startInViewMode: Boolean = false,
+    onSave: (id: String?, title: String, content: String) -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val isNewNote  = note == null
     var isViewMode by remember(note?.id) { mutableStateOf(startInViewMode && !isNewNote) }
     var title      by remember(note?.id) { mutableStateOf(note?.title   ?: "") }
     var contentFv  by remember(note?.id) { mutableStateOf(TextFieldValue(note?.content ?: "")) }
 
-    // Saves if there are unsaved changes (for checkbox toggles in view mode)
     val handleDismiss = {
         val hasChanges = contentFv.text != (note?.content ?: "") || title != (note?.title ?: "")
         if (isViewMode && hasChanges && note != null) {
@@ -42,8 +69,6 @@ fun NoteEditorSheet(
             onDismiss()
         }
     }
-
-    // ── Toolbar helpers (edit mode) ───────────────────────────────────────────
 
     fun wrapSelection(marker: String) {
         val sel  = contentFv.selection
@@ -98,8 +123,6 @@ fun NoteEditorSheet(
         )
     }
 
-    // ── View-mode checkbox toggle ─────────────────────────────────────────────
-
     fun toggleViewCheckbox(lineIndex: Int, nowChecked: Boolean) {
         val lines = contentFv.text.lines().toMutableList()
         if (lineIndex < lines.size) {
@@ -112,151 +135,135 @@ fun NoteEditorSheet(
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-
-    ModalBottomSheet(
-        onDismissRequest = handleDismiss,
-        containerColor   = MaterialTheme.colorScheme.surface,
-        dragHandle       = null,
-    ) {
-        Column(
+    Column(modifier = modifier) {
+        // ── Header ────────────────────────────────────────────────────────
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                .navigationBarsPadding(),
+                .padding(horizontal = 8.dp, vertical = 4.dp),
         ) {
-            // ── Header ────────────────────────────────────────────────────────
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
+            IconButton(onClick = handleDismiss) {
+                Icon(Icons.Outlined.Close, contentDescription = "Fermer")
+            }
+            Text(
+                text       = when {
+                    isNewNote  -> "Nouvelle note"
+                    isViewMode -> "Note"
+                    else       -> "Modifier"
+                },
+                style      = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                modifier   = Modifier
+                    .weight(1f)
+                    .padding(start = 4.dp),
+            )
+            if (isViewMode) {
+                IconButton(onClick = { isViewMode = false }) {
+                    Icon(Icons.Outlined.Edit, contentDescription = "Modifier")
+                }
+            } else {
+                TextButton(
+                    onClick  = { onSave(note?.id, title.trim(), contentFv.text.trim()) },
+                    enabled  = title.isNotBlank() || contentFv.text.isNotBlank(),
+                ) {
+                    Icon(Icons.Outlined.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Enregistrer")
+                }
+            }
+        }
+
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+
+        if (isViewMode) {
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
             ) {
-                IconButton(onClick = handleDismiss) {
-                    Icon(Icons.Outlined.Close, contentDescription = "Fermer")
+                if (title.isNotBlank()) {
+                    Text(
+                        text       = title,
+                        style      = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Spacer(Modifier.height(12.dp))
                 }
-                Text(
-                    text       = when {
-                        isNewNote  -> "Nouvelle note"
-                        isViewMode -> "Note"
-                        else       -> "Modifier"
-                    },
-                    style      = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier   = Modifier
-                        .weight(1f)
-                        .padding(start = 4.dp),
+                MarkdownViewer(
+                    content          = contentFv.text,
+                    onCheckboxToggle = { lineIdx, checked -> toggleViewCheckbox(lineIdx, checked) },
                 )
-                if (isViewMode) {
-                    IconButton(onClick = { isViewMode = false }) {
-                        Icon(Icons.Outlined.Edit, contentDescription = "Modifier")
-                    }
-                } else {
-                    TextButton(
-                        onClick  = { onSave(note?.id, title.trim(), contentFv.text.trim()) },
-                        enabled  = title.isNotBlank() || contentFv.text.isNotBlank(),
-                    ) {
-                        Icon(Icons.Outlined.Check, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("Enregistrer")
-                    }
-                }
+                Spacer(Modifier.height(32.dp))
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                BasicTextField(
+                    value         = title,
+                    onValueChange = { title = it },
+                    singleLine    = true,
+                    textStyle     = MaterialTheme.typography.titleLarge.copy(
+                        color      = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.SemiBold,
+                    ),
+                    cursorBrush   = SolidColor(MaterialTheme.colorScheme.primary),
+                    decorationBox = { inner ->
+                        if (title.isEmpty()) {
+                            Text(
+                                "Titre (optionnel)",
+                                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                            )
+                        }
+                        inner()
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                )
+                BasicTextField(
+                    value         = contentFv,
+                    onValueChange = { contentFv = it },
+                    textStyle     = MaterialTheme.typography.bodyLarge.copy(
+                        color      = MaterialTheme.colorScheme.onSurface,
+                        lineHeight = 24.sp,
+                    ),
+                    cursorBrush   = SolidColor(MaterialTheme.colorScheme.primary),
+                    decorationBox = { inner ->
+                        if (contentFv.text.isEmpty()) {
+                            Text(
+                                "Contenu de la note…",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                            )
+                        }
+                        inner()
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .defaultMinSize(minHeight = 200.dp)
+                        .padding(start = 20.dp, end = 20.dp, bottom = 8.dp),
+                )
             }
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
-
-            if (isViewMode) {
-                // ── View mode: rendered markdown ──────────────────────────────
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 20.dp, vertical = 16.dp)
-                        .navigationBarsPadding(),
-                ) {
-                    if (title.isNotBlank()) {
-                        Text(
-                            text       = title,
-                            style      = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        Spacer(Modifier.height(12.dp))
-                    }
-                    MarkdownViewer(
-                        content          = contentFv.text,
-                        onCheckboxToggle = { lineIdx, checked -> toggleViewCheckbox(lineIdx, checked) },
-                    )
-                    Spacer(Modifier.height(32.dp))
-                }
-            } else {
-                // ── Edit mode: raw text fields + toolbar ──────────────────────
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState()),
-                ) {
-                    // Title
-                    BasicTextField(
-                        value         = title,
-                        onValueChange = { title = it },
-                        singleLine    = true,
-                        textStyle     = MaterialTheme.typography.titleLarge.copy(
-                            color      = MaterialTheme.colorScheme.onSurface,
-                            fontWeight = FontWeight.SemiBold,
-                        ),
-                        cursorBrush   = SolidColor(MaterialTheme.colorScheme.primary),
-                        decorationBox = { inner ->
-                            if (title.isEmpty()) {
-                                Text(
-                                    "Titre (optionnel)",
-                                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                                )
-                            }
-                            inner()
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 20.dp, vertical = 12.dp),
-                    )
-                    // Content
-                    BasicTextField(
-                        value         = contentFv,
-                        onValueChange = { contentFv = it },
-                        textStyle     = MaterialTheme.typography.bodyLarge.copy(
-                            color      = MaterialTheme.colorScheme.onSurface,
-                            lineHeight = 24.sp,
-                        ),
-                        cursorBrush   = SolidColor(MaterialTheme.colorScheme.primary),
-                        decorationBox = { inner ->
-                            if (contentFv.text.isEmpty()) {
-                                Text(
-                                    "Contenu de la note…",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                                )
-                            }
-                            inner()
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .defaultMinSize(minHeight = 200.dp)
-                            .padding(start = 20.dp, end = 20.dp, bottom = 8.dp),
-                    )
-                }
-
-                // ── Markdown toolbar (stays above keyboard) ───────────────────
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
-                MarkdownToolbar(
-                    onHeading  = { toggleLinePrefix("# ") },
-                    onH2       = { toggleLinePrefix("## ") },
-                    onBold     = { wrapSelection("**") },
-                    onItalic   = { wrapSelection("*") },
-                    onCode     = { wrapSelection("`") },
-                    onBullet   = { toggleLinePrefix("- ") },
-                    onCheckbox = { toggleCheckboxLine() },
-                )
-                Spacer(Modifier.imePadding())
-            }
+            MarkdownToolbar(
+                onHeading  = { toggleLinePrefix("# ") },
+                onH2       = { toggleLinePrefix("## ") },
+                onBold     = { wrapSelection("**") },
+                onItalic   = { wrapSelection("*") },
+                onCode     = { wrapSelection("`") },
+                onBullet   = { toggleLinePrefix("- ") },
+                onCheckbox = { toggleCheckboxLine() },
+            )
+            Spacer(Modifier.imePadding())
         }
     }
 }
@@ -264,7 +271,7 @@ fun NoteEditorSheet(
 // ── Markdown viewer (view mode) ───────────────────────────────────────────────
 
 @Composable
-private fun MarkdownViewer(
+internal fun MarkdownViewer(
     content: String,
     onCheckboxToggle: (lineIndex: Int, nowChecked: Boolean) -> Unit,
     modifier: Modifier = Modifier,
@@ -272,7 +279,6 @@ private fun MarkdownViewer(
     Column(modifier = modifier.fillMaxWidth()) {
         content.lines().forEachIndexed { index, line ->
             when {
-                // ── Checkbox items ────────────────────────────────────────
                 line.matches(Regex("^- \\[[ xX]\\].*")) -> {
                     val checked     = line.matches(Regex("^- \\[[xX]\\].*"))
                     val itemContent = line.removePrefix("- [x] ").removePrefix("- [X] ")
@@ -300,7 +306,6 @@ private fun MarkdownViewer(
                         )
                     }
                 }
-                // ── Headings ──────────────────────────────────────────────
                 line.startsWith("### ") -> Text(
                     text       = buildMarkdownAnnotatedString(line.removePrefix("### ")),
                     style      = MaterialTheme.typography.titleMedium,
@@ -319,13 +324,11 @@ private fun MarkdownViewer(
                     fontWeight = FontWeight.Bold,
                     modifier   = Modifier.padding(top = 14.dp, bottom = 4.dp),
                 )
-                // ── Horizontal rule ───────────────────────────────────────
                 line.trimStart().startsWith("---") -> HorizontalDivider(
                     modifier = Modifier.padding(vertical = 8.dp),
                 )
-                // ── Bullet list ───────────────────────────────────────────
                 line.matches(Regex("^[-*+] .*")) -> {
-                    val bulletContent = line.drop(2) // remove "- " / "* " / "+ "
+                    val bulletContent = line.drop(2)
                     Row(
                         verticalAlignment = Alignment.Top,
                         modifier          = Modifier.fillMaxWidth().padding(vertical = 1.dp),
@@ -342,9 +345,7 @@ private fun MarkdownViewer(
                         )
                     }
                 }
-                // ── Blank line ────────────────────────────────────────────
                 line.isBlank() -> Spacer(Modifier.height(6.dp))
-                // ── Regular paragraph ─────────────────────────────────────
                 else -> Text(
                     text     = buildMarkdownAnnotatedString(line),
                     style    = MaterialTheme.typography.bodyLarge,
@@ -358,7 +359,7 @@ private fun MarkdownViewer(
 // ── Markdown toolbar (edit mode) ──────────────────────────────────────────────
 
 @Composable
-private fun MarkdownToolbar(
+internal fun MarkdownToolbar(
     onHeading:  () -> Unit,
     onH2:       () -> Unit,
     onBold:     () -> Unit,
@@ -369,55 +370,31 @@ private fun MarkdownToolbar(
 ) {
     val tint = MaterialTheme.colorScheme.onSurfaceVariant
     Row(
-        verticalAlignment      = Alignment.CenterVertically,
-        modifier               = Modifier
+        verticalAlignment = Alignment.CenterVertically,
+        modifier          = Modifier
             .fillMaxWidth()
             .padding(horizontal = 4.dp, vertical = 2.dp),
     ) {
-        // H1
         IconButton(onClick = onHeading, modifier = Modifier.size(40.dp)) {
-            Text(
-                text       = "H1",
-                style      = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Bold,
-                color      = tint,
-            )
+            Text("H1", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = tint)
         }
-        // H2
         IconButton(onClick = onH2, modifier = Modifier.size(40.dp)) {
-            Text(
-                text  = "H2",
-                style = MaterialTheme.typography.labelMedium,
-                color = tint,
-            )
+            Text("H2", style = MaterialTheme.typography.labelMedium, color = tint)
         }
-        VerticalDivider(
-            modifier = Modifier
-                .height(20.dp)
-                .padding(horizontal = 2.dp),
-        )
-        // Bold
+        VerticalDivider(modifier = Modifier.height(20.dp).padding(horizontal = 2.dp))
         IconButton(onClick = onBold, modifier = Modifier.size(40.dp)) {
             Icon(Icons.Outlined.FormatBold, contentDescription = "Gras", tint = tint, modifier = Modifier.size(20.dp))
         }
-        // Italic
         IconButton(onClick = onItalic, modifier = Modifier.size(40.dp)) {
             Icon(Icons.Outlined.FormatItalic, contentDescription = "Italique", tint = tint, modifier = Modifier.size(20.dp))
         }
-        // Code
         IconButton(onClick = onCode, modifier = Modifier.size(40.dp)) {
             Icon(Icons.Outlined.Code, contentDescription = "Code", tint = tint, modifier = Modifier.size(20.dp))
         }
-        VerticalDivider(
-            modifier = Modifier
-                .height(20.dp)
-                .padding(horizontal = 2.dp),
-        )
-        // Bullet list
+        VerticalDivider(modifier = Modifier.height(20.dp).padding(horizontal = 2.dp))
         IconButton(onClick = onBullet, modifier = Modifier.size(40.dp)) {
             Icon(Icons.Outlined.FormatListBulleted, contentDescription = "Liste", tint = tint, modifier = Modifier.size(20.dp))
         }
-        // Checkbox
         IconButton(onClick = onCheckbox, modifier = Modifier.size(40.dp)) {
             Icon(Icons.Outlined.CheckBoxOutlineBlank, contentDescription = "Case à cocher", tint = tint, modifier = Modifier.size(20.dp))
         }
