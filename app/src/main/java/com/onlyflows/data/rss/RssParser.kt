@@ -21,23 +21,24 @@ object RssParser {
             setInput(stream, null)
         }
         return try {
-            when {
-                skipToTag(parser, "rss") || skipToTag(parser, "feed") -> {
-                    if (parser.name == "feed") parseAtom(parser) else parseRss(parser)
-                }
-                else -> emptyList()
+            when (findRootTag(parser)) {
+                "feed" -> parseAtom(parser)
+                "rss"  -> parseRss(parser)
+                else   -> emptyList()
             }
         } catch (e: Exception) {
             emptyList()
         }
     }
 
-    private fun skipToTag(parser: XmlPullParser, name: String): Boolean {
-        val startDepth = parser.depth
+    private fun findRootTag(parser: XmlPullParser): String? {
         while (true) {
             val event = parser.next()
-            if (event == XmlPullParser.END_DOCUMENT) return false
-            if (event == XmlPullParser.START_TAG && parser.name.equals(name, ignoreCase = true)) return true
+            if (event == XmlPullParser.END_DOCUMENT) return null
+            if (event == XmlPullParser.START_TAG) {
+                val name = parser.name.lowercase()
+                if (name == "rss" || name == "feed") return name
+            }
         }
     }
 

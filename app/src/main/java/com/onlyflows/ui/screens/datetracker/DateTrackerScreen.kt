@@ -13,8 +13,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -299,6 +301,16 @@ private fun AddDateTrackerSheet(
     isEdit: Boolean = false,
 ) {
     var showDatePicker by remember { mutableStateOf(false) }
+    // Text field: jj/mm/aaaa
+    var dateText by remember(state.draftDate) {
+        mutableStateOf(state.draftDate?.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")) ?: "")
+    }
+    fun commitDateText(raw: String) {
+        runCatching {
+            val d = java.time.LocalDate.parse(raw, DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+            onEvent(DateTrackerEvent.SetDraftDate(d))
+        }
+    }
 
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
@@ -373,19 +385,24 @@ private fun AddDateTrackerSheet(
 
             Spacer(Modifier.height(14.dp))
 
-            // Date picker button
-            OutlinedButton(
-                onClick  = { showDatePicker = true },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Icon(Icons.Outlined.CalendarToday, null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    state.draftDate
-                        ?.format(DateTimeFormatter.ofPattern("d MMMM yyyy"))
-                        ?: "Choisir une date",
-                )
-            }
+            // Date: text field jj/mm/aaaa + calendar icon
+            OutlinedTextField(
+                value         = dateText,
+                onValueChange = { v ->
+                    dateText = v
+                    if (v.length == 10) commitDateText(v)
+                },
+                label         = { Text("Date (jj/mm/aaaa)") },
+                placeholder   = { Text("17/05/1999") },
+                singleLine    = true,
+                modifier      = Modifier.fillMaxWidth(),
+                trailingIcon  = {
+                    IconButton(onClick = { showDatePicker = true }) {
+                        Icon(Icons.Outlined.CalendarToday, null, modifier = Modifier.size(18.dp))
+                    }
+                },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            )
 
             Spacer(Modifier.height(14.dp))
 
