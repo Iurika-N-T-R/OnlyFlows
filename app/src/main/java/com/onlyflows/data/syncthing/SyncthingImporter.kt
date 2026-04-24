@@ -43,7 +43,7 @@ class SyncthingImporter(
         val entityDirs = listOf(
             "tasks", "projects", "sections", "checklist_items", "tags",
             "folders", "notes", "comments", "reminders", "time_entries",
-            "saved_locations", "goals", "goal_logs",
+            "saved_locations", "goals", "goal_logs", "date_trackers",
         )
 
         for (subpath in entityDirs) {
@@ -107,6 +107,7 @@ class SyncthingImporter(
             "saved_locations" -> syncDao.getSavedLocationUpdatedAt(id)
             "goals"           -> syncDao.getGoalUpdatedAt(id)
             "goal_logs"       -> syncDao.getGoalLogLoggedAt(id)
+            "date_trackers"   -> syncDao.getDateTrackerCreatedAt(id)
             else              -> null
         }
 
@@ -126,6 +127,7 @@ class SyncthingImporter(
                 "saved_locations" -> syncDao.upsertSavedLocation(savedLocationEntityFromJson(json))
                 "goals"           -> syncDao.upsertGoal(goalEntityFromJson(json))
                 "goal_logs"       -> syncDao.upsertGoalLog(goalLogEntityFromJson(json))
+                "date_trackers"   -> syncDao.upsertDateTracker(dateTrackerEntityFromJson(json))
             }
         }.onFailure { AppLog.e(TAG, "Upsert failed $entityType/$id", it) }
     }
@@ -218,6 +220,7 @@ class SyncthingImporter(
             "attachments"     -> syncDao.deleteAttachment(entityId)
             "goals"           -> syncDao.deleteGoal(entityId)
             "goal_logs"       -> syncDao.deleteGoalLog(entityId)
+            "date_trackers"   -> syncDao.deleteDateTracker(entityId)
         }
     }
 

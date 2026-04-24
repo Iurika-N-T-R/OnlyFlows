@@ -39,6 +39,7 @@ class SyncthingExporter(
         write({ syncDao.getAllSavedLocations() })   { writer.writeSavedLocation(it) }
         write({ syncDao.getAllGoals() })            { writer.writeGoal(it) }
         write({ syncDao.getAllGoalLogs() })         { writer.writeGoalLog(it) }
+        write({ syncDao.getAllDateTrackers() })     { writer.writeDateTracker(it) }
         write({ syncDao.getAllAttachments() })      { writer.writeAttachmentMeta(it) }
 
         AppLog.d(TAG, "Initial export complete: $count entities")

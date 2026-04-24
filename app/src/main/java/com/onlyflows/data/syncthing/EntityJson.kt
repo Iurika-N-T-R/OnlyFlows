@@ -412,3 +412,30 @@ fun goalLogEntityFromJson(j: JSONObject) = GoalLogEntity(
     loggedAt  = j.getLocalDateTime("loggedAt"),
     deletedAt = j.getLocalDateTimeOrNull("deletedAt"),
 )
+
+// ── DateTrackerEntity ─────────────────────────────────────────────────────────
+
+fun com.onlyflows.data.local.entity.DateTrackerEntity.toJson(): JSONObject = JSONObject().apply {
+    put("id", id)
+    put("name", name)
+    put("emoji", emoji)
+    put("targetDate", targetDate.toString())
+    put("category", category)
+    put("isAnnual", isAnnual)
+    put("sortOrder", sortOrder)
+    put("updatedAt", createdAt.toString())  // createdAt used as updatedAt for sync
+    put("createdAt", createdAt.toString())
+    putNullable("deletedAt", deletedAt)
+}
+
+fun dateTrackerEntityFromJson(j: JSONObject) = com.onlyflows.data.local.entity.DateTrackerEntity(
+    id         = j.getString("id"),
+    name       = j.optString("name", ""),
+    emoji      = j.optString("emoji", "📅"),
+    targetDate = runCatching { java.time.LocalDate.parse(j.getString("targetDate")) }.getOrDefault(java.time.LocalDate.now()),
+    category   = j.optString("category", "COUNTDOWN"),
+    isAnnual   = j.optBoolean("isAnnual", false),
+    sortOrder  = j.optInt("sortOrder", 0),
+    createdAt  = j.getLocalDateTime("createdAt"),
+    deletedAt  = j.getLocalDateTimeOrNull("deletedAt"),
+)

@@ -290,4 +290,18 @@ interface SyncDao {
 
     @Query("SELECT * FROM goal_logs")
     suspend fun getAllGoalLogs(): List<com.onlyflows.data.local.entity.GoalLogEntity>
+
+    // ── DateTrackerEntity ─────────────────────────────────────────────────────
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertDateTracker(entity: com.onlyflows.data.local.entity.DateTrackerEntity)
+
+    @Query("SELECT createdAt FROM date_trackers WHERE id = :id")
+    suspend fun getDateTrackerCreatedAt(id: String): LocalDateTime?
+
+    @Query("DELETE FROM date_trackers WHERE id = :id")
+    suspend fun deleteDateTracker(id: String)
+
+    @Query("SELECT * FROM date_trackers")
+    suspend fun getAllDateTrackers(): List<com.onlyflows.data.local.entity.DateTrackerEntity>
 }

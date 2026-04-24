@@ -35,6 +35,8 @@ class SyncthingWriter(
 
     suspend fun writeGoal(entity: GoalEntity)                 = writeEntity("goals", entity.id, entity.toJson())
     suspend fun writeGoalLog(entity: GoalLogEntity)           = writeEntity("goal_logs", entity.id, entity.toJson())
+    suspend fun writeDateTracker(entity: com.onlyflows.data.local.entity.DateTrackerEntity) =
+        writeEntity("date_trackers", entity.id, entity.toJson())
 
     suspend fun writeAttachmentMeta(entity: AttachmentEntity) =
         writeEntity("attachments/metadata", entity.id, entity.toJson())
