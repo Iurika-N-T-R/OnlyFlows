@@ -1,7 +1,5 @@
 package com.onlyflows.ui.screens.rss
 
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -19,7 +17,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -33,6 +30,7 @@ import com.onlyflows.domain.model.RssFeed
 fun RssScreen(
     onOpenDrawer: () -> Unit = {},
     onSettingsClick: () -> Unit,
+    onArticleClick: (url: String, title: String) -> Unit = { _, _ -> },
     viewModel: RssViewModel = viewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -186,8 +184,12 @@ fun RssScreen(
                 ) {
                     items(state.articles, key = { it.id }) { article ->
                         ArticleRow(
-                            article = article,
+                            article      = article,
                             onToggleRead = { viewModel.onEvent(RssEvent.MarkRead(article.id, !article.isRead)) },
+                            onClick      = {
+                                viewModel.onEvent(RssEvent.MarkRead(article.id, true))
+                                onArticleClick(article.link, article.title)
+                            },
                         )
                     }
                 }
@@ -242,18 +244,14 @@ private fun FeedChip(
 private fun ArticleRow(
     article: RssArticle,
     onToggleRead: () -> Unit,
+    onClick: () -> Unit = {},
 ) {
-    val context = LocalContext.current
     val alpha = if (article.isRead) 0.5f else 1f
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable {
-                onToggleRead()
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(article.link))
-                runCatching { context.startActivity(intent) }
-            }
+            .clickable { onClick() }
             .padding(horizontal = 16.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {

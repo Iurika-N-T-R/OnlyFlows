@@ -16,6 +16,7 @@ import com.onlyflows.ui.screens.logbook.LogbookScreen
 import com.onlyflows.ui.screens.someday.SomedayScreen
 import com.onlyflows.ui.screens.project.ProjectDetailScreen
 import com.onlyflows.ui.screens.datetracker.DateTrackerScreen
+import com.onlyflows.ui.screens.rss.RssArticleScreen
 import com.onlyflows.ui.screens.rss.RssScreen
 import com.onlyflows.ui.screens.rss.RssSettingsScreen
 import com.onlyflows.ui.screens.goals.GoalsScreen
@@ -114,10 +115,22 @@ fun AppNavigation(
             RssScreen(
                 onOpenDrawer    = onOpenDrawer,
                 onSettingsClick = { navController.navigate(Screen.RssSettings.route) },
+                onArticleClick  = { url, title -> navController.navigate(Screen.RssArticle.createRoute(url, title)) },
             )
         }
         composable(Screen.RssSettings.route) {
             RssSettingsScreen(onBack = { navController.popBackStack() })
+        }
+        composable(
+            route     = Screen.RssArticle.route,
+            arguments = listOf(
+                androidx.navigation.navArgument("url")   { type = androidx.navigation.NavType.StringType },
+                androidx.navigation.navArgument("title") { type = androidx.navigation.NavType.StringType },
+            ),
+        ) { backStack ->
+            val url   = java.net.URLDecoder.decode(backStack.arguments?.getString("url")   ?: "", "UTF-8")
+            val title = java.net.URLDecoder.decode(backStack.arguments?.getString("title") ?: "", "UTF-8")
+            RssArticleScreen(url = url, title = title, onBack = { navController.popBackStack() })
         }
         composable(Screen.DateTracker.route) {
             DateTrackerScreen(onOpenDrawer = onOpenDrawer)
