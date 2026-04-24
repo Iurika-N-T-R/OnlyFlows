@@ -3,13 +3,16 @@ package com.onlyflows.data.repository
 import com.onlyflows.data.local.dao.DateTrackerDao
 import com.onlyflows.data.local.entity.toDomain
 import com.onlyflows.data.local.entity.toEntity
+import com.onlyflows.data.syncthing.SyncthingWriter
 import com.onlyflows.domain.model.DateTracker
 import com.onlyflows.domain.repository.DateTrackerRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import java.time.LocalDateTime
 
 class DateTrackerRepositoryImpl(
     private val dao: DateTrackerDao,
+    private val syncthingWriter: SyncthingWriter? = null,
 ) : DateTrackerRepository {
 
     override fun observeAll(): Flow<List<DateTracker>> =
@@ -18,12 +21,20 @@ class DateTrackerRepositoryImpl(
     override suspend fun getById(id: String): DateTracker? =
         dao.getById(id)?.toDomain()
 
-    override suspend fun insert(tracker: DateTracker) =
-        dao.insert(tracker.toEntity())
+    override suspend fun insert(tracker: DateTracker) {
+        val entity = tracker.toEntity()
+        dao.insert(entity)
+        syncthingWriter?.writeDateTracker(entity)
+    }
 
-    override suspend fun update(tracker: DateTracker) =
-        dao.update(tracker.toEntity())
+    override suspend fun update(tracker: DateTracker) {
+        val entity = tracker.toEntity()
+        dao.update(entity)
+        syncthingWriter?.writeDateTracker(entity)
+    }
 
-    override suspend fun delete(id: String) =
+    override suspend fun delete(id: String) {
         dao.softDelete(id)
+        syncthingWriter?.writeTombstone("date_trackers", id, LocalDateTime.now())
+    }
 }
