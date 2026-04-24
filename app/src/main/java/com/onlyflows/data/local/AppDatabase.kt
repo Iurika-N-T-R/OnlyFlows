@@ -97,14 +97,17 @@ abstract class AppDatabase : RoomDatabase() {
                         """CREATE TABLE IF NOT EXISTS date_trackers (
                             id TEXT NOT NULL PRIMARY KEY,
                             name TEXT NOT NULL,
-                            emoji TEXT NOT NULL DEFAULT '📅',
+                            emoji TEXT NOT NULL,
                             targetDate TEXT NOT NULL,
-                            category TEXT NOT NULL DEFAULT 'COUNTDOWN',
-                            isAnnual INTEGER NOT NULL DEFAULT 0,
-                            sortOrder INTEGER NOT NULL DEFAULT 0,
+                            category TEXT NOT NULL,
+                            isAnnual INTEGER NOT NULL,
+                            sortOrder INTEGER NOT NULL,
                             createdAt TEXT NOT NULL,
                             deletedAt TEXT
                         )"""
+                    )
+                    db.execSQL(
+                        "CREATE INDEX IF NOT EXISTS index_date_trackers_deletedAt ON date_trackers(deletedAt)"
                     )
                 }
                 val migration28to29 = Migration(28, 29) { db ->
@@ -112,9 +115,9 @@ abstract class AppDatabase : RoomDatabase() {
                         id TEXT NOT NULL PRIMARY KEY,
                         name TEXT NOT NULL,
                         url TEXT NOT NULL,
-                        colorHex TEXT NOT NULL DEFAULT '#FF6B35',
-                        keywords TEXT NOT NULL DEFAULT '[]',
-                        sortOrder INTEGER NOT NULL DEFAULT 0,
+                        colorHex TEXT NOT NULL,
+                        keywords TEXT NOT NULL,
+                        sortOrder INTEGER NOT NULL,
                         createdAt TEXT NOT NULL,
                         deletedAt TEXT
                     )""")
@@ -123,10 +126,10 @@ abstract class AppDatabase : RoomDatabase() {
                         feedId TEXT NOT NULL,
                         title TEXT NOT NULL,
                         link TEXT NOT NULL,
-                        description TEXT NOT NULL DEFAULT '',
-                        author TEXT NOT NULL DEFAULT '',
-                        pubDate TEXT NOT NULL DEFAULT '',
-                        isRead INTEGER NOT NULL DEFAULT 0,
+                        description TEXT NOT NULL,
+                        author TEXT NOT NULL,
+                        pubDate TEXT NOT NULL,
+                        isRead INTEGER NOT NULL,
                         savedAt TEXT NOT NULL
                     )""")
                     db.execSQL("CREATE INDEX IF NOT EXISTS index_rss_articles_feedId ON rss_articles(feedId)")
