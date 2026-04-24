@@ -119,7 +119,16 @@ private fun TrackerCard(
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val label = remember(tracker) { computeLabel(tracker, LocalDate.now()) }
+    // Refresh label every time the composition enters (covers midnight crossing)
+    var now by remember { mutableStateOf(LocalDate.now()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            val next = LocalDate.now()
+            if (next != now) now = next
+            kotlinx.coroutines.delay(60_000L)
+        }
+    }
+    val label = remember(tracker, now) { computeLabel(tracker, now) }
     var showMenu by remember { mutableStateOf(false) }
 
     Surface(
@@ -197,33 +206,38 @@ private fun TrackerCard(
 
 internal fun computeLabel(tracker: DateTracker, now: LocalDate): String {
     return when {
-        tracker.isAnnual && tracker.category == DateTrackerCategory.ANNIVERSARY -> {
-            // Show elapsed since birth/origin date (e.g. "27 ans 10 mois 5 jours")
+        // ANNIVERSARY always shows elapsed age, regardless of isAnnual toggle
+        tracker.category == DateTrackerCategory.ANNIVERSARY -> {
+            val thisYearBirthday = tracker.targetDate.withYear(now.year)
+            val nextBirthday = if (!thisYearBirthday.isAfter(now)) thisYearBirthday.plusYears(1) else thisYearBirthday
+            val daysUntilNext = ChronoUnit.DAYS.between(now, nextBirthday)
             val period = Period.between(tracker.targetDate, now)
             buildString {
                 if (period.years > 0) append("${period.years} an${if (period.years > 1) "s" else ""} ")
                 if (period.months > 0) append("${period.months} mois ")
                 append("${period.days} jour${if (period.days > 1) "s" else ""}")
+                if (daysUntilNext in 0..7) append(" · 🎂 dans $daysUntilNext j")
             }.trim()
         }
+        // Annual non-anniversary: countdown to next occurrence
         tracker.isAnnual -> {
-            // Next occurrence countdown
             val thisYear = tracker.targetDate.withYear(now.year)
             val next     = if (!thisYear.isBefore(now)) thisYear else thisYear.plusYears(1)
             val days     = ChronoUnit.DAYS.between(now, next)
             when {
                 days == 0L  -> "Aujourd'hui ! 🎉"
                 days == 1L  -> "Demain"
-                days < 30L  -> "$days jours avant"
+                days < 30L  -> "Dans $days jours"
                 else        -> {
                     val p = Period.between(now, next)
                     buildString {
                         if (p.months > 0) append("${p.months} mois ")
-                        append("${p.days} jour${if (p.days > 1) "s" else ""} avant")
+                        append("${p.days} jour${if (p.days > 1) "s" else ""}")
                     }.trim()
                 }
             }
         }
+        // One-shot countdown or elapsed
         else -> {
             val days = ChronoUnit.DAYS.between(now, tracker.targetDate)
             when {
