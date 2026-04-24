@@ -1,5 +1,7 @@
 package com.onlyflows.ui.screens.settings
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -10,6 +12,7 @@ import androidx.compose.material.icons.outlined.RssFeed
 import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.CloudUpload
+import androidx.compose.material.icons.outlined.FormatQuote
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Label
 import androidx.compose.material.icons.outlined.SyncAlt
@@ -18,12 +21,15 @@ import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.onlyflows.OnlyFlowsApp
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,7 +48,22 @@ fun SettingsScreen(
     onTagsClick: () -> Unit = {},
     onRssSettingsClick: () -> Unit = {},
 ) {
+    val context = LocalContext.current
+    val scope   = rememberCoroutineScope()
+    val quoteRepo = remember { (context.applicationContext as OnlyFlowsApp).container.quoteRepository }
+    var quoteImportMsg by remember { mutableStateOf<String?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    val quotePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        scope.launch {
+            val count = try { quoteRepo.importFromUri(uri) } catch (_: Exception) { 0 }
+            snackbarHostState.showSnackbar("$count citations importées")
+        }
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = {
@@ -130,6 +151,12 @@ fun SettingsScreen(
                 icon    = Icons.Outlined.RssFeed,
                 label   = "Flux RSS",
                 onClick = onRssSettingsClick,
+            )
+            Divider()
+            SettingsRow(
+                icon    = Icons.Outlined.FormatQuote,
+                label   = "Citations — importer JSON",
+                onClick = { quotePicker.launch(arrayOf("application/json", "*/*")) },
             )
             Divider()
             SettingsGroupLabel("Application")

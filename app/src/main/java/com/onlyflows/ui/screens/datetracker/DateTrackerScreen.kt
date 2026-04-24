@@ -44,6 +44,15 @@ fun DateTrackerScreen(
         )
     }
 
+    if (state.editingTracker != null) {
+        AddDateTrackerSheet(
+            state     = state,
+            onEvent   = viewModel::onEvent,
+            onDismiss = { viewModel.onEvent(DateTrackerEvent.HideEditSheet) },
+            isEdit    = true,
+        )
+    }
+
     Scaffold(
         topBar = {
             LargeTopAppBar(
@@ -102,6 +111,7 @@ fun DateTrackerScreen(
                     TrackerCard(
                         tracker   = tracker,
                         onDelete  = { viewModel.onEvent(DateTrackerEvent.Delete(tracker.id)) },
+                        onEdit    = { viewModel.onEvent(DateTrackerEvent.ShowEditSheet(tracker)) },
                         modifier  = Modifier.animateItem(),
                     )
                 }
@@ -117,6 +127,7 @@ fun DateTrackerScreen(
 private fun TrackerCard(
     tracker: DateTracker,
     onDelete: () -> Unit,
+    onEdit: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     // Refresh label every time the composition enters (covers midnight crossing)
@@ -193,6 +204,11 @@ private fun TrackerCard(
             expanded         = showMenu,
             onDismissRequest = { showMenu = false },
         ) {
+            DropdownMenuItem(
+                text        = { Text("Modifier") },
+                leadingIcon = { Icon(Icons.Outlined.Edit, null) },
+                onClick     = { showMenu = false; onEdit() },
+            )
             DropdownMenuItem(
                 text      = { Text("Supprimer") },
                 leadingIcon = { Icon(Icons.Outlined.Delete, null) },
@@ -280,6 +296,7 @@ private fun AddDateTrackerSheet(
     state: DateTrackerUiState,
     onEvent: (DateTrackerEvent) -> Unit,
     onDismiss: () -> Unit,
+    isEdit: Boolean = false,
 ) {
     var showDatePicker by remember { mutableStateOf(false) }
 
@@ -323,7 +340,7 @@ private fun AddDateTrackerSheet(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    "Nouveau suivi",
+                    if (isEdit) "Modifier le suivi" else "Nouveau suivi",
                     style      = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     modifier   = Modifier.weight(1f),
@@ -402,11 +419,11 @@ private fun AddDateTrackerSheet(
             Spacer(Modifier.height(20.dp))
 
             Button(
-                onClick  = { onEvent(DateTrackerEvent.SaveDraft) },
+                onClick  = { onEvent(if (isEdit) DateTrackerEvent.SaveEdit else DateTrackerEvent.SaveDraft) },
                 enabled  = state.draftName.isNotBlank() && state.draftDate != null,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text("Ajouter")
+                Text(if (isEdit) "Enregistrer" else "Ajouter")
             }
         }
     }
