@@ -139,6 +139,7 @@ abstract class AppDatabase : RoomDatabase() {
                     "onlyflows.db",
                 )
                 .addMigrations(migration27to28, migration28to29)
+                .fallbackToDestructiveMigration()
                 .fallbackToDestructiveMigrationOnDowngrade()
                 .addCallback(SeedCallback())
                 .build()
