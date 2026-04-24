@@ -5,8 +5,10 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.onlyflows.data.local.dao.*
+import com.onlyflows.data.local.dao.DateTrackerDao
 import com.onlyflows.data.local.dao.GoalDao
 import com.onlyflows.data.local.dao.GoalLogDao
 import com.onlyflows.data.local.dao.ActionLogDao
@@ -14,6 +16,11 @@ import com.onlyflows.data.local.dao.SavedLocationDao
 import com.onlyflows.data.local.dao.ReminderDao
 import com.onlyflows.data.local.dao.AttachmentDao
 import com.onlyflows.data.local.entity.*
+import com.onlyflows.data.local.entity.DateTrackerEntity
+import com.onlyflows.data.local.entity.RssFeedEntity
+import com.onlyflows.data.local.entity.RssArticleEntity
+import com.onlyflows.data.local.dao.RssFeedDao
+import com.onlyflows.data.local.dao.RssArticleDao
 import com.onlyflows.data.local.entity.GoalEntity
 import com.onlyflows.data.local.entity.GoalLogEntity
 import com.onlyflows.data.local.entity.ActionLogEntity
@@ -49,8 +56,11 @@ import kotlinx.coroutines.launch
         DeletedEntityEntity::class,
         GoalEntity::class,
         GoalLogEntity::class,
+        DateTrackerEntity::class,
+        RssFeedEntity::class,
+        RssArticleEntity::class,
     ],
-    version = 27,
+    version = 29,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -72,18 +82,63 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun savedLocationDao(): SavedLocationDao
     abstract fun goalDao(): GoalDao
     abstract fun goalLogDao(): GoalLogDao
+    abstract fun dateTrackerDao(): DateTrackerDao
     abstract fun syncDao(): SyncDao
+    abstract fun rssFeedDao(): RssFeedDao
+    abstract fun rssArticleDao(): RssArticleDao
 
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null
 
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
+                val migration27to28 = Migration(27, 28) { db ->
+                    db.execSQL(
+                        """CREATE TABLE IF NOT EXISTS date_trackers (
+                            id TEXT NOT NULL PRIMARY KEY,
+                            name TEXT NOT NULL,
+                            emoji TEXT NOT NULL DEFAULT '📅',
+                            targetDate TEXT NOT NULL,
+                            category TEXT NOT NULL DEFAULT 'COUNTDOWN',
+                            isAnnual INTEGER NOT NULL DEFAULT 0,
+                            sortOrder INTEGER NOT NULL DEFAULT 0,
+                            createdAt TEXT NOT NULL,
+                            deletedAt TEXT
+                        )"""
+                    )
+                }
+                val migration28to29 = Migration(28, 29) { db ->
+                    db.execSQL("""CREATE TABLE IF NOT EXISTS rss_feeds (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        name TEXT NOT NULL,
+                        url TEXT NOT NULL,
+                        colorHex TEXT NOT NULL DEFAULT '#FF6B35',
+                        keywords TEXT NOT NULL DEFAULT '[]',
+                        sortOrder INTEGER NOT NULL DEFAULT 0,
+                        createdAt TEXT NOT NULL,
+                        deletedAt TEXT
+                    )""")
+                    db.execSQL("""CREATE TABLE IF NOT EXISTS rss_articles (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        feedId TEXT NOT NULL,
+                        title TEXT NOT NULL,
+                        link TEXT NOT NULL,
+                        description TEXT NOT NULL DEFAULT '',
+                        author TEXT NOT NULL DEFAULT '',
+                        pubDate TEXT NOT NULL DEFAULT '',
+                        isRead INTEGER NOT NULL DEFAULT 0,
+                        savedAt TEXT NOT NULL
+                    )""")
+                    db.execSQL("CREATE INDEX IF NOT EXISTS index_rss_articles_feedId ON rss_articles(feedId)")
+                    db.execSQL("CREATE INDEX IF NOT EXISTS index_rss_articles_isRead ON rss_articles(isRead)")
+                    db.execSQL("CREATE INDEX IF NOT EXISTS index_rss_articles_pubDate ON rss_articles(pubDate)")
+                }
                 Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "onlyflows.db",
                 )
+                .addMigrations(migration27to28, migration28to29)
                 .fallbackToDestructiveMigrationOnDowngrade()
                 .addCallback(SeedCallback())
                 .build()

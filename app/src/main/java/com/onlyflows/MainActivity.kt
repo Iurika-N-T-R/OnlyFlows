@@ -42,7 +42,10 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
 
     companion object {
-        const val EXTRA_ADD_TASK = "extra_add_task"
+        const val EXTRA_ADD_TASK      = "extra_add_task"
+        const val EXTRA_DESTINATION   = "extra_destination"
+        const val DESTINATION_TODAY   = "TODAY"
+        const val DESTINATION_INBOX   = "INBOX"
     }
 
     var keyShortcutHandler: ((android.view.KeyEvent) -> Boolean)? = null
@@ -50,7 +53,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        if (intent.getBooleanExtra(EXTRA_ADD_TASK, false)) {
+        if (intent.getBooleanExtra(EXTRA_ADD_TASK, false) ||
+            intent.getStringExtra(EXTRA_DESTINATION) != null) {
             (application as OnlyFlowsApp).requestAddTask()
         }
         intent.getStringExtra(EXTRA_TASK_ID)?.let { taskId ->
@@ -73,7 +77,8 @@ class MainActivity : ComponentActivity() {
         requestPostNotificationsIfNeeded()
         requestBatteryOptimizationExemption()
         enableEdgeToEdge()
-        if (intent.getBooleanExtra(EXTRA_ADD_TASK, false)) {
+        if (intent.getBooleanExtra(EXTRA_ADD_TASK, false) ||
+            intent.getStringExtra(EXTRA_DESTINATION) != null) {
             (application as OnlyFlowsApp).requestAddTask()
         }
         setContent {

@@ -25,6 +25,9 @@ sealed class Screen(val route: String) {
     data object SyncthingSettings      : Screen("settings/syncthing")
     data object Tags                   : Screen("settings/tags")
 
+    data object DateTracker    : Screen("datetracker")
+    data object Rss            : Screen("rss")
+    data object RssSettings    : Screen("settings/rss")
     data object Goals          : Screen("goals")
     data object GoalDetail     : Screen("goals/{goalId}") {
         fun createRoute(goalId: String) = "goals/$goalId"

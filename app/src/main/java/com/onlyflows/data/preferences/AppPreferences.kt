@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -62,5 +63,15 @@ class AppPreferences(private val context: Context) {
     suspend fun setHideCompleted(projectId: String, value: Boolean) {
         val key = booleanPreferencesKey("hide_completed_$projectId")
         context.appDataStore.edit { prefs -> prefs[key] = value }
+    }
+
+    // RSS refresh interval in minutes (0 = manual only)
+    private val RSS_INTERVAL = longPreferencesKey("rss_refresh_interval_minutes")
+
+    val rssRefreshIntervalMinutes: Flow<Long> = context.appDataStore.data
+        .map { prefs -> prefs[RSS_INTERVAL] ?: 30L }
+
+    suspend fun setRssRefreshInterval(minutes: Long) {
+        context.appDataStore.edit { prefs -> prefs[RSS_INTERVAL] = minutes }
     }
 }

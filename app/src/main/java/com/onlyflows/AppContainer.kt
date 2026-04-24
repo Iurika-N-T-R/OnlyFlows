@@ -25,6 +25,9 @@ import com.onlyflows.data.preferences.BackupPreferences
 import com.onlyflows.data.preferences.CalendarPreferences
 import com.onlyflows.data.preferences.NotificationPreferences
 import com.onlyflows.data.preferences.SidebarPreferences
+import com.onlyflows.data.local.QuoteRepository
+import com.onlyflows.data.repository.DateTrackerRepositoryImpl
+import com.onlyflows.domain.repository.DateTrackerRepository
 import com.onlyflows.data.preferences.WidgetPreferences
 import com.onlyflows.data.repository.GoalRepositoryImpl
 import com.onlyflows.data.repository.GoalLogRepositoryImpl
@@ -125,6 +128,10 @@ class AppContainer(context: Context) {
     val backupPreferences: BackupPreferences     = BackupPreferences(context)
     val backupManager: BackupManager             = BackupManager(context)
     val widgetPreferences: WidgetPreferences     = WidgetPreferences(context)
+    val quoteRepository: QuoteRepository         = QuoteRepository(context)
+    val dateTrackerRepository: DateTrackerRepository = DateTrackerRepositoryImpl(db.dateTrackerDao())
+    val rssRepository: com.onlyflows.domain.repository.RssRepository =
+        com.onlyflows.data.repository.RssRepositoryImpl(db.rssFeedDao(), db.rssArticleDao(), context)
     val reminderScheduler: ReminderScheduler     = ReminderScheduler(context)
     val dailyAlertPreferences: DailyAlertPreferences = DailyAlertPreferences(context)
     val dailyAlertScheduler: DailyAlertScheduler     = DailyAlertScheduler(context)

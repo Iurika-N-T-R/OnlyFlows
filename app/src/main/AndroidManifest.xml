@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.READ_CALENDAR" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
@@ -83,6 +85,89 @@
                 <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
             </intent-filter>
         </activity>
+
+        <!-- Countdown widget -->
+        <receiver
+            android:name=".ui.widgets.countdown.CountdownWidgetReceiver"
+            android:exported="true"
+            android:label="Countdown">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_countdown" />
+        </receiver>
+
+        <activity
+            android:name=".ui.widgets.countdown.CountdownConfigActivity"
+            android:exported="true"
+            android:theme="@style/Theme.OnlyFlows">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
+        <!-- Project List widget -->
+        <receiver
+            android:name=".ui.widgets.project.ProjectWidgetReceiver"
+            android:exported="true"
+            android:label="Project Tasks">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_project" />
+        </receiver>
+
+        <activity
+            android:name=".ui.widgets.project.ProjectWidgetConfigActivity"
+            android:exported="true"
+            android:theme="@style/Theme.OnlyFlows">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
+        <!-- Week + List widget -->
+        <receiver
+            android:name=".ui.widgets.calendar.WeekWidgetReceiver"
+            android:exported="true"
+            android:label="Week Tasks">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_week" />
+        </receiver>
+
+        <!-- Month + List widget -->
+        <receiver
+            android:name=".ui.widgets.calendar.MonthWidgetReceiver"
+            android:exported="true"
+            android:label="Month Tasks">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_month" />
+        </receiver>
+
+        <!-- Quick Add widget -->
+        <receiver
+            android:name=".ui.widgets.quickadd.QuickAddWidgetReceiver"
+            android:exported="true"
+            android:label="Quick Add Task">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info_quickadd" />
+        </receiver>
     </application>
 
 

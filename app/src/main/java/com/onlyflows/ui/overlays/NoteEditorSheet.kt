@@ -43,6 +43,7 @@ fun NoteEditorSheet(
             modifier        = Modifier
                 .fillMaxWidth()
                 .fillMaxHeight()
+                .statusBarsPadding()
                 .navigationBarsPadding(),
         )
     }

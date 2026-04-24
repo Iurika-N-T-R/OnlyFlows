@@ -2,6 +2,7 @@ package com.onlyflows.ui.widgets
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.Color as AndroidColor
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
@@ -36,25 +37,28 @@ import com.onlyflows.MainActivity
 import com.onlyflows.OnlyFlowsApp
 import com.onlyflows.R
 import com.onlyflows.data.local.AppDatabase
+import com.onlyflows.data.local.entity.ProjectEntity
 import com.onlyflows.data.local.entity.TaskEntity
 import com.onlyflows.data.local.entity.toDomain
 import com.onlyflows.data.preferences.WidgetConfig
 import com.onlyflows.data.preferences.WidgetListType
 import com.onlyflows.domain.model.Task
+import com.onlyflows.ui.widgets.common.WidgetColors
 import kotlinx.coroutines.flow.first
 import java.time.LocalDate
 import java.time.LocalDateTime
 
-private val SQUARE    = DpSize(110.dp, 110.dp)
-private val RECTANGLE = DpSize(220.dp, 110.dp)
+private val SMALL    = DpSize(110.dp, 110.dp)
+private val WIDE_MED = DpSize(220.dp, 165.dp)
+private val WIDE_LRG = DpSize(220.dp, 220.dp)
 
-val taskIdKey    = ActionParameters.Key<String>("taskId")
-val widgetIdKey  = ActionParameters.Key<Int>("widgetId")
+val taskIdKey   = ActionParameters.Key<String>("taskId")
+val widgetIdKey = ActionParameters.Key<Int>("widgetId")
 const val EXTRA_TASK_ID = "extra_task_id"
 
 class OnlyFlowsWidget : GlanceAppWidget() {
 
-    override val sizeMode = SizeMode.Responsive(setOf(SQUARE, RECTANGLE))
+    override val sizeMode = SizeMode.Responsive(setOf(SMALL, WIDE_MED, WIDE_LRG))
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val app      = context.applicationContext as OnlyFlowsApp
@@ -62,14 +66,19 @@ class OnlyFlowsWidget : GlanceAppWidget() {
         val config   = app.container.widgetPreferences.getConfig(widgetId)
         val db       = AppDatabase.getInstance(context)
         val today    = LocalDate.now().toString()
+        val tomorrow = LocalDate.now().plusDays(1).toString()
 
         val entities: List<TaskEntity> = when (config.listType) {
             WidgetListType.TODAY    -> db.taskDao().observeToday(today).first()
+            WidgetListType.TOMORROW -> db.taskDao().searchByDate(tomorrow).first()
             WidgetListType.INBOX    -> db.taskDao().observeInbox().first()
             WidgetListType.UPCOMING -> db.taskDao().observeUpcoming().first()
             WidgetListType.ANYTIME  -> db.taskDao().observeAnytime().first()
             WidgetListType.SOMEDAY  -> db.taskDao().observeSomeday().first()
         }
+
+        val projects: Map<String, ProjectEntity> = db.projectDao().observeActive().first()
+            .associateBy { it.id }
 
         val tasks = entities
             .filter { !it.isCompleted && it.deletedAt == null }
@@ -77,6 +86,7 @@ class OnlyFlowsWidget : GlanceAppWidget() {
 
         val listTitle = when (config.listType) {
             WidgetListType.TODAY    -> "Today"
+            WidgetListType.TOMORROW -> "Tomorrow"
             WidgetListType.INBOX    -> "Inbox"
             WidgetListType.UPCOMING -> "Upcoming"
             WidgetListType.ANYTIME  -> "Anytime"
@@ -85,41 +95,34 @@ class OnlyFlowsWidget : GlanceAppWidget() {
 
         val headerIconRes = when (config.listType) {
             WidgetListType.TODAY    -> R.drawable.ic_nav_today
+            WidgetListType.TOMORROW -> R.drawable.ic_nav_upcoming
             WidgetListType.INBOX    -> R.drawable.ic_nav_inbox
             WidgetListType.UPCOMING -> R.drawable.ic_nav_upcoming
             WidgetListType.ANYTIME  -> R.drawable.ic_nav_anytime
             WidgetListType.SOMEDAY  -> R.drawable.ic_nav_someday
         }
 
-        // Intent that opens MainActivity and triggers the add-task sheet
         val addTaskIntent = Intent(context, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             .putExtra(MainActivity.EXTRA_ADD_TASK, true)
 
         provideContent {
             GlanceTheme {
-                val size    = LocalSize.current
-                val showFab = size.width >= 180.dp
+                val size   = LocalSize.current
+                val isTall = size.height >= 160.dp
 
                 Box(
                     modifier = GlanceModifier
                         .fillMaxSize()
-                        .background(Color.White)
+                        .background(WidgetColors.DarkBg)
                         .padding(12.dp),
                     contentAlignment = Alignment.TopStart,
                 ) {
                     Column(modifier = GlanceModifier.fillMaxSize()) {
 
-                        // ── Header (click cycles list type) ───────────────────
+                        // ── Header ────────────────────────────────────────────
                         Row(
-                            modifier = GlanceModifier
-                                .fillMaxWidth()
-                                .padding(bottom = 6.dp)
-                                .clickable(
-                                    actionRunCallback<CycleListCallback>(
-                                        actionParametersOf(widgetIdKey to widgetId)
-                                    )
-                                ),
+                            modifier          = GlanceModifier.fillMaxWidth().padding(bottom = 8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Image(
@@ -130,44 +133,26 @@ class OnlyFlowsWidget : GlanceAppWidget() {
                             Spacer(GlanceModifier.width(6.dp))
                             Text(
                                 text     = listTitle,
-                                style    = TextStyle(fontWeight = FontWeight.Bold, fontSize = 15.sp),
+                                style    = TextStyle(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize   = 15.sp,
+                                    color      = ColorProvider(WidgetColors.TextPrimary),
+                                ),
                                 modifier = GlanceModifier.defaultWeight(),
                             )
                             Text(
                                 text  = tasks.size.toString(),
-                                style = TextStyle(fontSize = 13.sp, color = ColorProvider(Color(0xFF888888))),
+                                style = TextStyle(
+                                    fontSize = 13.sp,
+                                    color    = ColorProvider(WidgetColors.TextSecondary),
+                                ),
                             )
-                        }
-
-                        // ── Task list (scrollable) ────────────────────────────
-                        LazyColumn(modifier = GlanceModifier.defaultWeight().fillMaxWidth()) {
-                            if (tasks.isEmpty()) {
-                                item {
-                                    Text(
-                                        text     = "No tasks",
-                                        style    = TextStyle(color = ColorProvider(Color(0xFFAAAAAA))),
-                                        modifier = GlanceModifier.padding(vertical = 8.dp),
-                                    )
-                                }
-                            } else {
-                                items(tasks, itemId = { it.id.hashCode().toLong() }) { task ->
-                                    WidgetTaskRow(context = context, task = task)
-                                }
-                            }
-                        }
-                    }
-
-                    // ── FAB — circle, bottom-end (rectangle only) ─────────────
-                    if (showFab) {
-                        Box(
-                            modifier         = GlanceModifier.fillMaxSize().padding(bottom = 2.dp, end = 2.dp),
-                            contentAlignment = Alignment.BottomEnd,
-                        ) {
+                            Spacer(GlanceModifier.width(8.dp))
                             Box(
-                                modifier = GlanceModifier
-                                    .size(36.dp)
-                                    .background(Color(0xFF1AAAF5))
-                                    .cornerRadius(18.dp)
+                                modifier         = GlanceModifier
+                                    .size(26.dp)
+                                    .background(WidgetColors.AccentBlue)
+                                    .cornerRadius(13.dp)
                                     .clickable(actionStartActivity(addTaskIntent)),
                                 contentAlignment = Alignment.Center,
                             ) {
@@ -175,10 +160,35 @@ class OnlyFlowsWidget : GlanceAppWidget() {
                                     text  = "+",
                                     style = TextStyle(
                                         fontWeight = FontWeight.Bold,
-                                        fontSize   = 22.sp,
+                                        fontSize   = 16.sp,
                                         color      = ColorProvider(Color.White),
                                     ),
                                 )
+                            }
+                        }
+
+                        // ── Task list ─────────────────────────────────────────
+                        LazyColumn(modifier = GlanceModifier.defaultWeight().fillMaxWidth()) {
+                            if (tasks.isEmpty()) {
+                                item {
+                                    Text(
+                                        text     = "No tasks",
+                                        style    = TextStyle(
+                                            color    = ColorProvider(WidgetColors.TextSecondary),
+                                            fontSize = 13.sp,
+                                        ),
+                                        modifier = GlanceModifier.padding(vertical = 8.dp),
+                                    )
+                                }
+                            } else {
+                                items(tasks, itemId = { it.id.hashCode().toLong() }) { task ->
+                                    DarkWidgetTaskRow(
+                                        context       = context,
+                                        task          = task,
+                                        projectColor  = task.projectId?.let { projects[it]?.colorHex },
+                                        widgetId      = widgetId,
+                                    )
+                                }
                             }
                         }
                     }
@@ -188,21 +198,7 @@ class OnlyFlowsWidget : GlanceAppWidget() {
     }
 }
 
-// ── Cycle list type on header click ──────────────────────────────────────────
-
-class CycleListCallback : ActionCallback {
-    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
-        val widgetId = parameters[widgetIdKey] ?: return
-        val prefs    = (context.applicationContext as OnlyFlowsApp).container.widgetPreferences
-        val config   = prefs.getConfig(widgetId)
-        val types    = WidgetListType.entries
-        val next     = types[(types.indexOf(config.listType) + 1) % types.size]
-        prefs.saveConfig(widgetId, WidgetConfig(listType = next))
-        OnlyFlowsWidget().update(context, glanceId)
-    }
-}
-
-// ── Complete task on checkbox tap ─────────────────────────────────────────────
+// ── Complete task callback ───────────────────────────────────────────────────
 
 class CompleteTaskCallback : ActionCallback {
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
@@ -213,34 +209,55 @@ class CompleteTaskCallback : ActionCallback {
     }
 }
 
-// ── Task row ──────────────────────────────────────────────────────────────────
+// ── Shared dark-mode task row ────────────────────────────────────────────────
 
 @GlanceComposable
 @androidx.compose.runtime.Composable
-private fun WidgetTaskRow(context: Context, task: Task) {
+fun DarkWidgetTaskRow(
+    context: Context,
+    task: Task,
+    projectColor: String?,
+    widgetId: Int,
+) {
     val openIntent = Intent(context, MainActivity::class.java)
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         .putExtra(EXTRA_TASK_ID, task.id)
 
+    val checkboxColor = runCatching {
+        if (!projectColor.isNullOrBlank()) Color(AndroidColor.parseColor(projectColor))
+        else WidgetColors.AccentBlue
+    }.getOrDefault(WidgetColors.AccentBlue)
+
     Row(
         modifier = GlanceModifier
             .fillMaxWidth()
-            .padding(vertical = 3.dp)
+            .padding(vertical = 4.dp)
             .clickable(actionStartActivity(openIntent)),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Image(
-            provider           = ImageProvider(R.drawable.ic_task_unchecked),
-            contentDescription = "Complete",
-            modifier           = GlanceModifier
-                .size(16.dp)
-                .clickable(actionRunCallback<CompleteTaskCallback>(actionParametersOf(taskIdKey to task.id))),
-        )
+        // Colored checkbox square
+        Box(
+            modifier = GlanceModifier
+                .size(14.dp)
+                .background(checkboxColor)
+                .cornerRadius(4.dp)
+                .clickable(
+                    actionRunCallback<CompleteTaskCallback>(
+                        actionParametersOf(
+                            taskIdKey   to task.id,
+                            widgetIdKey to widgetId,
+                        )
+                    )
+                ),
+        ) {}
         Spacer(GlanceModifier.width(8.dp))
         Text(
             text     = task.title,
             maxLines = 1,
-            style    = TextStyle(fontSize = 13.sp),
+            style    = TextStyle(
+                fontSize = 13.sp,
+                color    = ColorProvider(WidgetColors.TextPrimary),
+            ),
             modifier = GlanceModifier.defaultWeight(),
         )
     }

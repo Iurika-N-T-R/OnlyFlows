@@ -26,11 +26,13 @@ import androidx.compose.ui.unit.dp
 import com.onlyflows.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.onlyflows.OnlyFlowsApp
 import com.onlyflows.ui.components.AgendaCard
 import com.onlyflows.ui.components.EmptyState
 import com.onlyflows.ui.components.CompletedSectionHeader
 import com.onlyflows.ui.components.FlowFab
 import com.onlyflows.ui.components.GroupHeader
+import com.onlyflows.ui.components.QuoteCard
 import com.onlyflows.ui.components.SelectionBar
 import com.onlyflows.ui.components.TaskFilterBar
 import com.onlyflows.ui.components.TaskItem
@@ -52,6 +54,9 @@ fun TodayScreen(
     viewModel: TodayViewModel       = viewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val context        = LocalContext.current
+    val quoteRepo      = remember { (context.applicationContext as OnlyFlowsApp).container.quoteRepository }
+    val quoteDismissed by quoteRepo.dismissed.collectAsStateWithLifecycle()
 
     val calendarPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -181,6 +186,16 @@ fun TodayScreen(
             ),
             modifier = Modifier.fillMaxSize(),
         ) {
+            // ── Quote card ──
+            if (!quoteDismissed && quoteRepo.sessionQuote != null) {
+                item(key = "quote_card") {
+                    QuoteCard(
+                        quote     = quoteRepo.sessionQuote!!,
+                        onDismiss = { quoteRepo.dismiss() },
+                    )
+                }
+            }
+
             // ── Filter bar ──
             if (state.tags.isNotEmpty()) {
                 item(key = "filter_bar") {

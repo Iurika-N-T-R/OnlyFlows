@@ -169,6 +169,8 @@ fun AppSidebar(
             item(key = "nav_logbook")  { NavItem(painterResource(com.onlyflows.R.drawable.ic_nav_logbook),  Color(0xFF4DBE60), "Logbook",  isSelected = route == Screen.Logbook.route)   { navigate(navController, Screen.Logbook.route);  onItemSelected() } }
             item(key = "nav_projects") { NavItem(Icons.Outlined.GridView,      Color(0xFF8B5CF6),  "Projects", isSelected = route == Screen.Projects.route)  { navigate(navController, Screen.Projects.route); onItemSelected() } }
             item(key = "nav_goals")    { NavItem(Icons.Outlined.TrackChanges, Color(0xFFFF9500), "Goals", isSelected = route == Screen.Goals.route) { navigate(navController, Screen.Goals.route); onItemSelected() } }
+            item(key = "nav_rss") { NavItem(Icons.Outlined.RssFeed, Color(0xFFFF6B35), "RSS", isSelected = route == Screen.Rss.route) { navigate(navController, Screen.Rss.route); onItemSelected() } }
+            item(key = "nav_datetracker") { NavItem(Icons.Outlined.Timer, Color(0xFFFF6B6B), "Dates & Comptes", isSelected = route == Screen.DateTracker.route) { navigate(navController, Screen.DateTracker.route); onItemSelected() } }
             item(key = "nav_trash")    { NavItem(Icons.Outlined.Delete, MaterialTheme.colorScheme.onSurfaceVariant, "Trash", isSelected = route == Screen.Trash.route) { navigate(navController, Screen.Trash.route); onItemSelected() } }
 
             // Divider before folders + projects section

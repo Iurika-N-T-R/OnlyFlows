@@ -29,8 +29,11 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.onlyflows.OnlyFlowsApp
 import com.onlyflows.domain.model.AgendaEvent
+import com.onlyflows.ui.components.QuoteCard
 import com.onlyflows.ui.components.TaskItem
+import androidx.compose.ui.platform.LocalContext
 import java.time.LocalDate
 import kotlinx.coroutines.launch
 import sh.calvin.reorderable.ReorderableItem
@@ -46,6 +49,9 @@ fun UpcomingScreen(
     val state          by viewModel.uiState.collectAsStateWithLifecycle()
     val listState       = rememberLazyListState()
     val scope           = rememberCoroutineScope()
+    val context        = LocalContext.current
+    val quoteRepo      = remember { (context.applicationContext as OnlyFlowsApp).container.quoteRepository }
+    val quoteDismissed by quoteRepo.dismissed.collectAsStateWithLifecycle()
     val scrollBehavior  = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     var showViewMenu    by remember { mutableStateOf(false) }
 
@@ -240,6 +246,16 @@ fun UpcomingScreen(
             ),
             modifier = Modifier.fillMaxSize(),
         ) {
+            // ── Quote card ──
+            if (!quoteDismissed && quoteRepo.sessionQuote != null) {
+                item(key = "quote_card") {
+                    QuoteCard(
+                        quote     = quoteRepo.sessionQuote!!,
+                        onDismiss = { quoteRepo.dismiss() },
+                    )
+                }
+            }
+
             // ── Calendar permission banner ──
             if (!state.hasCalendarPermission) {
                 item(key = "calendar_permission") {
