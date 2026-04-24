@@ -24,9 +24,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.onlyflows.OnlyFlowsApp
 import com.onlyflows.domain.model.ProjectStatus
+import com.onlyflows.ui.components.QuoteCard
 import com.onlyflows.domain.model.ProjectType
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
@@ -46,6 +49,9 @@ fun ProjectsScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var viewMode by remember { mutableStateOf(ProjectsViewMode.BOARD) }
+    val context = LocalContext.current
+    val quoteRepo = remember { (context.applicationContext as OnlyFlowsApp).container.quoteRepository }
+    val quoteDismissed by quoteRepo.dismissed.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -68,6 +74,13 @@ fun ProjectsScreen(
                 .fillMaxSize()
                 .padding(padding),
         ) {
+            if (!quoteDismissed && quoteRepo.sessionQuote != null) {
+                QuoteCard(
+                    quote     = quoteRepo.sessionQuote!!,
+                    onDismiss = { quoteRepo.dismiss() },
+                    modifier  = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
             // View toggle chips
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),

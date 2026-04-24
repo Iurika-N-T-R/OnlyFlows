@@ -38,8 +38,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.onlyflows.OnlyFlowsApp
+import com.onlyflows.ui.components.QuoteCard
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.ui.graphics.SolidColor
 import com.onlyflows.domain.model.ProjectStatus
@@ -112,6 +115,9 @@ fun ProjectDetailScreen(
 
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val isImporting by viewModel.isImporting.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val quoteRepo = remember { (context.applicationContext as OnlyFlowsApp).container.quoteRepository }
+    val quoteDismissed by quoteRepo.dismissed.collectAsStateWithLifecycle()
 
     BackHandler(enabled = state.selectedTaskIds.isNotEmpty()) {
         viewModel.onEvent(ProjectDetailEvent.ClearSelection)
@@ -340,6 +346,15 @@ fun ProjectDetailScreen(
             ),
             modifier = Modifier.fillMaxSize().imePadding(),
         ) {
+            if (!quoteDismissed && quoteRepo.sessionQuote != null) {
+                item(key = "quote_card") {
+                    QuoteCard(
+                        quote     = quoteRepo.sessionQuote!!,
+                        onDismiss = { quoteRepo.dismiss() },
+                        modifier  = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    )
+                }
+            }
             // Project info header (status, countdown, note) — always visible in scroll body
             if (project != null) {
                 item(key = "project_info") {
