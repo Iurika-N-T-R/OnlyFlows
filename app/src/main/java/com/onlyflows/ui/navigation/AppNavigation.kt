@@ -111,7 +111,10 @@ fun AppNavigation(
         }
 
         composable(Screen.Rss.route) {
-            RssScreen(onSettingsClick = { navController.navigate(Screen.RssSettings.route) })
+            RssScreen(
+                onOpenDrawer    = onOpenDrawer,
+                onSettingsClick = { navController.navigate(Screen.RssSettings.route) },
+            )
         }
         composable(Screen.RssSettings.route) {
             RssSettingsScreen(onBack = { navController.popBackStack() })

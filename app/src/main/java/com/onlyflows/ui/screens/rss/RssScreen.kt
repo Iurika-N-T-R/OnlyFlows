@@ -31,6 +31,7 @@ import com.onlyflows.domain.model.RssFeed
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RssScreen(
+    onOpenDrawer: () -> Unit = {},
     onSettingsClick: () -> Unit,
     viewModel: RssViewModel = viewModel(),
 ) {
@@ -41,6 +42,11 @@ fun RssScreen(
             TopAppBar(
                 title = {
                     Text("RSS", fontWeight = FontWeight.SemiBold)
+                },
+                navigationIcon = {
+                    IconButton(onClick = onOpenDrawer) {
+                        Icon(Icons.Outlined.Menu, "Menu")
+                    }
                 },
                 actions = {
                     if (state.isSyncing) {

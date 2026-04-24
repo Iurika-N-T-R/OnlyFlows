@@ -32,6 +32,7 @@ fun RssSettingsScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var showAddSheet by remember { mutableStateOf(false) }
+    var editingFeed by remember { mutableStateOf<com.onlyflows.domain.model.RssFeed?>(null) }
 
     Scaffold(
         topBar = {
@@ -107,6 +108,7 @@ fun RssSettingsScreen(
                         feed = feed,
                         onDelete = { viewModel.deleteFeed(feed.id) },
                         onSync = { viewModel.syncFeed(feed.id) },
+                        onEdit = { editingFeed = feed },
                     )
                 }
             }
@@ -120,6 +122,17 @@ fun RssSettingsScreen(
                 showAddSheet = false
             },
             onDismiss = { showAddSheet = false },
+        )
+    }
+
+    editingFeed?.let { feed ->
+        EditFeedSheet(
+            feed = feed,
+            onSave = { updated ->
+                viewModel.updateFeed(updated)
+                editingFeed = null
+            },
+            onDismiss = { editingFeed = null },
         )
     }
 }
@@ -170,6 +183,7 @@ private fun FeedCard(
     feed: RssFeed,
     onDelete: () -> Unit,
     onSync: () -> Unit,
+    onEdit: () -> Unit,
 ) {
     val feedColor = runCatching { Color(android.graphics.Color.parseColor(feed.colorHex)) }
         .getOrElse { Color(0xFFFF6B35) }
@@ -222,6 +236,9 @@ private fun FeedCard(
             }
             IconButton(onClick = onSync) {
                 Icon(Icons.Outlined.Refresh, "Sync", modifier = Modifier.size(18.dp))
+            }
+            IconButton(onClick = onEdit) {
+                Icon(Icons.Outlined.Edit, "Modifier", modifier = Modifier.size(18.dp))
             }
             IconButton(onClick = onDelete) {
                 Icon(Icons.Outlined.Delete, "Supprimer", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
@@ -341,6 +358,114 @@ private fun AddFeedSheet(
                     onClick = { onAdd(name.trim(), url.trim(), keywords, selectedColor) },
                     enabled = name.isNotBlank() && url.isNotBlank(),
                 ) { Text("Ajouter") }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@Composable
+private fun EditFeedSheet(
+    feed: RssFeed,
+    onSave: (RssFeed) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var name by remember { mutableStateOf(feed.name) }
+    var url  by remember { mutableStateOf(feed.url) }
+    var keywordInput by remember { mutableStateOf("") }
+    var keywords by remember { mutableStateOf(feed.keywords) }
+
+    val colors = listOf("#FF6B35","#4A90D9","#39A59A","#8B5CF6","#FF9500","#FF2D55","#4DBE60","#FF6B6B")
+    var selectedColor by remember { mutableStateOf(feed.colorHex) }
+
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text("Modifier le flux", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text("Nom du flux") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+            )
+
+            OutlinedTextField(
+                value = url,
+                onValueChange = { url = it },
+                label = { Text("URL RSS") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+            )
+
+            OutlinedTextField(
+                value = keywordInput,
+                onValueChange = { keywordInput = it },
+                label = { Text("Filtrer par mot-clé (optionnel)") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                trailingIcon = {
+                    IconButton(
+                        onClick = {
+                            val kw = keywordInput.trim()
+                            if (kw.isNotBlank() && kw !in keywords) keywords = keywords + kw
+                            keywordInput = ""
+                        },
+                        enabled = keywordInput.isNotBlank(),
+                    ) { Icon(Icons.Outlined.Add, "Ajouter") }
+                },
+            )
+
+            if (keywords.isNotEmpty()) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    keywords.forEach { kw ->
+                        InputChip(
+                            selected = false,
+                            onClick = { keywords = keywords - kw },
+                            label = { Text(kw) },
+                            trailingIcon = { Icon(Icons.Outlined.Close, null, Modifier.size(14.dp)) },
+                        )
+                    }
+                }
+            }
+
+            Text("Couleur", style = MaterialTheme.typography.labelMedium)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                colors.forEach { hex ->
+                    val c = runCatching { Color(android.graphics.Color.parseColor(hex)) }.getOrElse { Color.Gray }
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(c)
+                            .then(
+                                if (hex == selectedColor)
+                                    Modifier.padding(3.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.4f))
+                                else Modifier
+                            )
+                            .clickable { selectedColor = hex },
+                    )
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+            ) {
+                TextButton(onClick = onDismiss) { Text("Annuler") }
+                Button(
+                    onClick = {
+                        onSave(feed.copy(name = name.trim(), url = url.trim(), keywords = keywords, colorHex = selectedColor))
+                    },
+                    enabled = name.isNotBlank() && url.isNotBlank(),
+                ) { Text("Enregistrer") }
             }
         }
     }

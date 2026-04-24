@@ -33,12 +33,16 @@ class RssSettingsViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch { repo.addFeed(name, url, keywords, colorHex) }
     }
 
+    fun updateFeed(feed: com.onlyflows.domain.model.RssFeed) {
+        viewModelScope.launch { try { repo.updateFeed(feed) } catch (_: Exception) {} }
+    }
+
     fun deleteFeed(id: String) {
         viewModelScope.launch { repo.deleteFeed(id) }
     }
 
     fun syncFeed(id: String) {
-        viewModelScope.launch { repo.syncFeed(id) }
+        viewModelScope.launch { try { repo.syncFeed(id) } catch (_: Exception) {} }
     }
 
     fun setRefreshInterval(minutes: Long) {
