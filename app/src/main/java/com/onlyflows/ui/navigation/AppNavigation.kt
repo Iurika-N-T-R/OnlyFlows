@@ -115,7 +115,7 @@ fun AppNavigation(
             RssScreen(
                 onOpenDrawer    = onOpenDrawer,
                 onSettingsClick = { navController.navigate(Screen.RssSettings.route) },
-                onArticleClick  = { url, title -> navController.navigate(Screen.RssArticle.createRoute(url, title)) },
+                onArticleClick  = { articleId -> navController.navigate(Screen.RssArticle.createRoute(articleId)) },
             )
         }
         composable(Screen.RssSettings.route) {
@@ -124,13 +124,11 @@ fun AppNavigation(
         composable(
             route     = Screen.RssArticle.route,
             arguments = listOf(
-                androidx.navigation.navArgument("url")   { type = androidx.navigation.NavType.StringType },
-                androidx.navigation.navArgument("title") { type = androidx.navigation.NavType.StringType },
+                androidx.navigation.navArgument("articleId") { type = androidx.navigation.NavType.StringType },
             ),
         ) { backStack ->
-            val url   = java.net.URLDecoder.decode(backStack.arguments?.getString("url")   ?: "", "UTF-8")
-            val title = java.net.URLDecoder.decode(backStack.arguments?.getString("title") ?: "", "UTF-8")
-            RssArticleScreen(url = url, title = title, onBack = { navController.popBackStack() })
+            val articleId = backStack.arguments?.getString("articleId") ?: ""
+            RssArticleScreen(articleId = articleId, onBack = { navController.popBackStack() })
         }
         composable(Screen.DateTracker.route) {
             DateTrackerScreen(onOpenDrawer = onOpenDrawer)

@@ -74,7 +74,7 @@ object RssParser {
             }
         }
         if (link.isBlank() && title.isBlank()) return null
-        return ParsedArticle(title.trim(), link.trim(), desc.take(500).trim(), author.trim(), pubDate.trim())
+        return ParsedArticle(title.trim(), link.trim(), desc.take(5000).trim(), author.trim(), pubDate.trim())
     }
 
     // ── Atom ──────────────────────────────────────────────────────────────────
@@ -108,7 +108,7 @@ object RssParser {
             }
         }
         if (link.isBlank() && title.isBlank()) return null
-        return ParsedArticle(title.trim(), link.trim(), desc.take(500).trim(), author.trim(), pubDate.trim())
+        return ParsedArticle(title.trim(), link.trim(), desc.take(5000).trim(), author.trim(), pubDate.trim())
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

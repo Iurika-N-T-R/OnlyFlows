@@ -28,9 +28,8 @@ sealed class Screen(val route: String) {
     data object DateTracker    : Screen("datetracker")
     data object Rss            : Screen("rss")
     data object RssSettings    : Screen("settings/rss")
-    data object RssArticle     : Screen("rss/article?url={url}&title={title}") {
-        fun createRoute(url: String, title: String) =
-            "rss/article?url=${java.net.URLEncoder.encode(url, "UTF-8")}&title=${java.net.URLEncoder.encode(title, "UTF-8")}"
+    data object RssArticle     : Screen("rss/article/{articleId}") {
+        fun createRoute(articleId: String) = "rss/article/$articleId"
     }
     data object Goals          : Screen("goals")
     data object GoalDetail     : Screen("goals/{goalId}") {

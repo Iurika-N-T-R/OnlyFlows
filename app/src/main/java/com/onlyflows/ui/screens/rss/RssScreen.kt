@@ -30,7 +30,7 @@ import com.onlyflows.domain.model.RssFeed
 fun RssScreen(
     onOpenDrawer: () -> Unit = {},
     onSettingsClick: () -> Unit,
-    onArticleClick: (url: String, title: String) -> Unit = { _, _ -> },
+    onArticleClick: (articleId: String) -> Unit = {},
     viewModel: RssViewModel = viewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -188,7 +188,7 @@ fun RssScreen(
                             onToggleRead = { viewModel.onEvent(RssEvent.MarkRead(article.id, !article.isRead)) },
                             onClick      = {
                                 viewModel.onEvent(RssEvent.MarkRead(article.id, true))
-                                onArticleClick(article.link, article.title)
+                                onArticleClick(article.id)
                             },
                         )
                     }
