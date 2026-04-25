@@ -117,7 +117,6 @@ fun ProjectDetailScreen(
     val isImporting by viewModel.isImporting.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val quoteRepo = remember { (context.applicationContext as OnlyFlowsApp).container.quoteRepository }
-    val quoteDismissed by quoteRepo.dismissed.collectAsStateWithLifecycle()
 
     BackHandler(enabled = state.selectedTaskIds.isNotEmpty()) {
         viewModel.onEvent(ProjectDetailEvent.ClearSelection)
@@ -346,15 +345,6 @@ fun ProjectDetailScreen(
             ),
             modifier = Modifier.fillMaxSize().imePadding(),
         ) {
-            if (!quoteDismissed && quoteRepo.sessionQuote != null) {
-                item(key = "quote_card") {
-                    QuoteCard(
-                        quote     = quoteRepo.sessionQuote!!,
-                        onDismiss = { quoteRepo.dismiss() },
-                        modifier  = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                    )
-                }
-            }
             // Project info header (status, countdown, note) — always visible in scroll body
             if (project != null) {
                 item(key = "project_info") {
@@ -525,6 +515,15 @@ fun ProjectDetailScreen(
                             modifier = Modifier.padding(start = 20.dp, bottom = 4.dp),
                         )
                     }
+                }
+            }
+
+            if (quoteRepo.sessionQuote != null) {
+                item(key = "quote_card") {
+                    QuoteCard(
+                        quote    = quoteRepo.sessionQuote!!,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    )
                 }
             }
 

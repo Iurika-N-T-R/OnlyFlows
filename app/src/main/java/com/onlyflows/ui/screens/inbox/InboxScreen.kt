@@ -39,7 +39,6 @@ fun InboxScreen(
     val scrollBehavior    = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val context        = LocalContext.current
     val quoteRepo      = remember { (context.applicationContext as OnlyFlowsApp).container.quoteRepository }
-    val quoteDismissed by quoteRepo.dismissed.collectAsStateWithLifecycle()
     val isSelectionMode   = state.selectedTaskIds.isNotEmpty()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -157,11 +156,10 @@ fun InboxScreen(
                 ),
                 modifier = Modifier.fillMaxSize(),
             ) {
-                if (!quoteDismissed && quoteRepo.sessionQuote != null) {
+                if (quoteRepo.sessionQuote != null) {
                     item(key = "quote_card") {
                         QuoteCard(
                             quote     = quoteRepo.sessionQuote!!,
-                            onDismiss = { quoteRepo.dismiss() },
                         )
                     }
                 }

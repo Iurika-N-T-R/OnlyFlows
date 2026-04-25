@@ -6,13 +6,18 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.onlyflows.OnlyFlowsApp
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -21,6 +26,10 @@ fun GeneralSettingsScreen(
     viewModel: GeneralSettingsViewModel = viewModel(),
 ) {
     val use24h by viewModel.use24hFormat.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val scope   = rememberCoroutineScope()
+    val sidebarPrefs  = remember { (context.applicationContext as OnlyFlowsApp).container.sidebarPreferences }
+    val hiddenNavItems by sidebarPrefs.hiddenNavItems.collectAsStateWithLifecycle(initialValue = emptySet())
 
     Scaffold(
         topBar = {
@@ -57,11 +66,27 @@ fun GeneralSettingsScreen(
                 checked  = use24h,
                 onCheckedChange = { viewModel.setUse24hFormat(it) },
             )
-            HorizontalDivider(
-                modifier  = Modifier.padding(horizontal = 16.dp),
-                thickness = 0.5.dp,
-                color     = MaterialTheme.colorScheme.outlineVariant,
-            )
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+
+            SettingsGroupLabel("Sidebar — sections visibles")
+            listOf(
+                Triple("nav_projects",    "Projects",        "Listes & projets"),
+                Triple("nav_goals",       "Goals",           "Suivi d'objectifs"),
+                Triple("nav_rss",         "RSS",             "Flux d'actualités"),
+                Triple("nav_datetracker", "Dates & Comptes", "Anniversaires & comptes à rebours"),
+                Triple("nav_trash",       "Trash",           "Éléments supprimés"),
+            ).forEachIndexed { index, (key, label, subtitle) ->
+                if (index > 0) HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+                SwitchSettingsRow(
+                    label    = label,
+                    subtitle = subtitle,
+                    checked  = key !in hiddenNavItems,
+                    onCheckedChange = { visible ->
+                        scope.launch { sidebarPrefs.setNavItemHidden(key, !visible) }
+                    },
+                )
+            }
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
         }
     }
 }

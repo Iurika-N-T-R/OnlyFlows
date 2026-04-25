@@ -39,7 +39,6 @@ fun AnytimeScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context        = LocalContext.current
     val quoteRepo      = remember { (context.applicationContext as OnlyFlowsApp).container.quoteRepository }
-    val quoteDismissed by quoteRepo.dismissed.collectAsStateWithLifecycle()
     val scrollBehavior  = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val isSelectionMode = state.selectedTaskIds.isNotEmpty()
 
@@ -149,11 +148,10 @@ fun AnytimeScreen(
             ),
             modifier = Modifier.fillMaxSize(),
         ) {
-            if (!quoteDismissed && quoteRepo.sessionQuote != null) {
+            if (quoteRepo.sessionQuote != null) {
                 item(key = "quote_card") {
                     QuoteCard(
                         quote     = quoteRepo.sessionQuote!!,
-                        onDismiss = { quoteRepo.dismiss() },
                     )
                 }
             }

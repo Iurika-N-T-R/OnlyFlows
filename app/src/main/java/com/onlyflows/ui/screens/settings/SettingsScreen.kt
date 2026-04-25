@@ -20,8 +20,6 @@ import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.Palette
-import androidx.compose.material.icons.outlined.ViewSidebar
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -52,10 +50,8 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     val scope   = rememberCoroutineScope()
-    val container   = remember { (context.applicationContext as OnlyFlowsApp).container }
-    val quoteRepo   = container.quoteRepository
-    val sidebarPrefs = container.sidebarPreferences
-    val hiddenNavItems by sidebarPrefs.hiddenNavItems.collectAsStateWithLifecycle(initialValue = emptySet())
+    val container = remember { (context.applicationContext as OnlyFlowsApp).container }
+    val quoteRepo = container.quoteRepository
     var quoteImportMsg by remember { mutableStateOf<String?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -163,26 +159,6 @@ fun SettingsScreen(
                 label   = "Citations — importer JSON",
                 onClick = { quotePicker.launch(arrayOf("application/json", "*/*")) },
             )
-            Divider()
-            SettingsGroupLabel("Sidebar")
-            listOf(
-                Triple("nav_projects",    "Projects",        "Listes & projets"),
-                Triple("nav_goals",       "Goals",           "Suivi d'objectifs"),
-                Triple("nav_rss",         "RSS",             "Flux d'actualités"),
-                Triple("nav_datetracker", "Dates & Comptes", "Anniversaires & comptes à rebours"),
-                Triple("nav_trash",       "Trash",           "Éléments supprimés"),
-            ).forEachIndexed { index, (key, label, subtitle) ->
-                if (index > 0) Divider()
-                SettingsSwitchRow(
-                    icon     = Icons.Outlined.ViewSidebar,
-                    label    = label,
-                    subtitle = subtitle,
-                    checked  = key !in hiddenNavItems,
-                    onCheckedChange = { visible ->
-                        scope.launch { sidebarPrefs.setNavItemHidden(key, !visible) }
-                    },
-                )
-            }
             Divider()
             SettingsGroupLabel("Application")
             SettingsRow(

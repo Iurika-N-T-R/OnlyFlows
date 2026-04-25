@@ -43,7 +43,6 @@ fun LogbookScreen(
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val context = LocalContext.current
     val quoteRepo = remember { (context.applicationContext as OnlyFlowsApp).container.quoteRepository }
-    val quoteDismissed by quoteRepo.dismissed.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -85,10 +84,9 @@ fun LogbookScreen(
                 .fillMaxSize()
                 .padding(top = padding.calculateTopPadding()),
         ) {
-            if (!quoteDismissed && quoteRepo.sessionQuote != null) {
+            if (quoteRepo.sessionQuote != null) {
                 QuoteCard(
                     quote     = quoteRepo.sessionQuote!!,
-                    onDismiss = { quoteRepo.dismiss() },
                     modifier  = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 )
             }

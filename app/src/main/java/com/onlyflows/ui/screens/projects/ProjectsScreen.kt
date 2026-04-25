@@ -51,7 +51,6 @@ fun ProjectsScreen(
     var viewMode by remember { mutableStateOf(ProjectsViewMode.BOARD) }
     val context = LocalContext.current
     val quoteRepo = remember { (context.applicationContext as OnlyFlowsApp).container.quoteRepository }
-    val quoteDismissed by quoteRepo.dismissed.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -74,13 +73,6 @@ fun ProjectsScreen(
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            if (!quoteDismissed && quoteRepo.sessionQuote != null) {
-                QuoteCard(
-                    quote     = quoteRepo.sessionQuote!!,
-                    onDismiss = { quoteRepo.dismiss() },
-                    modifier  = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                )
-            }
             // View toggle chips
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -106,6 +98,13 @@ fun ProjectsScreen(
                     CircularProgressIndicator()
                 }
                 return@Column
+            }
+
+            if (quoteRepo.sessionQuote != null) {
+                QuoteCard(
+                    quote    = quoteRepo.sessionQuote!!,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                )
             }
 
             when (viewMode) {

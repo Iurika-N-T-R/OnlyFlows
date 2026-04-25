@@ -87,28 +87,57 @@ fun DateTrackerScreen(
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
 
-        if (state.trackers.isEmpty()) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier         = Modifier.fillMaxSize().padding(padding),
-            ) {
-                EmptyState(
-                    emoji    = "⏳",
-                    title    = "Aucun suivi",
-                    subtitle = "Ajoute un anniversaire, compte à rebours ou événement.",
-                )
+        LazyColumn(
+            contentPadding = PaddingValues(
+                top    = padding.calculateTopPadding() + 8.dp,
+                bottom = padding.calculateBottomPadding() + 80.dp,
+                start  = 16.dp,
+                end    = 16.dp,
+            ),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            modifier            = Modifier.fillMaxSize(),
+        ) {
+            // ── Built-in row: fin du mois + fin d'année ──────────────────────
+            item(key = "builtin_row") {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    BuiltinCountdownCard(
+                        emoji = "📅",
+                        label = "Fin du mois",
+                        daysSupplier = {
+                            val today = LocalDate.now()
+                            ChronoUnit.DAYS.between(today, today.withDayOfMonth(today.lengthOfMonth())).toInt()
+                        },
+                        modifier = Modifier.weight(1f),
+                    )
+                    BuiltinCountdownCard(
+                        emoji = "🎆",
+                        label = "Fin d'année",
+                        daysSupplier = {
+                            val today = LocalDate.now()
+                            ChronoUnit.DAYS.between(today, LocalDate.of(today.year, 12, 31)).toInt()
+                        },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
             }
-        } else {
-            LazyColumn(
-                contentPadding = PaddingValues(
-                    top    = padding.calculateTopPadding() + 8.dp,
-                    bottom = padding.calculateBottomPadding() + 80.dp,
-                    start  = 16.dp,
-                    end    = 16.dp,
-                ),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                modifier            = Modifier.fillMaxSize(),
-            ) {
+
+            if (state.trackers.isEmpty()) {
+                item(key = "empty") {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier         = Modifier.fillParentMaxHeight(0.7f).fillMaxWidth(),
+                    ) {
+                        EmptyState(
+                            emoji    = "⏳",
+                            title    = "Aucun suivi",
+                            subtitle = "Ajoute un anniversaire, compte à rebours ou événement.",
+                        )
+                    }
+                }
+            } else {
                 items(state.trackers, key = { it.id }) { tracker ->
                     TrackerCard(
                         tracker   = tracker,
@@ -118,6 +147,59 @@ fun DateTrackerScreen(
                     )
                 }
             }
+        }
+    }
+}
+
+// ── Built-in countdown card ───────────────────────────────────────────────────
+
+@Composable
+private fun BuiltinCountdownCard(
+    emoji: String,
+    label: String,
+    daysSupplier: () -> Int,
+    modifier: Modifier = Modifier,
+) {
+    var now by remember { mutableStateOf(LocalDate.now()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            val next = LocalDate.now()
+            if (next != now) now = next
+            kotlinx.coroutines.delay(60_000L)
+        }
+    }
+    val days = remember(now) { daysSupplier() }
+
+    Surface(
+        shape    = RoundedCornerShape(14.dp),
+        color    = MaterialTheme.colorScheme.surfaceVariant,
+        modifier = modifier,
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier            = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 18.dp, horizontal = 12.dp),
+        ) {
+            Text(emoji, style = MaterialTheme.typography.headlineMedium)
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text       = "$days",
+                style      = MaterialTheme.typography.headlineLarge,
+                fontWeight = FontWeight.Bold,
+                color      = MaterialTheme.colorScheme.primary,
+            )
+            Text(
+                text  = "jours avant",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text       = label,
+                style      = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
         }
     }
 }

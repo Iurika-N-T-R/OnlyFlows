@@ -56,7 +56,6 @@ fun TodayScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val context        = LocalContext.current
     val quoteRepo      = remember { (context.applicationContext as OnlyFlowsApp).container.quoteRepository }
-    val quoteDismissed by quoteRepo.dismissed.collectAsStateWithLifecycle()
 
     val calendarPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -187,11 +186,10 @@ fun TodayScreen(
             modifier = Modifier.fillMaxSize(),
         ) {
             // ── Quote card ──
-            if (!quoteDismissed && quoteRepo.sessionQuote != null) {
+            if (quoteRepo.sessionQuote != null) {
                 item(key = "quote_card") {
                     QuoteCard(
                         quote     = quoteRepo.sessionQuote!!,
-                        onDismiss = { quoteRepo.dismiss() },
                     )
                 }
             }
