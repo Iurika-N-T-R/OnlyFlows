@@ -5,6 +5,69 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.44.0] — 2026-04-25 · Widget Month — navigation mois + headers français
+
+### Amélioré
+
+- **Widget Month** — navigation mois avec boutons `<` / `>` (mois précédent / suivant).
+- **Widget Month** — en-têtes jours de la semaine français, lundi en premier : L M M J V S D.
+- **Widget Month** — titre du mois en bleu (`AccentBlue`), jour sélectionné en cercle bleu.
+- **Widget Month** — couleurs des projets affichées dans la liste des tâches.
+
+---
+
+## [0.43.0] — 2026-04-25 · Widget Clock + Liste
+
+### Ajouté
+
+- **Widget Clock + Liste** — widget rectangulaire 4×2 : horloge numérique (heure + date) à gauche, liste de tâches configurable à droite.
+- Badge rouge pour les tâches en retard (overdue), compteur total gris.
+- Cercles colorés par projet dans la liste des tâches.
+- Config : choix de la liste affichée (Aujourd'hui / Demain / Inbox / Upcoming / Anytime / Someday).
+
+---
+
+## [0.42.0] — 2026-04-25 · Widget Liste — redesign complet
+
+### Amélioré
+
+- **Widget Liste** — nom du projet affiché à droite de chaque tâche (gris, 11sp).
+- **Widget Liste** — header : titre `▾` cliquable ouvrant la config + bouton `⋮`.
+- **Widget Liste** — `WidgetConfig` étendu : `tagFilter`, `plusDestination` (Today/Inbox), `checkboxAction` (Compléter / Basculer priorité).
+- **Widget Config** — interface Things 3 : trois lignes cliquables groupées (Liste / Bouton + / Case à cocher) avec pickers.
+- **TogglePriorityCallback** — action de checkbox alternative : bascule priorité HIGH ↔ NONE.
+
+---
+
+## [0.41.1] — 2026-04-25 · Sidebar — visibilité sections (Général > Sidebar)
+
+### Corrigé
+
+- **Sidebar — visibilité** — les toggles sont déplacés dans Général > Sidebar (ils étaient dans les Paramètres principaux et cassaient le scroll).
+
+---
+
+## [0.41.0] — 2026-04-25 · Sidebar — sections masquables + QuoteCard améliorée
+
+### Ajouté
+
+- **Sidebar — sections masquables** — Projects, Goals, RSS, Dates & Comptes, Trash peuvent être masqués/affichés via Paramètres > Général > Sidebar. Persisté dans DataStore.
+
+### Corrigé
+
+- **QuoteCard** — suppression du bouton ✕ (la carte disparaissait définitivement après un tap). La carte est maintenant permanente (nouvelle citation à chaque lancement).
+- **QuoteCard position** — déplacée juste au-dessus des tâches (après les filtres/stats), pas sous le titre.
+
+---
+
+## [0.40.0] — 2026-04-25 · QuoteCard dans Projects, ProjectDetail, Logbook
+
+### Ajouté
+
+- **QuoteCard** dans ProjectsScreen (après le sélecteur de vue), ProjectDetailScreen (entre les stats et le filtre), LogbookScreen (sous le header).
+
+---
+
 ## [0.32.0] — 2026-04-21 · Bug Fixes + UX Improvements + Collapsible Sections
 
 ### Corrigé
