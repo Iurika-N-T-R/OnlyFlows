@@ -76,15 +76,25 @@ class WidgetPreferences(private val context: Context) {
         }
     }
 
-    // Month widget selected day
-    private fun monthSelectedDayKey(widgetId: Int) = stringPreferencesKey("month_${widgetId}_day")
+    // Month widget selected day + displayed month
+    private fun monthSelectedDayKey(widgetId: Int)    = stringPreferencesKey("month_${widgetId}_day")
+    private fun monthDisplayedMonthKey(widgetId: Int) = stringPreferencesKey("month_${widgetId}_month")
 
     suspend fun getMonthSelectedDate(widgetId: Int): String =
         context.widgetDataStore.data.map { it[monthSelectedDayKey(widgetId)] ?: "" }.first()
 
+    suspend fun getMonthDisplayedMonth(widgetId: Int): String =
+        context.widgetDataStore.data.map { it[monthDisplayedMonthKey(widgetId)] ?: "" }.first()
+
     suspend fun saveMonthSelectedDate(widgetId: Int, date: String) {
         context.widgetDataStore.edit { prefs ->
             prefs[monthSelectedDayKey(widgetId)] = date
+        }
+    }
+
+    suspend fun saveMonthDisplayedMonth(widgetId: Int, yearMonth: String) {
+        context.widgetDataStore.edit { prefs ->
+            prefs[monthDisplayedMonthKey(widgetId)] = yearMonth
         }
     }
 
