@@ -32,6 +32,7 @@ data class SidebarUiState(
     val overdueCount: Int              = 0,
     val entries: List<SidebarEntry>    = emptyList(),
     val expandedFolderIds: Set<String> = emptySet(),
+    val hiddenNavItems: Set<String>    = emptySet(),
 )
 
 sealed interface SidebarEvent {
@@ -46,6 +47,7 @@ sealed interface SidebarEvent {
         val folderIds: List<String>,
         val rootProjectIds: List<String>,
     ) : SidebarEvent
+    data class SetNavItemHidden(val key: String, val hidden: Boolean) : SidebarEvent
 }
 
 // ── ViewModel ─────────────────────────────────────────────────────────────────
@@ -94,7 +96,7 @@ class SidebarViewModel(app: Application) : AndroidViewModel(app) {
                 arrayOf<Any>(folders, progresses, inboxCount, todayCount, overdueCount)
             }
 
-            combine(innerFlow, _expanded) { packed, expanded ->
+            combine(innerFlow, _expanded, sidebarPrefs.hiddenNavItems) { packed, expanded, hiddenNavItems ->
                 @Suppress("UNCHECKED_CAST")
                 val folders      = packed[0] as List<Folder>
                 @Suppress("UNCHECKED_CAST")
@@ -128,6 +130,7 @@ class SidebarViewModel(app: Application) : AndroidViewModel(app) {
                     overdueCount      = overdueCount,
                     entries           = entries,
                     expandedFolderIds = newExpanded,
+                    hiddenNavItems    = hiddenNavItems,
                 )
             }.collect { state ->
                 _uiState.value  = state
@@ -187,6 +190,9 @@ class SidebarViewModel(app: Application) : AndroidViewModel(app) {
                     sortOrder = _uiState.value.entries.filterIsInstance<SidebarEntry.FolderHeader>().size,
                 )
                 folderRepo.insert(newFolder)
+            }
+            is SidebarEvent.SetNavItemHidden -> viewModelScope.launch {
+                sidebarPrefs.setNavItemHidden(event.key, event.hidden)
             }
             is SidebarEvent.ReorderEntries -> viewModelScope.launch {
                 val entries = _uiState.value.entries

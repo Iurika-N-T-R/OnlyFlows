@@ -13,7 +13,8 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 
 class SidebarPreferences(private val context: Context) {
 
-    private val COLLAPSED_FOLDERS = stringSetPreferencesKey("collapsed_folder_ids")
+    private val COLLAPSED_FOLDERS  = stringSetPreferencesKey("collapsed_folder_ids")
+    private val HIDDEN_NAV_ITEMS   = stringSetPreferencesKey("hidden_nav_items")
 
     /** Emits the set of folder IDs that the user has explicitly collapsed. */
     val collapsedFolderIds: Flow<Set<String>> = context.dataStore.data
@@ -23,6 +24,16 @@ class SidebarPreferences(private val context: Context) {
         context.dataStore.edit { prefs ->
             val current = prefs[COLLAPSED_FOLDERS] ?: emptySet()
             prefs[COLLAPSED_FOLDERS] = if (collapsed) current + folderId else current - folderId
+        }
+    }
+
+    val hiddenNavItems: Flow<Set<String>> = context.dataStore.data
+        .map { prefs -> prefs[HIDDEN_NAV_ITEMS] ?: emptySet() }
+
+    suspend fun setNavItemHidden(key: String, hidden: Boolean) {
+        context.dataStore.edit { prefs ->
+            val current = prefs[HIDDEN_NAV_ITEMS] ?: emptySet()
+            prefs[HIDDEN_NAV_ITEMS] = if (hidden) current + key else current - key
         }
     }
 }
