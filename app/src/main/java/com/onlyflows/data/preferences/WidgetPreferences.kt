@@ -11,24 +11,34 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 enum class WidgetListType { TODAY, TOMORROW, INBOX, UPCOMING, ANYTIME, SOMEDAY }
+enum class WidgetPlusDestination { TODAY, INBOX }
+enum class WidgetCheckboxAction  { COMPLETE, TOGGLE_PRIORITY }
 
 data class WidgetConfig(
-    val listType: WidgetListType = WidgetListType.TODAY,
-    val projectId: String? = null,
-    val showCheckbox: Boolean = true,
+    val listType: WidgetListType               = WidgetListType.TODAY,
+    val projectId: String?                     = null,
+    val tagFilter: String?                     = null,
+    val plusDestination: WidgetPlusDestination = WidgetPlusDestination.INBOX,
+    val checkboxAction: WidgetCheckboxAction   = WidgetCheckboxAction.COMPLETE,
 )
 
 private val Context.widgetDataStore: DataStore<Preferences> by preferencesDataStore(name = "widget_prefs")
 
 class WidgetPreferences(private val context: Context) {
 
-    private fun listTypeKey(widgetId: Int) = stringPreferencesKey("widget_${widgetId}_list")
-    private fun projectIdKey(widgetId: Int) = stringPreferencesKey("widget_${widgetId}_project")
+    private fun listTypeKey(widgetId: Int)       = stringPreferencesKey("widget_${widgetId}_list")
+    private fun projectIdKey(widgetId: Int)      = stringPreferencesKey("widget_${widgetId}_project")
+    private fun tagFilterKey(widgetId: Int)      = stringPreferencesKey("widget_${widgetId}_tag")
+    private fun plusDestKey(widgetId: Int)       = stringPreferencesKey("widget_${widgetId}_plus")
+    private fun checkboxActionKey(widgetId: Int) = stringPreferencesKey("widget_${widgetId}_checkbox")
 
     fun observeConfig(widgetId: Int): Flow<WidgetConfig> = context.widgetDataStore.data.map { prefs ->
         WidgetConfig(
-            listType  = prefs[listTypeKey(widgetId)]?.let { runCatching { WidgetListType.valueOf(it) }.getOrNull() } ?: WidgetListType.TODAY,
-            projectId = prefs[projectIdKey(widgetId)]?.takeIf { it.isNotBlank() },
+            listType       = prefs[listTypeKey(widgetId)]?.let { runCatching { WidgetListType.valueOf(it) }.getOrNull() } ?: WidgetListType.TODAY,
+            projectId      = prefs[projectIdKey(widgetId)]?.takeIf { it.isNotBlank() },
+            tagFilter      = prefs[tagFilterKey(widgetId)]?.takeIf { it.isNotBlank() },
+            plusDestination= prefs[plusDestKey(widgetId)]?.let { runCatching { WidgetPlusDestination.valueOf(it) }.getOrNull() } ?: WidgetPlusDestination.INBOX,
+            checkboxAction = prefs[checkboxActionKey(widgetId)]?.let { runCatching { WidgetCheckboxAction.valueOf(it) }.getOrNull() } ?: WidgetCheckboxAction.COMPLETE,
         )
     }
 
@@ -36,8 +46,11 @@ class WidgetPreferences(private val context: Context) {
 
     suspend fun saveConfig(widgetId: Int, config: WidgetConfig) {
         context.widgetDataStore.edit { prefs ->
-            prefs[listTypeKey(widgetId)] = config.listType.name
-            prefs[projectIdKey(widgetId)] = config.projectId ?: ""
+            prefs[listTypeKey(widgetId)]       = config.listType.name
+            prefs[projectIdKey(widgetId)]      = config.projectId ?: ""
+            prefs[tagFilterKey(widgetId)]      = config.tagFilter ?: ""
+            prefs[plusDestKey(widgetId)]       = config.plusDestination.name
+            prefs[checkboxActionKey(widgetId)] = config.checkboxAction.name
         }
     }
 
@@ -45,6 +58,9 @@ class WidgetPreferences(private val context: Context) {
         context.widgetDataStore.edit { prefs ->
             prefs.remove(listTypeKey(widgetId))
             prefs.remove(projectIdKey(widgetId))
+            prefs.remove(tagFilterKey(widgetId))
+            prefs.remove(plusDestKey(widgetId))
+            prefs.remove(checkboxActionKey(widgetId))
         }
     }
 

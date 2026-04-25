@@ -40,8 +40,10 @@ import com.onlyflows.data.local.AppDatabase
 import com.onlyflows.data.local.entity.ProjectEntity
 import com.onlyflows.data.local.entity.TaskEntity
 import com.onlyflows.data.local.entity.toDomain
+import com.onlyflows.data.preferences.WidgetCheckboxAction
 import com.onlyflows.data.preferences.WidgetConfig
 import com.onlyflows.data.preferences.WidgetListType
+import com.onlyflows.data.preferences.WidgetPlusDestination
 import com.onlyflows.domain.model.Task
 import com.onlyflows.ui.widgets.common.WidgetColors
 import kotlinx.coroutines.flow.first
@@ -102,9 +104,18 @@ class OnlyFlowsWidget : GlanceAppWidget() {
             WidgetListType.SOMEDAY  -> R.drawable.ic_nav_someday
         }
 
+        val plusDest = when (config.plusDestination) {
+            WidgetPlusDestination.TODAY -> "TODAY"
+            WidgetPlusDestination.INBOX -> "INBOX"
+        }
         val addTaskIntent = Intent(context, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             .putExtra(MainActivity.EXTRA_ADD_TASK, true)
+            .putExtra("extra_destination", plusDest)
+
+        val configIntent = Intent(context, WidgetConfigActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            .putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
 
         provideContent {
             GlanceTheme {
@@ -132,20 +143,13 @@ class OnlyFlowsWidget : GlanceAppWidget() {
                             )
                             Spacer(GlanceModifier.width(6.dp))
                             Text(
-                                text     = listTitle,
+                                text     = "$listTitle ▾",
                                 style    = TextStyle(
                                     fontWeight = FontWeight.Bold,
                                     fontSize   = 15.sp,
                                     color      = ColorProvider(WidgetColors.TextPrimary),
                                 ),
-                                modifier = GlanceModifier.defaultWeight(),
-                            )
-                            Text(
-                                text  = tasks.size.toString(),
-                                style = TextStyle(
-                                    fontSize = 13.sp,
-                                    color    = ColorProvider(WidgetColors.TextSecondary),
-                                ),
+                                modifier = GlanceModifier.defaultWeight().clickable(actionStartActivity(configIntent)),
                             )
                             Spacer(GlanceModifier.width(8.dp))
                             Box(
@@ -162,6 +166,22 @@ class OnlyFlowsWidget : GlanceAppWidget() {
                                         fontWeight = FontWeight.Bold,
                                         fontSize   = 16.sp,
                                         color      = ColorProvider(Color.White),
+                                    ),
+                                )
+                            }
+                            Spacer(GlanceModifier.width(6.dp))
+                            Box(
+                                modifier         = GlanceModifier
+                                    .size(26.dp)
+                                    .cornerRadius(13.dp)
+                                    .clickable(actionStartActivity(configIntent)),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    text  = "⋮",
+                                    style = TextStyle(
+                                        fontSize = 16.sp,
+                                        color    = ColorProvider(WidgetColors.TextSecondary),
                                     ),
                                 )
                             }
@@ -183,10 +203,12 @@ class OnlyFlowsWidget : GlanceAppWidget() {
                             } else {
                                 items(tasks, itemId = { it.id.hashCode().toLong() }) { task ->
                                     DarkWidgetTaskRow(
-                                        context       = context,
-                                        task          = task,
-                                        projectColor  = task.projectId?.let { projects[it]?.colorHex },
-                                        widgetId      = widgetId,
+                                        context         = context,
+                                        task            = task,
+                                        projectColor    = task.projectId?.let { projects[it]?.colorHex },
+                                        projectName     = task.projectId?.let { projects[it]?.title },
+                                        widgetId        = widgetId,
+                                        checkboxAction  = config.checkboxAction,
                                     )
                                 }
                             }
@@ -209,6 +231,19 @@ class CompleteTaskCallback : ActionCallback {
     }
 }
 
+// ── Toggle priority callback ─────────────────────────────────────────────────
+
+class TogglePriorityCallback : ActionCallback {
+    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
+        val taskId = parameters[taskIdKey] ?: return
+        val dao    = AppDatabase.getInstance(context).taskDao()
+        val task   = dao.getById(taskId) ?: return
+        val next   = if (task.priority == "HIGH") "NONE" else "HIGH"
+        dao.update(task.copy(priority = next))
+        OnlyFlowsWidget().update(context, glanceId)
+    }
+}
+
 // ── Shared dark-mode task row ────────────────────────────────────────────────
 
 @GlanceComposable
@@ -217,7 +252,9 @@ fun DarkWidgetTaskRow(
     context: Context,
     task: Task,
     projectColor: String?,
+    projectName: String?,
     widgetId: Int,
+    checkboxAction: WidgetCheckboxAction = WidgetCheckboxAction.COMPLETE,
 ) {
     val openIntent = Intent(context, MainActivity::class.java)
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
@@ -227,6 +264,15 @@ fun DarkWidgetTaskRow(
         if (!projectColor.isNullOrBlank()) Color(AndroidColor.parseColor(projectColor))
         else WidgetColors.AccentBlue
     }.getOrDefault(WidgetColors.AccentBlue)
+
+    val checkboxClickAction = when (checkboxAction) {
+        WidgetCheckboxAction.COMPLETE        -> actionRunCallback<CompleteTaskCallback>(
+            actionParametersOf(taskIdKey to task.id, widgetIdKey to widgetId)
+        )
+        WidgetCheckboxAction.TOGGLE_PRIORITY -> actionRunCallback<TogglePriorityCallback>(
+            actionParametersOf(taskIdKey to task.id, widgetIdKey to widgetId)
+        )
+    }
 
     Row(
         modifier = GlanceModifier
@@ -238,17 +284,10 @@ fun DarkWidgetTaskRow(
         // Colored checkbox square
         Box(
             modifier = GlanceModifier
-                .size(14.dp)
+                .size(16.dp)
                 .background(checkboxColor)
                 .cornerRadius(4.dp)
-                .clickable(
-                    actionRunCallback<CompleteTaskCallback>(
-                        actionParametersOf(
-                            taskIdKey   to task.id,
-                            widgetIdKey to widgetId,
-                        )
-                    )
-                ),
+                .clickable(checkboxClickAction),
         ) {}
         Spacer(GlanceModifier.width(8.dp))
         Text(
@@ -260,5 +299,16 @@ fun DarkWidgetTaskRow(
             ),
             modifier = GlanceModifier.defaultWeight(),
         )
+        if (!projectName.isNullOrBlank()) {
+            Spacer(GlanceModifier.width(4.dp))
+            Text(
+                text     = projectName,
+                maxLines = 1,
+                style    = TextStyle(
+                    fontSize = 11.sp,
+                    color    = ColorProvider(WidgetColors.TextSecondary),
+                ),
+            )
+        }
     }
 }
