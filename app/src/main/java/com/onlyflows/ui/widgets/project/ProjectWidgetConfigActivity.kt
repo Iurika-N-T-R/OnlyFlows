@@ -52,12 +52,12 @@ class ProjectWidgetConfigActivity : ComponentActivity() {
                     projects = projects,
                     onPick = { project ->
                         lifecycleScope.launch {
-                            val manager = GlanceAppWidgetManager(this@ProjectWidgetConfigActivity)
-                            val glanceId = manager.getGlanceIdBy(appWidgetId)
                             WidgetPreferences(this@ProjectWidgetConfigActivity).saveConfig(
-                                glanceId.hashCode(),
+                                appWidgetId,
                                 WidgetConfig(listType = WidgetListType.TODAY, projectId = project.id),
                             )
+                            val manager = GlanceAppWidgetManager(this@ProjectWidgetConfigActivity)
+                            val glanceId = manager.getGlanceIdBy(appWidgetId)
                             ProjectWidgetProvider().update(this@ProjectWidgetConfigActivity, glanceId)
                             setResult(RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId))
                             finish()

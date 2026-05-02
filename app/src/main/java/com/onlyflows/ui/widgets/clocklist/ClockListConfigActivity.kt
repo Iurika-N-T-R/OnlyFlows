@@ -41,8 +41,7 @@ class ClockListConfigActivity : ComponentActivity() {
 
         val prefs = (application as OnlyFlowsApp).container.widgetPreferences
         lifecycleScope.launch {
-            val glanceId = GlanceAppWidgetManager(this@ClockListConfigActivity).getGlanceIdBy(appWidgetId)
-            val existing = prefs.getConfig(glanceId.hashCode())
+            val existing = prefs.getConfig(appWidgetId)
             setContent {
                 OnlyFlowsTheme {
                     ClockListConfigScreen(
@@ -58,9 +57,8 @@ class ClockListConfigActivity : ComponentActivity() {
     private fun saveAndFinish(config: WidgetConfig) {
         val prefs = (application as OnlyFlowsApp).container.widgetPreferences
         lifecycleScope.launch {
+            prefs.saveConfig(appWidgetId, config)
             val manager = GlanceAppWidgetManager(this@ClockListConfigActivity)
-            val glanceId = manager.getGlanceIdBy(appWidgetId)
-            prefs.saveConfig(glanceId.hashCode(), config)
             val glanceIds = manager.getGlanceIds(ClockListWidgetProvider::class.java)
             glanceIds.forEach { ClockListWidgetProvider().update(this@ClockListConfigActivity, it) }
             setResult(RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId))

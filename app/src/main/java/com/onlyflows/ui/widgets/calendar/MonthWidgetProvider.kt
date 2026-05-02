@@ -4,13 +4,11 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Color as AndroidColor
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceComposable
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
-import androidx.glance.LocalSize
 import androidx.glance.action.ActionParameters
 import androidx.glance.action.actionParametersOf
 import androidx.glance.action.clickable
@@ -43,16 +41,13 @@ import java.time.YearMonth
 import java.time.format.TextStyle as JTextStyle
 import java.util.Locale
 
-private val PORTRAIT  = DpSize(110.dp, 110.dp)
-private val LANDSCAPE = DpSize(250.dp, 220.dp)
-
 val monthSelectedDayKey  = ActionParameters.Key<String>("month_selected_day")
 val monthWidgetIdKey     = ActionParameters.Key<Int>("month_widget_id")
 val monthNavDeltaKey     = ActionParameters.Key<Int>("month_nav_delta")
 
 class MonthWidgetProvider : GlanceAppWidget() {
 
-    override val sizeMode = SizeMode.Responsive(setOf(PORTRAIT, LANDSCAPE))
+    override val sizeMode = SizeMode.Single
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val glanceIdInt = id.hashCode()
@@ -81,47 +76,23 @@ class MonthWidgetProvider : GlanceAppWidget() {
             .associateBy { it.id }
 
         provideContent {
-            val size = LocalSize.current
-            val isWide = size.width >= LANDSCAPE.width
-
-            if (isWide) {
-                Row(modifier = GlanceModifier.fillMaxSize().background(WidgetColors.DarkBg)) {
-                    MonthCalendar(
-                        modifier        = GlanceModifier.width(210.dp).fillMaxHeight(),
-                        displayedMonth  = displayedMonth,
-                        firstDayOffset  = firstDayOffset,
-                        daysInMonth     = daysInMonth,
-                        today           = today,
-                        selectedDate    = selectedDate,
-                        glanceIdInt     = glanceIdInt,
-                    )
-                    // Separator
-                    Box(modifier = GlanceModifier.width(1.dp).fillMaxHeight().background(Color(0xFF3A3A3C))) {}
-                    DayTaskList(
-                        modifier  = GlanceModifier.defaultWeight().fillMaxHeight(),
-                        tasks     = tasks,
-                        projects  = projects,
-                        context   = context,
-                    )
-                }
-            } else {
-                Column(modifier = GlanceModifier.fillMaxSize().background(WidgetColors.DarkBg)) {
-                    MonthCalendar(
-                        modifier        = GlanceModifier.fillMaxWidth(),
-                        displayedMonth  = displayedMonth,
-                        firstDayOffset  = firstDayOffset,
-                        daysInMonth     = daysInMonth,
-                        today           = today,
-                        selectedDate    = selectedDate,
-                        glanceIdInt     = glanceIdInt,
-                    )
-                    DayTaskList(
-                        modifier  = GlanceModifier.fillMaxWidth().defaultWeight(),
-                        tasks     = tasks,
-                        projects  = projects,
-                        context   = context,
-                    )
-                }
+            Row(modifier = GlanceModifier.fillMaxSize().background(WidgetColors.DarkBg)) {
+                MonthCalendar(
+                    modifier        = GlanceModifier.width(210.dp).fillMaxHeight(),
+                    displayedMonth  = displayedMonth,
+                    firstDayOffset  = firstDayOffset,
+                    daysInMonth     = daysInMonth,
+                    today           = today,
+                    selectedDate    = selectedDate,
+                    glanceIdInt     = glanceIdInt,
+                )
+                Box(modifier = GlanceModifier.width(1.dp).fillMaxHeight().background(Color(0xFF3A3A3C))) {}
+                DayTaskList(
+                    modifier  = GlanceModifier.defaultWeight().fillMaxHeight(),
+                    tasks     = tasks,
+                    projects  = projects,
+                    context   = context,
+                )
             }
         }
     }

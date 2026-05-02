@@ -9,6 +9,7 @@ import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
+import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.provideContent
@@ -29,10 +30,10 @@ class CountdownWidgetProvider : GlanceAppWidget() {
     override val sizeMode = SizeMode.Single
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val glanceIdInt = id.hashCode()
+        val appWidgetId = GlanceAppWidgetManager(context).getAppWidgetId(id)
         val prefs = WidgetPreferences(context)
-        val name = prefs.getCountdownName(glanceIdInt)
-        val dateStr = prefs.getCountdownDate(glanceIdInt)
+        val name = prefs.getCountdownName(appWidgetId)
+        val dateStr = prefs.getCountdownDate(appWidgetId)
 
         val daysRemaining: Long? = if (dateStr.isNotBlank()) {
             runCatching {
@@ -43,7 +44,7 @@ class CountdownWidgetProvider : GlanceAppWidget() {
 
         val configIntent = Intent(context, CountdownConfigActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK
-            putExtra("glance_id_hash", glanceIdInt)
+            putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
         }
 
         provideContent {

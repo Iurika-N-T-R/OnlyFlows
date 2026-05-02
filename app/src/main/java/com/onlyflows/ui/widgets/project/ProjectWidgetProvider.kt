@@ -10,6 +10,7 @@ import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
+import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.lazy.LazyColumn
@@ -35,9 +36,9 @@ class ProjectWidgetProvider : GlanceAppWidget() {
     override val sizeMode = SizeMode.Single
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val glanceIdInt = id.hashCode()
+        val appWidgetId = GlanceAppWidgetManager(context).getAppWidgetId(id)
         val prefs = WidgetPreferences(context)
-        val config = prefs.getConfig(glanceIdInt)
+        val config = prefs.getConfig(appWidgetId)
         val projectId = config.projectId
 
         val db = AppDatabase.getInstance(context)
@@ -55,7 +56,7 @@ class ProjectWidgetProvider : GlanceAppWidget() {
 
         val configIntent = Intent(context, ProjectWidgetConfigActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK
-            putExtra("glance_id_hash", glanceIdInt)
+            putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
         }
 
         provideContent {
