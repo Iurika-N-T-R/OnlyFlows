@@ -45,6 +45,7 @@ class ProjectWidgetConfigActivity : ComponentActivity() {
                 var projects by remember { mutableStateOf<List<ProjectEntity>>(emptyList()) }
                 LaunchedEffect(Unit) {
                     projects = db.projectDao().observeActive().first()
+                        .filter { it.type == "PROJECT" }
                 }
 
                 ProjectPickerScreen(

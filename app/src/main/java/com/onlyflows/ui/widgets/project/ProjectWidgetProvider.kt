@@ -14,6 +14,7 @@ import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.lazy.LazyColumn
 import androidx.glance.appwidget.lazy.items
+import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
 import androidx.glance.layout.*
@@ -40,8 +41,7 @@ class ProjectWidgetProvider : GlanceAppWidget() {
         val projectId = config.projectId
 
         val db = AppDatabase.getInstance(context)
-        val allProjects: List<ProjectEntity> = db.projectDao().observeActive().first()
-        val project: ProjectEntity? = projectId?.let { pid -> allProjects.find { p -> p.id == pid } }
+        val project: ProjectEntity? = projectId?.let { db.projectDao().getById(it) }
 
         val tasks: List<TaskEntity> = if (projectId != null) {
             db.taskDao().observeByProject(projectId).first()
@@ -72,7 +72,7 @@ class ProjectWidgetProvider : GlanceAppWidget() {
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Box(
-                        modifier = GlanceModifier.size(10.dp).background(projectColor),
+                        modifier = GlanceModifier.size(10.dp).cornerRadius(5.dp).background(projectColor),
                     ) {}
                     Spacer(GlanceModifier.width(8.dp))
                     Text(
@@ -121,7 +121,7 @@ class ProjectWidgetProvider : GlanceAppWidget() {
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Box(
-                                    modifier = GlanceModifier.size(12.dp).background(projectColor),
+                                    modifier = GlanceModifier.size(12.dp).cornerRadius(6.dp).background(projectColor),
                                 ) {}
                                 Spacer(GlanceModifier.width(8.dp))
                                 Text(

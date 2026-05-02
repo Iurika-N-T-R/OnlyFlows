@@ -11,4 +11,5 @@
     android:resizeMode="horizontal|vertical"
     android:configure="com.onlyflows.ui.widgets.countdown.CountdownConfigActivity"
     android:description="@string/app_name"
-    android:previewImage="@mipmap/ic_launcher" />
+    android:previewImage="@mipmap/ic_launcher"
+    android:previewLayout="@layout/widget_preview_countdown" />

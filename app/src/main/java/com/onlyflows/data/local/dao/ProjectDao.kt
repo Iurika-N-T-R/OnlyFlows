@@ -13,6 +13,9 @@ interface ProjectDao {
     @Query("SELECT * FROM projects WHERE isCompleted = 0 AND isArchived = 0 AND parentProjectId IS NULL ORDER BY folderId ASC, sortOrder ASC")
     fun observeActive(): Flow<List<ProjectEntity>>
 
+    @Query("SELECT * FROM projects WHERE isCompleted = 0 AND isArchived = 0 AND parentProjectId IS NULL AND type = 'PROJECT' ORDER BY folderId ASC, sortOrder ASC")
+    fun observeActiveProjects(): Flow<List<ProjectEntity>>
+
     @Query("SELECT * FROM projects WHERE parentProjectId = :parentId AND isArchived = 0 ORDER BY sortOrder ASC")
     fun observeChildren(parentId: String): Flow<List<ProjectEntity>>
 

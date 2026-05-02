@@ -10,4 +10,5 @@
     android:widgetCategory="home_screen"
     android:resizeMode="horizontal|vertical"
     android:description="@string/app_name"
-    android:previewImage="@mipmap/ic_launcher" />
+    android:previewImage="@mipmap/ic_launcher"
+    android:previewLayout="@layout/widget_preview_quickadd" />

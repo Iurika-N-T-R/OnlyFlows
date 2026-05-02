@@ -11,4 +11,5 @@
     android:resizeMode="horizontal|vertical"
     android:configure=".ui.widgets.clocklist.ClockListConfigActivity"
     android:description="@string/app_name"
-    android:previewImage="@mipmap/ic_launcher" />
+    android:previewImage="@mipmap/ic_launcher"
+    android:previewLayout="@layout/widget_preview_clocklist" />

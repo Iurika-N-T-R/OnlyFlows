@@ -15,6 +15,7 @@ import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.action.ActionCallback
 import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.action.actionStartActivity
+import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.lazy.LazyColumn
 import androidx.glance.appwidget.lazy.items
 import androidx.glance.appwidget.provideContent
@@ -36,8 +37,9 @@ import java.time.LocalDate
 import java.time.format.TextStyle as JTextStyle
 import java.util.Locale
 
-val selectedDayKey  = ActionParameters.Key<String>("selected_day")
-val weekWidgetIdKey = ActionParameters.Key<Int>("week_widget_id")
+val selectedDayKey   = ActionParameters.Key<String>("selected_day")
+val weekWidgetIdKey  = ActionParameters.Key<Int>("week_widget_id")
+val weekNavDeltaKey  = ActionParameters.Key<Int>("week_nav_delta")
 
 class WeekWidgetProvider : GlanceAppWidget() {
 
@@ -46,19 +48,29 @@ class WeekWidgetProvider : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val glanceIdInt = id.hashCode()
         val prefs = WidgetPreferences(context)
-        val selectedDateStr = prefs.getWeekSelectedDate(glanceIdInt)
         val today = LocalDate.now()
-        val selectedDate = if (selectedDateStr.isNotBlank())
-            runCatching { LocalDate.parse(selectedDateStr) }.getOrNull() ?: today
-        else today
 
-        val weekStart = today.minusDays(today.dayOfWeek.value.toLong() - 1)
-        val weekDays = (0..6).map { offset -> weekStart.plusDays(offset.toLong()) }
+        // Reference week start (Monday of displayed week)
+        val refStartStr = prefs.getWeekRefStart(glanceIdInt)
+        val refStart = refStartStr.takeIf { it.isNotBlank() }
+            ?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+            ?: today.minusDays(today.dayOfWeek.value.toLong() - 1)
+
+        val weekDays = (0..6).map { offset -> refStart.plusDays(offset.toLong()) }
+
+        val selectedDateStr = prefs.getWeekSelectedDate(glanceIdInt)
+        val selectedDate = selectedDateStr.takeIf { it.isNotBlank() }
+            ?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+            ?: today
 
         val db = AppDatabase.getInstance(context)
-        val tasks: List<TaskEntity> = db.taskDao()
-            .searchByDate(selectedDate.toString()).first()
-            .filter { t -> t.deletedAt == null && !t.isCompleted }
+        val tasks: List<TaskEntity> = if (selectedDate == today) {
+            db.taskDao().observeToday(today.toString()).first()
+                .filter { t -> t.deletedAt == null }
+        } else {
+            db.taskDao().searchByDate(selectedDate.toString()).first()
+                .filter { t -> t.deletedAt == null && !t.isCompleted }
+        }
 
         provideContent {
             Column(
@@ -66,18 +78,43 @@ class WeekWidgetProvider : GlanceAppWidget() {
                     .fillMaxSize()
                     .background(WidgetColors.DarkBg),
             ) {
+                // ── Week header: < Mon … Sun > ────────────────────────────
                 Row(
                     modifier = GlanceModifier
                         .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 6.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
+                        .padding(horizontal = 4.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    // < prev week
+                    Box(
+                        modifier = GlanceModifier
+                            .size(24.dp)
+                            .cornerRadius(12.dp)
+                            .clickable(
+                                actionRunCallback<WeekNavCallback>(
+                                    actionParametersOf(
+                                        weekWidgetIdKey to glanceIdInt,
+                                        weekNavDeltaKey to -7,
+                                    )
+                                )
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = "<",
+                            style = TextStyle(
+                                color = ColorProvider(WidgetColors.AccentBlue),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center,
+                            ),
+                        )
+                    }
+
                     weekDays.forEach { day ->
                         val isSelected = day == selectedDate
-                        val isToday = day == today
-                        val dayBg = if (isSelected) WidgetColors.AccentBlue else WidgetColors.DarkBg
-                        val textColor = when {
+                        val isToday    = day == today
+                        val textColor  = when {
                             isSelected -> Color.White
                             isToday    -> WidgetColors.AccentBlue
                             else       -> WidgetColors.TextSecondary
@@ -86,7 +123,8 @@ class WeekWidgetProvider : GlanceAppWidget() {
                             modifier = GlanceModifier
                                 .defaultWeight()
                                 .padding(2.dp)
-                                .background(dayBg)
+                                .cornerRadius(12.dp)
+                                .background(if (isSelected) WidgetColors.AccentBlue else WidgetColors.DarkBg)
                                 .clickable(
                                     actionRunCallback<SelectDayCallback>(
                                         actionParametersOf(
@@ -96,26 +134,52 @@ class WeekWidgetProvider : GlanceAppWidget() {
                                     )
                                 ),
                             horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalAlignment = Alignment.CenterVertically,
+                            verticalAlignment   = Alignment.CenterVertically,
                         ) {
                             Text(
                                 text = day.dayOfWeek.getDisplayName(JTextStyle.NARROW, Locale.getDefault()),
                                 style = TextStyle(
-                                    color = ColorProvider(textColor),
-                                    fontSize = 10.sp,
+                                    color     = ColorProvider(textColor),
+                                    fontSize  = 10.sp,
                                     textAlign = TextAlign.Center,
                                 ),
                             )
                             Text(
                                 text = day.dayOfMonth.toString(),
                                 style = TextStyle(
-                                    color = ColorProvider(textColor),
-                                    fontSize = 13.sp,
+                                    color      = ColorProvider(textColor),
+                                    fontSize   = 13.sp,
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                    textAlign = TextAlign.Center,
+                                    textAlign  = TextAlign.Center,
                                 ),
                             )
                         }
+                    }
+
+                    // > next week
+                    Box(
+                        modifier = GlanceModifier
+                            .size(24.dp)
+                            .cornerRadius(12.dp)
+                            .clickable(
+                                actionRunCallback<WeekNavCallback>(
+                                    actionParametersOf(
+                                        weekWidgetIdKey to glanceIdInt,
+                                        weekNavDeltaKey to 7,
+                                    )
+                                )
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = ">",
+                            style = TextStyle(
+                                color = ColorProvider(WidgetColors.AccentBlue),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center,
+                            ),
+                        )
                     }
                 }
 
@@ -127,7 +191,7 @@ class WeekWidgetProvider : GlanceAppWidget() {
                         Text(
                             text = "No tasks",
                             style = TextStyle(
-                                color = ColorProvider(WidgetColors.TextSecondary),
+                                color    = ColorProvider(WidgetColors.TextSecondary),
                                 fontSize = 13.sp,
                             ),
                         )
@@ -147,14 +211,17 @@ class WeekWidgetProvider : GlanceAppWidget() {
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Box(
-                                    modifier = GlanceModifier.size(10.dp).background(WidgetColors.AccentBlue),
+                                    modifier = GlanceModifier
+                                        .size(10.dp)
+                                        .cornerRadius(5.dp)
+                                        .background(WidgetColors.AccentBlue),
                                 ) {}
                                 Spacer(GlanceModifier.width(8.dp))
                                 Text(
                                     text = task.title,
                                     maxLines = 1,
                                     style = TextStyle(
-                                        color = ColorProvider(WidgetColors.TextPrimary),
+                                        color    = ColorProvider(WidgetColors.TextPrimary),
                                         fontSize = 13.sp,
                                     ),
                                     modifier = GlanceModifier.defaultWeight(),
@@ -169,14 +236,30 @@ class WeekWidgetProvider : GlanceAppWidget() {
 }
 
 class SelectDayCallback : ActionCallback {
-    override suspend fun onAction(
-        context: Context,
-        glanceId: GlanceId,
-        parameters: ActionParameters,
-    ) {
-        val day = parameters[selectedDayKey] ?: return
+    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
+        val day          = parameters[selectedDayKey] ?: return
         val widgetIdHash = parameters[weekWidgetIdKey] ?: glanceId.hashCode()
         WidgetPreferences(context).saveWeekSelectedDate(widgetIdHash, day)
+        WeekWidgetProvider().updateAll(context)
+    }
+}
+
+class WeekNavCallback : ActionCallback {
+    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
+        val delta        = parameters[weekNavDeltaKey] ?: return
+        val widgetIdHash = parameters[weekWidgetIdKey] ?: glanceId.hashCode()
+        val prefs        = WidgetPreferences(context)
+
+        val refStartStr = prefs.getWeekRefStart(widgetIdHash)
+        val today       = LocalDate.now()
+        val currentRef  = refStartStr.takeIf { it.isNotBlank() }
+            ?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+            ?: today.minusDays(today.dayOfWeek.value.toLong() - 1)
+
+        val newRef = currentRef.plusDays(delta.toLong())
+        prefs.saveWeekRefStart(widgetIdHash, newRef.toString())
+        // Select first day of new week
+        prefs.saveWeekSelectedDate(widgetIdHash, newRef.toString())
         WeekWidgetProvider().updateAll(context)
     }
 }

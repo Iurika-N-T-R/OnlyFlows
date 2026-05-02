@@ -79,7 +79,7 @@ class CountdownWidgetProvider : GlanceAppWidget() {
                         )
                         Spacer(GlanceModifier.height(4.dp))
                         Text(
-                            text = if (daysRemaining >= 0) daysRemaining.toString() else "0",
+                            text = if (daysRemaining >= 0) daysRemaining.toString() else (-daysRemaining).toString(),
                             style = TextStyle(
                                 color = ColorProvider(WidgetColors.AccentBlue),
                                 fontSize = 48.sp,

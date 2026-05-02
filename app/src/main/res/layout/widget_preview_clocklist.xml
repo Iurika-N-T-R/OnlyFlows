@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#1C1C1E"
+    android:orientation="horizontal">
+
+    <!-- Clock section -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="12dp">
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="09:41"
+            android:textColor="#FFFFFF"
+            android:textSize="32sp"
+            android:textStyle="bold" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Ven 2 Mai"
+            android:textColor="#8E8E93"
+            android:textSize="12sp" />
+    </LinearLayout>
+
+    <!-- Divider -->
+    <View android:layout_width="1dp" android:layout_height="match_parent" android:background="#3A3A3C" />
+
+    <!-- Task list section -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:padding="12dp">
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Aujourd'hui · 3"
+            android:textColor="#0A84FF"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:paddingBottom="6dp"/>
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Préparer réunion" android:textColor="#FFFFFF" android:textSize="12sp" android:paddingBottom="4dp"/>
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Appeler client" android:textColor="#FFFFFF" android:textSize="12sp" android:paddingBottom="4dp"/>
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Envoyer rapport" android:textColor="#FFFFFF" android:textSize="12sp" />
+    </LinearLayout>
+</LinearLayout>

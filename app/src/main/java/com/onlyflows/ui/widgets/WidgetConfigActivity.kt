@@ -47,7 +47,8 @@ class WidgetConfigActivity : ComponentActivity() {
         val prefs = (application as OnlyFlowsApp).container.widgetPreferences
 
         lifecycleScope.launch {
-            val existing = prefs.getConfig(appWidgetId)
+            val glanceId = GlanceAppWidgetManager(this@WidgetConfigActivity).getGlanceIdBy(appWidgetId)
+            val existing = prefs.getConfig(glanceId.hashCode())
             setContent {
                 OnlyFlowsTheme {
                     WidgetConfigScreen(
@@ -63,9 +64,10 @@ class WidgetConfigActivity : ComponentActivity() {
     private fun saveAndFinish(config: WidgetConfig) {
         val prefs = (application as OnlyFlowsApp).container.widgetPreferences
         lifecycleScope.launch {
-            prefs.saveConfig(appWidgetId, config)
-            val glanceIds = GlanceAppWidgetManager(this@WidgetConfigActivity)
-                .getGlanceIds(OnlyFlowsWidget::class.java)
+            val manager = GlanceAppWidgetManager(this@WidgetConfigActivity)
+            val glanceId = manager.getGlanceIdBy(appWidgetId)
+            prefs.saveConfig(glanceId.hashCode(), config)
+            val glanceIds = manager.getGlanceIds(OnlyFlowsWidget::class.java)
             glanceIds.forEach { OnlyFlowsWidget().update(this@WidgetConfigActivity, it) }
             val result = Intent().apply {
                 putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)

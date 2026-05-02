@@ -64,7 +64,7 @@ class ProjectRepositoryImpl(
 
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun observeAll(): Flow<List<Project>> =
-        projectDao.observeActive().flatMapLatest { projects ->
+        projectDao.observeActiveProjects().flatMapLatest { projects ->
             val flows = projects.map { project ->
                 sectionDao.observeByProject(project.id).map { sections ->
                     project.toDomain(sections)

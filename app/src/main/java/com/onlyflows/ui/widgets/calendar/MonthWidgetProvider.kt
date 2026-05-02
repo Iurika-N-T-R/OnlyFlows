@@ -43,8 +43,8 @@ import java.time.YearMonth
 import java.time.format.TextStyle as JTextStyle
 import java.util.Locale
 
-private val PORTRAIT  = DpSize(220.dp, 220.dp)
-private val LANDSCAPE = DpSize(440.dp, 220.dp)
+private val PORTRAIT  = DpSize(110.dp, 110.dp)
+private val LANDSCAPE = DpSize(250.dp, 220.dp)
 
 val monthSelectedDayKey  = ActionParameters.Key<String>("month_selected_day")
 val monthWidgetIdKey     = ActionParameters.Key<Int>("month_widget_id")
@@ -154,6 +154,7 @@ private fun MonthCalendar(
             Box(
                 modifier         = GlanceModifier
                     .size(24.dp)
+                    .cornerRadius(12.dp)
                     .clickable(
                         actionRunCallback<MonthNavCallback>(
                             actionParametersOf(monthWidgetIdKey to glanceIdInt, monthNavDeltaKey to -1)
@@ -186,6 +187,7 @@ private fun MonthCalendar(
             Box(
                 modifier         = GlanceModifier
                     .size(24.dp)
+                    .cornerRadius(12.dp)
                     .clickable(
                         actionRunCallback<MonthNavCallback>(
                             actionParametersOf(monthWidgetIdKey to glanceIdInt, monthNavDeltaKey to 1)
@@ -346,6 +348,7 @@ class MonthNavCallback : ActionCallback {
             ?.let { runCatching { YearMonth.parse(it) }.getOrNull() } ?: YearMonth.now()
         val next = current.plusMonths(delta.toLong())
         prefs.saveMonthDisplayedMonth(widgetIdHash, next.toString())
+        prefs.saveMonthSelectedDate(widgetIdHash, next.atDay(1).toString())
         MonthWidgetProvider().updateAll(context)
     }
 }

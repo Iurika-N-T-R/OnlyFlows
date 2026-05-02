@@ -64,15 +64,25 @@ class WidgetPreferences(private val context: Context) {
         }
     }
 
-    // Week widget selected day
-    private fun weekSelectedDayKey(widgetId: Int) = stringPreferencesKey("week_${widgetId}_day")
+    // Week widget selected day + reference week start
+    private fun weekSelectedDayKey(widgetId: Int)  = stringPreferencesKey("week_${widgetId}_day")
+    private fun weekRefStartKey(widgetId: Int)      = stringPreferencesKey("week_${widgetId}_ref")
 
     suspend fun getWeekSelectedDate(widgetId: Int): String =
         context.widgetDataStore.data.map { it[weekSelectedDayKey(widgetId)] ?: "" }.first()
 
+    suspend fun getWeekRefStart(widgetId: Int): String =
+        context.widgetDataStore.data.map { it[weekRefStartKey(widgetId)] ?: "" }.first()
+
     suspend fun saveWeekSelectedDate(widgetId: Int, date: String) {
         context.widgetDataStore.edit { prefs ->
             prefs[weekSelectedDayKey(widgetId)] = date
+        }
+    }
+
+    suspend fun saveWeekRefStart(widgetId: Int, date: String) {
+        context.widgetDataStore.edit { prefs ->
+            prefs[weekRefStartKey(widgetId)] = date
         }
     }
 
