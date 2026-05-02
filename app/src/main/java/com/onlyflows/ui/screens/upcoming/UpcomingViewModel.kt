@@ -236,9 +236,7 @@ class UpcomingViewModel(app: Application) : AndroidViewModel(app) {
     fun toggleComplete(taskId: String, current: Boolean) {
         viewModelScope.launch {
             val completing = !current
-            val task = _uiState.value.items
-                .filterIsInstance<UpcomingItem.TaskRow>()
-                .find { it.task.id == taskId }?.task
+            val task = allTasks.find { it.id == taskId }
             if (completing && task?.recurrence != null) taskRepo.completeRecurring(taskId)
             else taskRepo.setCompleted(taskId, completing)
         }

@@ -1531,10 +1531,11 @@ private fun RecurrenceRule.toLabel(): String = when (type) {
     RecurrenceType.HOURLY   -> if (interval == 1) "Hourly" else "Every $interval hours"
     RecurrenceType.WEEKLY   -> {
         val days = daysOfWeek.mapNotNull { d -> listOf("Mon","Tue","Wed","Thu","Fri","Sat","Sun").getOrNull(d - 1) }
-        if (days.isEmpty()) "Weekly" else "Every ${days.joinToString(", ")}"
+        val weekPart = if (interval == 1) "Weekly" else "Every $interval weeks"
+        if (days.isEmpty()) weekPart else "$weekPart — ${days.joinToString(", ")}"
     }
-    RecurrenceType.MONTHLY  -> "Monthly"
-    RecurrenceType.YEARLY   -> "Yearly"
+    RecurrenceType.MONTHLY  -> if (interval == 1) "Monthly" else "Every $interval months"
+    RecurrenceType.YEARLY   -> if (interval == 1) "Yearly"  else "Every $interval years"
     RecurrenceType.WEEKDAYS -> "Weekdays"
 }
 
@@ -1591,10 +1592,17 @@ private fun RecurrencePickerSheet(
                     }
                 }
 
-                // Interval (HOURLY or DAILY)
-                if (selectedType == RecurrenceType.HOURLY || selectedType == RecurrenceType.DAILY) {
+                // Interval (all types except WEEKDAYS)
+                if (selectedType != RecurrenceType.WEEKDAYS) {
                     Spacer(Modifier.height(10.dp))
-                    val unit = if (selectedType == RecurrenceType.HOURLY) "hours" else "days"
+                    val unit = when (selectedType) {
+                        RecurrenceType.HOURLY  -> "hours"
+                        RecurrenceType.DAILY   -> "days"
+                        RecurrenceType.WEEKLY  -> "weeks"
+                        RecurrenceType.MONTHLY -> "months"
+                        RecurrenceType.YEARLY  -> "years"
+                        else                   -> ""
+                    }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("Every", style = MaterialTheme.typography.bodyMedium)
                         Spacer(Modifier.width(8.dp))

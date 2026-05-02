@@ -183,6 +183,7 @@ class TaskDetailViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             while (true) {
                 delay(1000)
+                if (_timerState.value.activeEntry == null) continue
                 _timerState.update { state ->
                     val elapsed = state.activeEntry?.startedAt?.let {
                         ChronoUnit.SECONDS.between(it, LocalDateTime.now())
@@ -407,6 +408,7 @@ class TaskDetailViewModel(app: Application) : AndroidViewModel(app) {
             }
             TaskDetailEvent.Delete -> viewModelScope.launch {
                 AppLog.d("TaskDetailVM", "delete: \"${task.title}\" id=${task.id}")
+                timeRepo.getActiveEntry(task.id)?.let { timeRepo.stopEntry(it.id) }
                 taskRepo.softDelete(task.id)
             }
             TaskDetailEvent.ShowDatePicker -> _uiState.update { it.copy(showDatePicker = true) }

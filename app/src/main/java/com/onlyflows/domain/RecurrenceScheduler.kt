@@ -59,6 +59,7 @@ private fun nextWeekday(from: LocalDate): LocalDate {
 
 /** Returns the next occurrence of one of the specified ISO week-days (1=Mon..7=Sun) after [from]. */
 private fun nextSpecificWeekday(from: LocalDate, daysOfWeek: List<Int>): LocalDate {
+    if (daysOfWeek.isEmpty()) return from.plusWeeks(1)
     var d = from.plusDays(1)
     repeat(7) {
         if (d.dayOfWeek.value in daysOfWeek) return d

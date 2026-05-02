@@ -34,13 +34,13 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE deletedAt IS NOT NULL ORDER BY deletedAt DESC")
     fun observeTrash(): Flow<List<TaskEntity>>
 
-    @Query("SELECT * FROM tasks WHERE id = :id")
+    @Query("SELECT * FROM tasks WHERE id = :id AND deletedAt IS NULL")
     fun observeById(id: String): Flow<TaskEntity?>
 
-    @Query("SELECT * FROM tasks WHERE id = :id LIMIT 1")
+    @Query("SELECT * FROM tasks WHERE id = :id AND deletedAt IS NULL LIMIT 1")
     suspend fun getById(id: String): TaskEntity?
 
-    @Query("SELECT * FROM tasks WHERE id = :id")
+    @Query("SELECT * FROM tasks WHERE id = :id AND deletedAt IS NULL")
     fun observeByIdFlow(id: String): Flow<TaskEntity?>
 
     @Query("SELECT * FROM tasks WHERE dependsOnTaskId = :taskId")

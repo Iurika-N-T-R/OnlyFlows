@@ -356,7 +356,7 @@ fun ProjectDetailScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            if (project.type != ProjectType.NOTE) {
+                            if (project.type == ProjectType.PROJECT) {
                                 Box {
                                     ProjectStatusChip(
                                         status  = project.status,
