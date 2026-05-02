@@ -254,6 +254,11 @@ class TagRepositoryImpl(
     }
 
     override suspend fun deleteUnused() {
+        val now = LocalDateTime.now()
+        tagDao.getUnusedIds().forEach { id ->
+            syncDao?.insertTombstone(DeletedEntityEntity("tomb_$id", "tags", id, now))
+            syncthingWriter?.writeTombstone("tags", id, now)
+        }
         tagDao.deleteUnused()
     }
 }

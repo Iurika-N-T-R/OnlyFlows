@@ -129,7 +129,7 @@ class AppContainer(context: Context) {
     val backupManager: BackupManager             = BackupManager(context)
     val widgetPreferences: WidgetPreferences     = WidgetPreferences(context)
     val quoteRepository: QuoteRepository         = QuoteRepository(context)
-    val dateTrackerRepository: DateTrackerRepository = DateTrackerRepositoryImpl(db.dateTrackerDao(), syncthingWriter)
+    val dateTrackerRepository: DateTrackerRepository = DateTrackerRepositoryImpl(db.dateTrackerDao(), syncDao, syncthingWriter)
     val rssRepository: com.onlyflows.domain.repository.RssRepository =
         com.onlyflows.data.repository.RssRepositoryImpl(db.rssFeedDao(), db.rssArticleDao(), context)
     val reminderScheduler: ReminderScheduler     = ReminderScheduler(context)
@@ -139,6 +139,7 @@ class AppContainer(context: Context) {
     val timeEntryRepository: TimeEntryRepository = TimeEntryRepositoryImpl(
         dao             = db.timeEntryDao(),
         actionLog       = actionLogRepository,
+        syncDao         = syncDao,
         syncthingWriter = syncthingWriter,
     )
 

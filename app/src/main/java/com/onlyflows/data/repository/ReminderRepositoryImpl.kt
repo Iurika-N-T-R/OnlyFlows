@@ -33,7 +33,14 @@ class ReminderRepositoryImpl(
         dao.delete(id)
     }
 
-    override suspend fun deleteByTask(taskId: String) = dao.deleteByTask(taskId)
+    override suspend fun deleteByTask(taskId: String) {
+        val now = LocalDateTime.now()
+        dao.getByTask(taskId).forEach { reminder ->
+            syncDao?.insertTombstone(DeletedEntityEntity("tomb_${reminder.id}", "reminders", reminder.id, now))
+            syncthingWriter?.writeTombstone("reminders", reminder.id, now)
+        }
+        dao.deleteByTask(taskId)
+    }
 
     override suspend fun getFutureReminders(): List<Reminder> =
         dao.getFutureReminders(LocalDateTime.now().toString()).map { it.toDomain() }

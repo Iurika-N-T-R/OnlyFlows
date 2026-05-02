@@ -1,6 +1,8 @@
 package com.onlyflows.data.repository
 
+import com.onlyflows.data.local.dao.SyncDao
 import com.onlyflows.data.local.dao.TimeEntryDao
+import com.onlyflows.data.local.entity.DeletedEntityEntity
 import com.onlyflows.data.local.entity.toDomain
 import com.onlyflows.data.local.entity.toEntity
 import com.onlyflows.data.syncthing.SyncthingWriter
@@ -17,6 +19,7 @@ import java.time.temporal.ChronoUnit
 class TimeEntryRepositoryImpl(
     private val dao: TimeEntryDao,
     private val actionLog: ActionLogRepository? = null,
+    private val syncDao: SyncDao? = null,
     private val syncthingWriter: SyncthingWriter? = null,
 ) : TimeEntryRepository {
 
@@ -69,6 +72,12 @@ class TimeEntryRepositoryImpl(
             .filter { it.endedAt != null }
             .sumOf { ChronoUnit.SECONDS.between(it.startedAt, it.endedAt!!) }
 
-    override suspend fun deleteByTask(taskId: String) =
+    override suspend fun deleteByTask(taskId: String) {
+        val now = LocalDateTime.now()
+        dao.getByTask(taskId).forEach { entry ->
+            syncDao?.insertTombstone(DeletedEntityEntity("tomb_${entry.id}", "time_entries", entry.id, now))
+            syncthingWriter?.writeTombstone("time_entries", entry.id, now)
+        }
         dao.deleteByTask(taskId)
+    }
 }

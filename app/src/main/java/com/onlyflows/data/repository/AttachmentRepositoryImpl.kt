@@ -43,8 +43,14 @@ class AttachmentRepositoryImpl(
         dao.delete(id)
     }
 
-    override suspend fun deleteByTask(taskId: String) =
+    override suspend fun deleteByTask(taskId: String) {
+        val now = LocalDateTime.now()
+        dao.getByTask(taskId).forEach { attachment ->
+            syncDao?.insertTombstone(DeletedEntityEntity("tomb_${attachment.id}", "attachments", attachment.id, now))
+            syncthingWriter?.writeTombstone("attachments", attachment.id, now)
+        }
         dao.deleteByTask(taskId)
+    }
 
     override suspend fun countByTask(taskId: String): Int =
         dao.countByTask(taskId)

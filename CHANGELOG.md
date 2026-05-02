@@ -5,6 +5,21 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.50.2] — 2026-05-02 · Correctifs sync Syncthing — suppressions manquantes
+
+### Corrigé
+
+- **Syncthing sync — suppressions** — plusieurs types d'entités n'étaient pas correctement propagés lors d'une suppression :
+  - `DateTracker` — tombstone Room manquant (`deleted_entities` non alimenté)
+  - `ChecklistItem` — tombstone Room manquant
+  - `Reminder` (suppression en cascade par tâche) — aucune tombstone fichier ni Room
+  - `Attachment` (suppression en cascade par tâche) — aucune tombstone fichier ni Room
+  - `TimeEntry` (suppression en cascade par tâche) — aucune tombstone fichier ni Room
+  - Tag (suppression groupée `deleteUnused`) — aucune tombstone fichier ni Room
+- **Commentaires** — la modification d'un commentaire (`edit`) mettait à jour Room mais pas le fichier JSON Syncthing ; le fichier est désormais réécrit immédiatement.
+
+---
+
 ## [0.50.1] — 2026-05-02 · Correctif filtre priorité Today
 
 ### Corrigé

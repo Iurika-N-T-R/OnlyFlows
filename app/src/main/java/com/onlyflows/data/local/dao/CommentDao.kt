@@ -22,6 +22,9 @@ interface CommentDao {
     @Query("SELECT * FROM comments WHERE projectId = :projectId ORDER BY createdAt DESC")
     fun observeByProject(projectId: String): Flow<List<CommentEntity>>
 
+    @Query("SELECT * FROM comments WHERE id = :id LIMIT 1")
+    suspend fun getById(id: String): CommentEntity?
+
     @Query("UPDATE comments SET content = :content, updatedAt = :updatedAt WHERE id = :id")
     suspend fun updateContent(id: String, content: String, updatedAt: String)
 }

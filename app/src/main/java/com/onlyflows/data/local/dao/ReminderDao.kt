@@ -13,6 +13,9 @@ interface ReminderDao {
     @Query("SELECT * FROM reminders WHERE scheduledAt > :now ORDER BY scheduledAt ASC")
     suspend fun getFutureReminders(now: String): List<ReminderEntity>
 
+    @Query("SELECT * FROM reminders WHERE taskId = :taskId")
+    suspend fun getByTask(taskId: String): List<ReminderEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(reminder: ReminderEntity)
 

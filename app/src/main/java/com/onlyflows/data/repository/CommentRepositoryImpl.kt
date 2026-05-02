@@ -44,8 +44,9 @@ class CommentRepositoryImpl(
     }
 
     override suspend fun edit(id: String, newContent: String) {
-        dao.updateContent(id, newContent, LocalDateTime.now().toString())
-        // Re-read and write — CommentDao has no getById, write happens on next full import
+        val now = LocalDateTime.now()
+        dao.updateContent(id, newContent, now.toString())
+        dao.getById(id)?.let { syncthingWriter?.writeComment(it) }
     }
 
     override suspend fun delete(id: String) {

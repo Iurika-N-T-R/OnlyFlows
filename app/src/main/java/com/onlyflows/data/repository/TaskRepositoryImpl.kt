@@ -314,7 +314,9 @@ class TaskRepositoryImpl(
     }
 
     override suspend fun deleteChecklistItem(id: String) {
-        syncthingWriter?.writeTombstone("checklist_items", id, LocalDateTime.now())
+        val now = LocalDateTime.now()
+        syncDao?.insertTombstone(DeletedEntityEntity("tomb_$id", "checklist_items", id, now))
+        syncthingWriter?.writeTombstone("checklist_items", id, now)
         checklistDao.delete(id)
     }
 

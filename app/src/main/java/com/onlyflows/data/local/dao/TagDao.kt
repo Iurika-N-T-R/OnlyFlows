@@ -40,6 +40,9 @@ interface TagDao {
     @Query("SELECT COUNT(*) FROM tasks WHERE tagIds LIKE '%' || :tagId || '%' AND deletedAt IS NULL")
     fun observeUsageCount(tagId: String): Flow<Int>
 
+    @Query("SELECT id FROM tags WHERE NOT EXISTS (SELECT 1 FROM tasks WHERE tagIds LIKE '%' || tags.id || '%' AND deletedAt IS NULL)")
+    suspend fun getUnusedIds(): List<String>
+
     @Query("DELETE FROM tags WHERE NOT EXISTS (SELECT 1 FROM tasks WHERE tagIds LIKE '%' || tags.id || '%' AND deletedAt IS NULL)")
     suspend fun deleteUnused()
 }
