@@ -210,17 +210,15 @@ fun TodayScreen(
                 }
             }
 
-            // ── Filter bar ──
-            if (state.tags.isNotEmpty()) {
-                item(key = "filter_bar") {
-                    TaskFilterBar(
-                        availableTags        = state.tags,
-                        activeTagFilter      = state.activeTagFilter,
-                        activePriorityFilter = state.activePriorityFilter,
-                        onToggleTag          = { viewModel.onEvent(TodayEvent.ToggleTagFilter(it)) },
-                        onSetPriority        = { viewModel.onEvent(TodayEvent.SetPriorityFilter(it)) },
-                    )
-                }
+            // ── Filter bar — always show (priority filter), tag chips only when tasks have tags ──
+            item(key = "filter_bar") {
+                TaskFilterBar(
+                    availableTags        = state.tags,
+                    activeTagFilter      = state.activeTagFilter,
+                    activePriorityFilter = state.activePriorityFilter,
+                    onToggleTag          = { viewModel.onEvent(TodayEvent.ToggleTagFilter(it)) },
+                    onSetPriority        = { viewModel.onEvent(TodayEvent.SetPriorityFilter(it)) },
+                )
             }
 
             // ── Calendar permission banner ──
