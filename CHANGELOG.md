@@ -5,6 +5,14 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.50.1] — 2026-05-02 · Correctif filtre priorité Today
+
+### Corrigé
+
+- **Filtre priorité Today** — le menu déroulant de priorité disparaissait quand aucune tâche du jour n'avait de tag. La barre de filtres est maintenant toujours affichée ; les chips de tags s'affichent dynamiquement.
+
+---
+
 ## [0.50.0] — 2026-05-02 · Archive, filtres dynamiques Today, badge compteur
 
 ### Ajouté
