@@ -137,11 +137,12 @@ class ProjectRepositoryImpl(
 
     override suspend fun archive(id: String) {
         projectDao.archive(id)
-        // No full entity available without re-read; archive is a soft status change — importer handles on next scan
+        projectDao.getById(id)?.let { syncthingWriter?.writeProject(it) }
     }
 
     override suspend fun unarchive(id: String) {
         projectDao.unarchive(id)
+        projectDao.getById(id)?.let { syncthingWriter?.writeProject(it) }
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)

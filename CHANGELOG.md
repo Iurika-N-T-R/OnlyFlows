@@ -5,6 +5,19 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.50.3] — 2026-05-02 · Correctifs sync Syncthing — mises à jour manquantes
+
+### Corrigé
+
+- **Task** — `setDependsOn`, `setGoals`, `setScheduledGroup` : écriture Syncthing ajoutée après mise à jour DAO
+- **Task** — `abandonRecurring` : la nouvelle occurrence et ses items de checklist sont maintenant écrits dans Syncthing ; l'occurrence archivée est également mise à jour
+- **Task** — `reorderTasks` : chaque tâche réordonnée est maintenant synchronisée
+- **Project** — `archive` / `unarchive` : l'entité est relue puis écrite dans Syncthing après la mise à jour `isArchived`
+- **Goal** — `setProgress`, `setCompleted` : écriture Syncthing ajoutée après mise à jour DAO
+- **GoalLog** — `setStarred` : écriture Syncthing ajoutée après mise à jour DAO
+
+---
+
 ## [0.50.2] — 2026-05-02 · Correctifs sync Syncthing — suppressions manquantes
 
 ### Corrigé

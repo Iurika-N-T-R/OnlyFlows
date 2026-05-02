@@ -37,9 +37,15 @@ class GoalRepositoryImpl(
         syncthingWriter?.writeGoal(goal.toEntity())
     }
 
-    override suspend fun setProgress(id: String, count: Int) = dao.setProgress(id, count)
+    override suspend fun setProgress(id: String, count: Int) {
+        dao.setProgress(id, count)
+        dao.getById(id)?.let { syncthingWriter?.writeGoal(it) }
+    }
 
-    override suspend fun setCompleted(id: String, completed: Boolean) = dao.setCompleted(id, completed)
+    override suspend fun setCompleted(id: String, completed: Boolean) {
+        dao.setCompleted(id, completed)
+        dao.getById(id)?.let { syncthingWriter?.writeGoal(it) }
+    }
 
     override suspend fun softDelete(id: String) {
         val now = LocalDateTime.now()

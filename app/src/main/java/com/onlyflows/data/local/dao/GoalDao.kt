@@ -16,6 +16,9 @@ interface GoalDao {
     @Query("SELECT * FROM goals WHERE id = :id")
     fun observeById(id: String): Flow<GoalEntity?>
 
+    @Query("SELECT * FROM goals WHERE id = :id LIMIT 1")
+    suspend fun getById(id: String): GoalEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(goal: GoalEntity)
 

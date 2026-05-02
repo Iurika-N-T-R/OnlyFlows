@@ -102,10 +102,12 @@ class TaskRepositoryImpl(
 
     override suspend fun setDependsOn(id: String, dependsOnId: String?) {
         taskDao.setDependsOn(id, dependsOnId, LocalDateTime.now().toString())
+        syncWrite(id)
     }
 
     override suspend fun setGoals(id: String, goalIds: List<String>) {
         taskDao.setGoals(id, goalIds.joinToString(","), LocalDateTime.now().toString())
+        syncWrite(id)
     }
 
     override fun observeAnytime(): Flow<List<Task>> =
@@ -116,6 +118,7 @@ class TaskRepositoryImpl(
 
     override suspend fun setScheduledGroup(id: String, group: com.onlyflows.domain.model.TaskGroup?) {
         taskDao.setScheduledGroup(id, group?.name, LocalDateTime.now().toString())
+        syncWrite(id)
     }
 
     override fun search(query: String): Flow<List<Task>> =
@@ -243,13 +246,15 @@ class TaskRepositoryImpl(
             updatedAt      = LocalDateTime.now(),
         )
         taskDao.insert(nextTask.toEntity())
+        syncthingWriter?.writeTask(nextTask.toEntity())
         if (nextTask.checklistItems.isNotEmpty()) {
-            checklistDao.insertAll(
-                nextTask.checklistItems.mapIndexed { idx, item ->
-                    item.copy(id = "cli_${System.currentTimeMillis()}_$idx", taskId = nextTask.id).toEntity()
-                }
-            )
+            val newItems = nextTask.checklistItems.mapIndexed { idx, item ->
+                item.copy(id = "cli_${System.currentTimeMillis()}_$idx", taskId = nextTask.id).toEntity()
+            }
+            checklistDao.insertAll(newItems)
+            newItems.forEach { syncthingWriter?.writeChecklistItem(it) }
         }
+        syncWrite(id)
     }
 
     override suspend fun setStarred(id: String, starred: Boolean) {
@@ -329,6 +334,7 @@ class TaskRepositoryImpl(
         idsInOrder.forEachIndexed { index, id ->
             taskDao.updateSortOrder(id, index)
         }
+        idsInOrder.forEach { syncWrite(it) }
     }
 
     override fun observeInboxCount(): Flow<Int>   = taskDao.observeInboxCount()

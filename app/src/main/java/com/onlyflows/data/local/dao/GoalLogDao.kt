@@ -14,6 +14,9 @@ interface GoalLogDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(log: GoalLogEntity)
 
+    @Query("SELECT * FROM goal_logs WHERE id = :id LIMIT 1")
+    suspend fun getById(id: String): GoalLogEntity?
+
     @Query("UPDATE goal_logs SET isStarred = :starred WHERE id = :id")
     suspend fun setStarred(id: String, starred: Boolean)
 

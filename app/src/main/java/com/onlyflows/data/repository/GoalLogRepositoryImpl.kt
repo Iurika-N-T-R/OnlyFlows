@@ -26,7 +26,10 @@ class GoalLogRepositoryImpl(
         syncthingWriter?.writeGoalLog(log.toEntity())
     }
 
-    override suspend fun setStarred(id: String, starred: Boolean) = dao.setStarred(id, starred)
+    override suspend fun setStarred(id: String, starred: Boolean) {
+        dao.setStarred(id, starred)
+        dao.getById(id)?.let { syncthingWriter?.writeGoalLog(it) }
+    }
 
     override suspend fun softDelete(id: String) {
         val now = LocalDateTime.now()
