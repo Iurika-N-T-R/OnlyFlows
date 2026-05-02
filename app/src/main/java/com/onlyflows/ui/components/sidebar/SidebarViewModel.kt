@@ -80,7 +80,7 @@ class SidebarViewModel(app: Application) : AndroidViewModel(app) {
 
             val innerFlow = combine(
                 folderRepo.observeAll(),
-                projectRepo.observeAll().flatMapLatest { projects ->
+                projectRepo.observeAllItems().flatMapLatest { projects ->
                     if (projects.isEmpty()) flowOf(emptyList())
                     else combine(projects.map { project ->
                         combine(

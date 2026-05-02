@@ -75,6 +75,18 @@ class ProjectRepositoryImpl(
         }
 
     @OptIn(ExperimentalCoroutinesApi::class)
+    override fun observeAllItems(): Flow<List<Project>> =
+        projectDao.observeActive().flatMapLatest { projects ->
+            val flows = projects.map { project ->
+                sectionDao.observeByProject(project.id).map { sections ->
+                    project.toDomain(sections)
+                }
+            }
+            if (flows.isEmpty()) kotlinx.coroutines.flow.flowOf(emptyList())
+            else combine(flows) { it.toList() }
+        }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
     override fun observeById(id: String): Flow<Project?> =
         projectDao.observeById(id).flatMapLatest { entity ->
             if (entity == null) kotlinx.coroutines.flow.flowOf(null)

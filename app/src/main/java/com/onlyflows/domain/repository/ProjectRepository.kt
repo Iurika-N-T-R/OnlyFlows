@@ -9,7 +9,8 @@ import com.onlyflows.domain.model.Tag
 import kotlinx.coroutines.flow.Flow
 
 interface ProjectRepository {
-    fun observeAll(): Flow<List<Project>>
+    fun observeAll(): Flow<List<Project>>        // PROJECT type only (Kanban/list screen)
+    fun observeAllItems(): Flow<List<Project>>   // all types (sidebar, widgets)
     fun observeArchived(): Flow<List<Project>>
     fun observeById(id: String): Flow<Project?>
     fun observeChildren(parentId: String): Flow<List<Project>>
