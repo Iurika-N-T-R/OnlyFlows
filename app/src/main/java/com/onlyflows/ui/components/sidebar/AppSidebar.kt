@@ -239,6 +239,25 @@ fun AppSidebar(
                     Spacer(Modifier.height(8.dp))
                 }
             }
+
+            if (state.archivedItems.isNotEmpty()) {
+                item(key = "archived_header") {
+                    ArchivedSectionHeader(
+                        count    = state.archivedItems.size,
+                        expanded = state.showArchivedSection,
+                        onToggle = { viewModel.onEvent(SidebarEvent.ToggleArchivedSection) },
+                    )
+                }
+                if (state.showArchivedSection) {
+                    items(state.archivedItems, key = { "archived_${it.id}" }) { project ->
+                        ArchivedProjectItem(
+                            project     = project,
+                            onUnarchive = { viewModel.onEvent(SidebarEvent.UnarchiveProject(project.id)) },
+                        )
+                    }
+                    item(key = "archived_bottom_spacer") { Spacer(Modifier.height(8.dp)) }
+                }
+            }
         }
 
         // ── Bottom bar: + New Group (left) + Settings gear (right) ───────────
@@ -298,6 +317,7 @@ fun AppSidebar(
             project   = project,
             folders   = state.entries.filterIsInstance<SidebarEntry.FolderHeader>().map { it.folder },
             onMove    = { folderId -> viewModel.onEvent(SidebarEvent.MoveProject(project.id, folderId)) },
+            onArchive = { viewModel.onEvent(SidebarEvent.ArchiveProject(project.id)) },
             onDelete  = { viewModel.onEvent(SidebarEvent.DeleteProject(project.id)) },
             onDismiss = { contextProject = null },
         )
@@ -626,6 +646,82 @@ private fun PieProgressIcon(ratio: Float, color: Color, size: Int, modifier: Mod
     }
 }
 
+// ── Archived section ──────────────────────────────────────────────────────────
+
+@Composable
+private fun ArchivedSectionHeader(count: Int, expanded: Boolean, onToggle: () -> Unit) {
+    val rotation by animateFloatAsState(if (expanded) 90f else 0f, label = "chevron")
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 8.dp, end = 8.dp, top = 2.dp, bottom = 2.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(onClick = onToggle)
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.Archive,
+            contentDescription = null,
+            tint     = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(15.dp),
+        )
+        Spacer(Modifier.width(7.dp))
+        Text(
+            text       = "Archived ($count)",
+            style      = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold,
+            color      = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier   = Modifier.weight(1f),
+        )
+        Icon(
+            imageVector = Icons.Outlined.ChevronRight,
+            contentDescription = null,
+            tint     = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(16.dp).rotate(rotation),
+        )
+    }
+}
+
+@Composable
+private fun ArchivedProjectItem(project: Project, onUnarchive: () -> Unit) {
+    val color = remember(project.colorHex) {
+        try { Color(android.graphics.Color.parseColor(project.colorHex)) }
+        catch (e: Exception) { Color(0xFF4A90D9) }
+    }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 20.dp, end = 8.dp, top = 1.dp, bottom = 1.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .padding(horizontal = 10.dp, vertical = 7.dp),
+    ) {
+        when (project.type) {
+            ProjectType.PROJECT -> PieProgressIcon(ratio = 0f, color = color, size = 18)
+            ProjectType.LIST    -> Icon(Icons.Outlined.FormatListBulleted, null, tint = color, modifier = Modifier.size(18.dp))
+            ProjectType.NOTE    -> Icon(Icons.Outlined.Article, null, tint = color, modifier = Modifier.size(18.dp))
+        }
+        Spacer(Modifier.width(10.dp))
+        Text(
+            text     = project.title,
+            style    = MaterialTheme.typography.bodyMedium,
+            color    = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        IconButton(onClick = onUnarchive, modifier = Modifier.size(32.dp)) {
+            Icon(
+                imageVector = Icons.Outlined.Unarchive,
+                contentDescription = "Restore",
+                tint     = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(16.dp),
+            )
+        }
+    }
+}
+
 // ── + New List button ─────────────────────────────────────────────────────────
 
 @Composable
@@ -719,6 +815,7 @@ private fun ProjectContextSheet(
     project: Project,
     folders: List<Folder>,
     onMove: (String?) -> Unit,
+    onArchive: () -> Unit,
     onDelete: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -771,6 +868,7 @@ private fun ProjectContextSheet(
                 }
                 else -> {
                     ContextAction(Icons.Outlined.DriveFileMove, "Move to area…", onClick = { showMoveMenu = true })
+                    ContextAction(Icons.Outlined.Archive, "Archive", onClick = { onArchive(); onDismiss() })
                     ContextAction(Icons.Outlined.DeleteOutline, "Delete", tint = MaterialTheme.colorScheme.error, onClick = { showDeleteConfirm = true })
                 }
             }

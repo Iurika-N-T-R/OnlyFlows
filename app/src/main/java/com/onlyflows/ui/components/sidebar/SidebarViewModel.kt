@@ -33,6 +33,8 @@ data class SidebarUiState(
     val entries: List<SidebarEntry>    = emptyList(),
     val expandedFolderIds: Set<String> = emptySet(),
     val hiddenNavItems: Set<String>    = emptySet(),
+    val archivedItems: List<Project>   = emptyList(),
+    val showArchivedSection: Boolean   = false,
 )
 
 sealed interface SidebarEvent {
@@ -48,6 +50,9 @@ sealed interface SidebarEvent {
         val rootProjectIds: List<String>,
     ) : SidebarEvent
     data class SetNavItemHidden(val key: String, val hidden: Boolean) : SidebarEvent
+    data class ArchiveProject(val projectId: String)                  : SidebarEvent
+    data class UnarchiveProject(val projectId: String)                : SidebarEvent
+    data object ToggleArchivedSection                                 : SidebarEvent
 }
 
 // ── ViewModel ─────────────────────────────────────────────────────────────────
@@ -96,7 +101,7 @@ class SidebarViewModel(app: Application) : AndroidViewModel(app) {
                 arrayOf<Any>(folders, progresses, inboxCount, todayCount, overdueCount)
             }
 
-            combine(innerFlow, _expanded, sidebarPrefs.hiddenNavItems) { packed, expanded, hiddenNavItems ->
+            combine(innerFlow, _expanded, sidebarPrefs.hiddenNavItems, projectRepo.observeArchived()) { packed, expanded, hiddenNavItems, archivedItems ->
                 @Suppress("UNCHECKED_CAST")
                 val folders      = packed[0] as List<Folder>
                 @Suppress("UNCHECKED_CAST")
@@ -125,12 +130,14 @@ class SidebarViewModel(app: Application) : AndroidViewModel(app) {
                     .forEach { entries += SidebarEntry.ProjectRow(it, indented = false) }
 
                 SidebarUiState(
-                    inboxCount        = inboxCount,
-                    todayCount        = todayCount,
-                    overdueCount      = overdueCount,
-                    entries           = entries,
-                    expandedFolderIds = newExpanded,
-                    hiddenNavItems    = hiddenNavItems,
+                    inboxCount          = inboxCount,
+                    todayCount          = todayCount,
+                    overdueCount        = overdueCount,
+                    entries             = entries,
+                    expandedFolderIds   = newExpanded,
+                    hiddenNavItems      = hiddenNavItems,
+                    archivedItems       = archivedItems,
+                    showArchivedSection = _uiState.value.showArchivedSection,
                 )
             }.collect { state ->
                 _uiState.value  = state
@@ -193,6 +200,15 @@ class SidebarViewModel(app: Application) : AndroidViewModel(app) {
             }
             is SidebarEvent.SetNavItemHidden -> viewModelScope.launch {
                 sidebarPrefs.setNavItemHidden(event.key, event.hidden)
+            }
+            is SidebarEvent.ArchiveProject -> viewModelScope.launch {
+                projectRepo.archive(event.projectId)
+            }
+            is SidebarEvent.UnarchiveProject -> viewModelScope.launch {
+                projectRepo.unarchive(event.projectId)
+            }
+            SidebarEvent.ToggleArchivedSection -> _uiState.update {
+                it.copy(showArchivedSection = !it.showArchivedSection)
             }
             is SidebarEvent.ReorderEntries -> viewModelScope.launch {
                 val entries = _uiState.value.entries

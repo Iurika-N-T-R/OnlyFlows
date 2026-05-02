@@ -6,7 +6,7 @@ Task & project manager — minimal, editorial, local-first
 
 Jetpack Compose × Room × Syncthing × WorkManager
 
-[![version](https://img.shields.io/badge/version-0.30.3-blue?style=flat-square)](https://github.com/Iurika-N-T-R/OnlyFlows/releases)
+[![version](https://img.shields.io/badge/version-0.50.0-blue?style=flat-square)](https://github.com/Iurika-N-T-R/OnlyFlows/releases)
 [![kotlin](https://img.shields.io/badge/kotlin-2.1.0-7F52FF?style=flat-square&logo=kotlin&logoColor=white)](https://kotlinlang.org)
 [![android](https://img.shields.io/badge/android-8.0%2B-3DDC84?style=flat-square&logo=android&logoColor=white)](https://developer.android.com)
 [![minSdk](https://img.shields.io/badge/minSdk-26-green?style=flat-square)](https://developer.android.com/about/versions/oreo)
@@ -31,7 +31,7 @@ Jetpack Compose × Room × Syncthing × WorkManager
 ### Views
 | View | Description |
 |---|---|
-| **Today** | Tasks for today grouped Overdue / Today / This Evening, smart sort |
+| **Today** | Tasks for today grouped Overdue / Today / This Evening, smart sort; completed/total badge; dynamic tag filters |
 | **Upcoming** | Infinite scroll −14d → +365d, week / month mode, drag-to-reschedule |
 | **Inbox** | Unprocessed tasks (no project, no planned group) |
 | **Anytime** | Project tasks without date + priority, or explicitly moved here |
@@ -53,6 +53,7 @@ Jetpack Compose × Room × Syncthing × WorkManager
 ### Projects
 - Types: PROJECT, LIST, NOTE
 - Statuses: NOT_STARTED / IN_PROGRESS / WAITING / DONE (auto-DONE at 100%)
+- **Archive / Unarchive** — long-press any LIST, NOTE or PROJECT in the sidebar → Archive; collapsible "Archived" section with one-tap restore
 - Sections with drag-to-reorder, deadline with colored countdown
 - Total tracked time (sum of all task TimeEntries)
 - Status change history (`StatusLogEntry`)

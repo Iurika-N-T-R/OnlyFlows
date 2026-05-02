@@ -140,6 +140,10 @@ class ProjectRepositoryImpl(
         // No full entity available without re-read; archive is a soft status change — importer handles on next scan
     }
 
+    override suspend fun unarchive(id: String) {
+        projectDao.unarchive(id)
+    }
+
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun observeArchived(): Flow<List<Project>> =
         projectDao.observeArchived().flatMapLatest { projects ->

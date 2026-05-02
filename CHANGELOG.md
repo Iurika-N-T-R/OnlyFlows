@@ -5,6 +5,20 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.50.0] — 2026-05-02 · Archive, filtres dynamiques Today, badge compteur
+
+### Ajouté
+
+- **Archive** — action « Archive » dans le menu contextuel (appui long) de la sidebar pour les types LIST, NOTE et PROJECT. Les éléments archivés disparaissent de la liste active et apparaissent dans une section « Archived (N) » pliable en bas de la sidebar.
+- **Restauration d'archive** — bouton « Restore » (icône Unarchive) sur chaque élément archivé pour le remettre dans la liste active.
+- **Badge compteur Today** — le titre de la vue Today affiche désormais un badge `complétées/total` (ex. `3/10`) identique aux badges des projets.
+
+### Amélioré
+
+- **Filtres de tags Today** — les chips de filtrage n'affichent plus tous les tags de la base de données : seuls les tags présents sur les tâches visibles du jour (Today + Evening + Overdue) sont proposés. Les filtres actifs qui ne correspondent plus à aucune tâche visible sont automatiquement purgés.
+
+---
+
 ## [0.44.0] — 2026-04-25 · Widget Month — navigation mois + headers français
 
 ### Amélioré

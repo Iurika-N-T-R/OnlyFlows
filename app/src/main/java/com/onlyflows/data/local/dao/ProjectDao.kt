@@ -31,6 +31,9 @@ interface ProjectDao {
     @Query("UPDATE projects SET isArchived = 1 WHERE id = :id")
     suspend fun archive(id: String)
 
+    @Query("UPDATE projects SET isArchived = 0 WHERE id = :id")
+    suspend fun unarchive(id: String)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(project: ProjectEntity)
 

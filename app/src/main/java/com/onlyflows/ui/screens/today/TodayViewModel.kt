@@ -136,16 +136,21 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
                             && (it.dueDate == null || !it.dueDate.isBefore(today)))
                     ))
                 }.sortedWith(taskComparator)
+                val eveningFiltered = tasks.filter { it.scheduledGroup == TaskGroup.THIS_EVENING }.sortedWith(taskComparator)
+                val visibleTagIds: Set<String> = (todayFiltered + eveningFiltered + overdue)
+                    .flatMapTo(mutableSetOf()) { it.tagIds }
+                val derivedTags = tags.filter { it.id in visibleTagIds }
                 AppLog.d("TodayVM", "data updated: today=${todayFiltered.size} overdue=${overdue.size} completed=${completed.size} raw=${tasks.size}")
                 _uiState.update { state ->
                     state.copy(
-                        todayTasks    = todayFiltered,
-                        eveningTasks  = tasks.filter { it.scheduledGroup == TaskGroup.THIS_EVENING }.sortedWith(taskComparator),
-                        overdueTasks  = overdue.sortedWith(taskComparator),
-                        completedTasks = completed,
-                        tags          = tags,
-                        allProjects   = projects,
-                        isLoading     = false,
+                        todayTasks      = todayFiltered,
+                        eveningTasks    = eveningFiltered,
+                        overdueTasks    = overdue.sortedWith(taskComparator),
+                        completedTasks  = completed,
+                        tags            = derivedTags,
+                        activeTagFilter = state.activeTagFilter.intersect(visibleTagIds),
+                        allProjects     = projects,
+                        isLoading       = false,
                     )
                 }
             }

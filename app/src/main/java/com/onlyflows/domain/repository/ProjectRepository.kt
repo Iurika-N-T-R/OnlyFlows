@@ -18,6 +18,7 @@ interface ProjectRepository {
     suspend fun update(project: Project)
     suspend fun delete(id: String)
     suspend fun archive(id: String)
+    suspend fun unarchive(id: String)
     suspend fun updateStatus(id: String, status: ProjectStatus)
     suspend fun insertSection(section: Section)
     suspend fun updateSection(section: Section)

@@ -141,6 +141,22 @@ fun TodayScreen(
                             fontWeight = FontWeight.Bold,
                             color      = MaterialTheme.colorScheme.onSurface,
                         )
+                        val completedCount = state.completedTasks.size
+                        val totalCount = state.todayTasks.size + state.eveningTasks.size + completedCount
+                        if (totalCount > 0) {
+                            Spacer(Modifier.width(10.dp))
+                            Surface(
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+                            ) {
+                                Text(
+                                    text     = "$completedCount/$totalCount",
+                                    style    = MaterialTheme.typography.labelMedium,
+                                    color    = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                )
+                            }
+                        }
                     }
                 },
                 navigationIcon = {
