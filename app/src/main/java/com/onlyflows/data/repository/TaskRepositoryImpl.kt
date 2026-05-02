@@ -164,10 +164,11 @@ class TaskRepositoryImpl(
         val task   = entity.toDomain(items)
         val rule   = task.recurrence ?: return
 
-        // 1 — mark current occurrence as completed + increment done count
+        // 1 — mark current occurrence as completed + archive → goes to Logbook, not Completed section
         taskDao.update(
             entity.copy(
                 isCompleted          = true,
+                isArchived           = true,
                 recurrenceDoneCount  = entity.recurrenceDoneCount + 1,
                 updatedAt            = LocalDateTime.now(),
             )
