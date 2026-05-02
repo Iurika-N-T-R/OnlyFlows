@@ -121,6 +121,7 @@ fun ProjectDetailScreen(
     BackHandler(enabled = state.selectedTaskIds.isNotEmpty()) {
         viewModel.onEvent(ProjectDetailEvent.ClearSelection)
     }
+    var showCommentsSheet    by remember { mutableStateOf(false) }
     var showStatusMenu       by remember { mutableStateOf(false) }
     var showProjectMenu     by remember { mutableStateOf(false) }
     var showEditProject     by remember { mutableStateOf(false) }
@@ -682,15 +683,26 @@ fun ProjectDetailScreen(
             item(key = "comments") {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
                 com.onlyflows.ui.components.CommentsSection(
-                    comments = state.comments,
-                    onAdd    = { viewModel.onEvent(ProjectDetailEvent.AddComment(it)) },
-                    onEdit   = { id, content -> viewModel.onEvent(ProjectDetailEvent.EditComment(id, content)) },
-                    onDelete = { viewModel.onEvent(ProjectDetailEvent.DeleteComment(it)) },
+                    comments    = state.comments,
+                    onAdd       = { viewModel.onEvent(ProjectDetailEvent.AddComment(it)) },
+                    onEdit      = { id, content -> viewModel.onEvent(ProjectDetailEvent.EditComment(id, content)) },
+                    onDelete    = { viewModel.onEvent(ProjectDetailEvent.DeleteComment(it)) },
+                    onOpenSheet = { showCommentsSheet = true },
                 )
             }
         }
 
         } // end PullToRefreshBox
+    }
+
+    if (showCommentsSheet) {
+        com.onlyflows.ui.overlays.CommentsBottomSheet(
+            comments  = state.comments,
+            onAdd     = { viewModel.onEvent(ProjectDetailEvent.AddComment(it)) },
+            onEdit    = { id, content -> viewModel.onEvent(ProjectDetailEvent.EditComment(id, content)) },
+            onDelete  = { viewModel.onEvent(ProjectDetailEvent.DeleteComment(it)) },
+            onDismiss = { showCommentsSheet = false },
+        )
     }
 
     if (state.showAddTask) {

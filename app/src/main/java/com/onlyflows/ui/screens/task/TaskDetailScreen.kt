@@ -96,10 +96,7 @@ fun TaskDetailScreen(
     val timerState  by viewModel.timerState.collectAsStateWithLifecycle()
     val task  = state.task ?: return
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
-
-    LaunchedEffect(state.comments.size) {
-        if (state.comments.isNotEmpty()) listState.animateScrollToItem(listState.layoutInfo.totalItemsCount - 1)
-    }
+    var showCommentsSheet by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.convertedProjectId) {
         val projId = state.convertedProjectId ?: return@LaunchedEffect
@@ -657,10 +654,11 @@ fun TaskDetailScreen(
                         modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 4.dp),
                     )
                     com.onlyflows.ui.components.CommentsSection(
-                        comments = state.comments,
-                        onAdd    = { viewModel.onEvent(TaskDetailEvent.AddComment(it)) },
-                        onEdit   = { id, content -> viewModel.onEvent(TaskDetailEvent.EditComment(id, content)) },
-                        onDelete = { viewModel.onEvent(TaskDetailEvent.DeleteComment(it)) },
+                        comments    = state.comments,
+                        onAdd       = { viewModel.onEvent(TaskDetailEvent.AddComment(it)) },
+                        onEdit      = { id, content -> viewModel.onEvent(TaskDetailEvent.EditComment(id, content)) },
+                        onDelete    = { viewModel.onEvent(TaskDetailEvent.DeleteComment(it)) },
+                        onOpenSheet = { showCommentsSheet = true },
                     )
                 }
             }
@@ -670,6 +668,16 @@ fun TaskDetailScreen(
     }
 
     // ── Overlays ─────────────────────────────────────────────────────────────
+
+    if (showCommentsSheet) {
+        com.onlyflows.ui.overlays.CommentsBottomSheet(
+            comments  = state.comments,
+            onAdd     = { viewModel.onEvent(TaskDetailEvent.AddComment(it)) },
+            onEdit    = { id, content -> viewModel.onEvent(TaskDetailEvent.EditComment(id, content)) },
+            onDelete  = { viewModel.onEvent(TaskDetailEvent.DeleteComment(it)) },
+            onDismiss = { showCommentsSheet = false },
+        )
+    }
 
     if (state.showPriorityPicker) {
         PriorityPickerSheet(

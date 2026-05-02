@@ -29,7 +29,9 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 
-// ── Section header + timeline + input ────────────────────────────────────────
+private const val PREVIEW_COUNT = 3
+
+// ── Section header + preview (3 latest) + input ──────────────────────────────
 
 @Composable
 fun CommentsSection(
@@ -37,11 +39,15 @@ fun CommentsSection(
     onAdd: (String) -> Unit,
     onEdit: (id: String, content: String) -> Unit,
     onDelete: (id: String) -> Unit,
+    onOpenSheet: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    var draft       by remember { mutableStateOf("") }
-    var editingId   by remember { mutableStateOf<String?>(null) }
-    var editDraft   by remember { mutableStateOf("") }
+    var draft     by remember { mutableStateOf("") }
+    var editingId by remember { mutableStateOf<String?>(null) }
+    var editDraft by remember { mutableStateOf("") }
+
+    // DAO returns newest-first (DESC); show the first PREVIEW_COUNT = the 3 most recent
+    val preview = comments.take(PREVIEW_COUNT)
 
     Column(modifier = modifier.fillMaxWidth()) {
         // Section header
@@ -63,15 +69,12 @@ fun CommentsSection(
             )
         }
 
-        // Timeline
-        comments.forEach { comment ->
+        // Preview rows
+        preview.forEach { comment ->
             if (editingId == comment.id) {
                 CommentEditRow(
                     initial   = editDraft,
-                    onConfirm = { content ->
-                        onEdit(comment.id, content)
-                        editingId = null
-                    },
+                    onConfirm = { content -> onEdit(comment.id, content); editingId = null },
                     onCancel  = { editingId = null },
                 )
             } else {
@@ -83,15 +86,26 @@ fun CommentsSection(
             }
         }
 
-        // Add comment input
+        // "View all" button when there are more than PREVIEW_COUNT comments
+        if (comments.size > PREVIEW_COUNT) {
+            TextButton(
+                onClick  = onOpenSheet,
+                modifier = Modifier.padding(horizontal = 12.dp),
+            ) {
+                Text(
+                    text  = "View all ${comments.size} comments →",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+        }
+
+        // Quick add input
         Spacer(Modifier.height(8.dp))
         CommentInput(
             draft    = draft,
             onChange = { draft = it },
-            onSend   = {
-                onAdd(draft)
-                draft = ""
-            },
+            onSend   = { onAdd(draft); draft = "" },
         )
         Spacer(Modifier.height(16.dp))
     }
@@ -101,7 +115,7 @@ fun CommentsSection(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun CommentRow(
+internal fun CommentRow(
     comment: Comment,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
@@ -115,7 +129,6 @@ private fun CommentRow(
             .combinedClickable(onLongClick = { showMenu = true }, onClick = {})
             .padding(horizontal = 20.dp, vertical = 6.dp),
     ) {
-        // Avatar
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
@@ -124,8 +137,8 @@ private fun CommentRow(
                 .padding(4.dp),
         ) {
             Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primaryContainer,
+                shape    = CircleShape,
+                color    = MaterialTheme.colorScheme.primaryContainer,
                 modifier = Modifier.fillMaxSize(),
             ) {}
             Text(
@@ -150,7 +163,6 @@ private fun CommentRow(
             )
         }
 
-        // Context menu
         DropdownMenu(
             expanded         = showMenu,
             onDismissRequest = { showMenu = false },
@@ -172,7 +184,7 @@ private fun CommentRow(
 // ── Inline edit field ─────────────────────────────────────────────────────────
 
 @Composable
-private fun CommentEditRow(
+internal fun CommentEditRow(
     initial: String,
     onConfirm: (String) -> Unit,
     onCancel: () -> Unit,
@@ -186,8 +198,8 @@ private fun CommentEditRow(
             .padding(horizontal = 20.dp, vertical = 4.dp),
     ) {
         Surface(
-            shape = RoundedCornerShape(12.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant,
+            shape    = RoundedCornerShape(12.dp),
+            color    = MaterialTheme.colorScheme.surfaceVariant,
             modifier = Modifier.weight(1f),
         ) {
             BasicTextField(
@@ -213,14 +225,15 @@ private fun CommentEditRow(
 // ── Add comment input ─────────────────────────────────────────────────────────
 
 @Composable
-private fun CommentInput(
+internal fun CommentInput(
     draft: String,
     onChange: (String) -> Unit,
     onSend: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp),
     ) {
@@ -230,12 +243,12 @@ private fun CommentInput(
             modifier = Modifier.weight(1f),
         ) {
             BasicTextField(
-                value         = draft,
-                onValueChange = onChange,
-                textStyle     = MaterialTheme.typography.bodyMedium.copy(
+                value           = draft,
+                onValueChange   = onChange,
+                textStyle       = MaterialTheme.typography.bodyMedium.copy(
                     color = MaterialTheme.colorScheme.onSurface,
                 ),
-                cursorBrush   = SolidColor(MaterialTheme.colorScheme.primary),
+                cursorBrush     = SolidColor(MaterialTheme.colorScheme.primary),
                 keyboardOptions = KeyboardOptions(
                     capitalization = KeyboardCapitalization.Sentences,
                     imeAction      = ImeAction.Send,
@@ -270,7 +283,7 @@ private fun CommentInput(
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-private fun formatRelativeTime(dt: LocalDateTime): String {
+internal fun formatRelativeTime(dt: LocalDateTime): String {
     val now     = LocalDateTime.now()
     val minutes = ChronoUnit.MINUTES.between(dt, now)
     val hours   = ChronoUnit.HOURS.between(dt, now)
