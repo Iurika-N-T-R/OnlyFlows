@@ -136,13 +136,14 @@ class MainActivity : ComponentActivity() {
                     if (showGlobalAddTask) {
                         AddTaskSheet(
                             defaultGroup = TaskGroup.TODAY,
-                            onAdd = { id, title, group, dueDate, priority, projectId, sectionId, checklistItems ->
+                            onAdd = { id, title, note, group, dueDate, priority, projectId, sectionId, checklistItems ->
                                 showGlobalAddTask = false
                                 val repo = app.container.taskRepository
                                 CoroutineScope(Dispatchers.IO).launch {
                                     repo.insert(Task(
                                         id             = id,
                                         title          = title,
+                                        note           = note,
                                         priority       = priority,
                                         projectId      = projectId,
                                         sectionId      = sectionId,

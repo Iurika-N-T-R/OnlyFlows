@@ -389,7 +389,10 @@ class TaskDetailViewModel(app: Application) : AndroidViewModel(app) {
                     reminderRepo.deleteByTask(task.id)
                     taskRepo.update(task.copy(hasReminders = false, updatedAt = LocalDateTime.now()))
                 }
-                if (completing && task.recurrence != null) {
+                val endCountReached = completing
+                    && task.recurrence?.endCount != null
+                    && (task.recurrenceDoneCount + 1) >= task.recurrence.endCount
+                if (completing && task.recurrence != null && !endCountReached) {
                     taskRepo.completeRecurring(task.id)
                 } else {
                     taskRepo.setCompleted(task.id, completing)

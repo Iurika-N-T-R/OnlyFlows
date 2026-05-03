@@ -21,7 +21,7 @@ class ReminderScheduler(private val context: Context) {
             return
         }
 
-        val intent = buildIntent(taskId, title, note)
+        val intent = buildIntent(taskId, title, note, triggerMs)
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 // API 31+: need explicit user grant
@@ -48,17 +48,18 @@ class ReminderScheduler(private val context: Context) {
     }
 
     fun cancel(taskId: String) {
-        val intent = buildIntent(taskId, "", null)
+        val intent = buildIntent(taskId, "", null, 0L)
         alarmManager.cancel(intent)
         Log.d(TAG, "Alarm cancelled for task $taskId")
     }
 
-    private fun buildIntent(taskId: String, title: String, note: String?): PendingIntent {
+    private fun buildIntent(taskId: String, title: String, note: String?, scheduledAtMs: Long): PendingIntent {
         val intent = Intent(context, ReminderReceiver::class.java).apply {
             action = ReminderReceiver.ACTION_SHOW
             putExtra(ReminderReceiver.EXTRA_TASK_ID, taskId)
             putExtra(ReminderReceiver.EXTRA_TITLE, title)
             putExtra(ReminderReceiver.EXTRA_NOTE, note ?: "")
+            putExtra(ReminderReceiver.EXTRA_SCHEDULED_AT, scheduledAtMs)
         }
         return PendingIntent.getBroadcast(
             context,

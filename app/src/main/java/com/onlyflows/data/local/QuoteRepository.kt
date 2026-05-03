@@ -31,7 +31,7 @@ class QuoteRepository(private val context: Context) {
 
     private var _quotes = loadQuotes()
 
-    val sessionQuote: Quote? get() = _quotes.randomOrNull()
+    val sessionQuote: Quote? = _quotes.randomOrNull()
 
     val importedCount: Int get() = if (importedFile.exists()) _quotes.size else -1
 

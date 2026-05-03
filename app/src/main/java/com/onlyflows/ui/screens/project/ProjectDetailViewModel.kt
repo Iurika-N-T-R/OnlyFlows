@@ -68,7 +68,7 @@ sealed interface ProjectDetailEvent {
     data object ClearSelection                                          : ProjectDetailEvent
     data class ShowAddTask(val sectionId: String?)                      : ProjectDetailEvent
     data object HideAddTask                                             : ProjectDetailEvent
-    data class AddTask(val id: String, val title: String, val sectionId: String?, val priority: TaskPriority = TaskPriority.NONE, val checklistItems: List<String> = emptyList()) : ProjectDetailEvent
+    data class AddTask(val id: String, val title: String, val note: String = "", val sectionId: String?, val priority: TaskPriority = TaskPriority.NONE, val checklistItems: List<String> = emptyList()) : ProjectDetailEvent
     data class DeleteSelected(val ids: Set<String>)                     : ProjectDetailEvent
     data class ReorderTasks(val idsInOrder: List<String>)                        : ProjectDetailEvent
     data class ToggleChecklistItem(val itemId: String, val completed: Boolean)   : ProjectDetailEvent
@@ -291,7 +291,7 @@ class ProjectDetailViewModel(app: Application) : AndroidViewModel(app) {
             is ProjectDetailEvent.ClearSelection -> _uiState.update { it.copy(selectedTaskIds = emptySet()) }
             is ProjectDetailEvent.ShowAddTask    -> _uiState.update { it.copy(showAddTask = true, addTaskSectionId = event.sectionId) }
             is ProjectDetailEvent.HideAddTask    -> _uiState.update { it.copy(showAddTask = false) }
-            is ProjectDetailEvent.AddTask        -> addTask(event.id, event.title, event.sectionId, event.priority, event.checklistItems)
+            is ProjectDetailEvent.AddTask        -> addTask(event.id, event.title, event.note, event.sectionId, event.priority, event.checklistItems)
             is ProjectDetailEvent.DeleteSelected -> deleteSelected(event.ids)
             is ProjectDetailEvent.ReorderTasks          -> viewModelScope.launch {
                 taskRepo.reorderTasks(event.idsInOrder)
@@ -529,13 +529,14 @@ class ProjectDetailViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    private fun addTask(id: String, title: String, sectionId: String?, priority: TaskPriority = TaskPriority.NONE, checklistItems: List<String> = emptyList()) {
+    private fun addTask(id: String, title: String, note: String = "", sectionId: String?, priority: TaskPriority = TaskPriority.NONE, checklistItems: List<String> = emptyList()) {
         if (title.isBlank()) return
         viewModelScope.launch {
             val projectId = _uiState.value.project?.id ?: return@launch
             val newTask = Task(
                 id        = id,
                 title     = title,
+                note      = note,
                 priority  = priority,
                 projectId = projectId,
                 sectionId = sectionId,

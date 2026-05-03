@@ -46,6 +46,9 @@ fun nextDueDate(
         }
     }
 
+    // End-date check: return null if next occurrence is past the end date
+    if (rule.endDate != null && next > rule.endDate) return null
+
     return next
 }
 

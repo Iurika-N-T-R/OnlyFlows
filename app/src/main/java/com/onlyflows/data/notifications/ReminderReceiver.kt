@@ -34,6 +34,7 @@ class ReminderReceiver : BroadcastReceiver() {
         const val EXTRA_TASK_ID       = "task_id"
         const val EXTRA_TITLE         = "task_title"
         const val EXTRA_NOTE          = "task_note"
+        const val EXTRA_SCHEDULED_AT  = "scheduled_at_ms"
 
         private const val TAG = "ReminderReceiver"
 
@@ -84,10 +85,11 @@ class ReminderReceiver : BroadcastReceiver() {
     }
 
     private fun showNotification(context: Context, taskId: String, intent: Intent) {
-        val pendingResult = goAsync()
-        val title   = intent.getStringExtra(EXTRA_TITLE) ?: "Reminder"
-        val note    = intent.getStringExtra(EXTRA_NOTE)?.takeIf { it.isNotBlank() }
-        val notifId = abs(taskId.hashCode())
+        val pendingResult  = goAsync()
+        val title          = intent.getStringExtra(EXTRA_TITLE) ?: "Reminder"
+        val note           = intent.getStringExtra(EXTRA_NOTE)?.takeIf { it.isNotBlank() }
+        val scheduledAtMs  = intent.getLongExtra(EXTRA_SCHEDULED_AT, 0L)
+        val notifId        = abs(taskId.hashCode())
 
         Log.d(TAG, "Showing notification for task $taskId: '$title'")
 
@@ -130,16 +132,28 @@ class ReminderReceiver : BroadcastReceiver() {
                 // Choose channel based on sound/vibration prefs
                 val channelId = if (soundEnabled || vibrationEnabled) CHANNEL_ID else CHANNEL_ID_SILENT
 
+                val bodyText = note ?: if (scheduledAtMs > 0L) {
+                    val dt = java.time.Instant.ofEpochMilli(scheduledAtMs)
+                        .atZone(java.time.ZoneId.systemDefault())
+                        .toLocalDateTime()
+                    "Rappel · %s".format(
+                        dt.format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy · HH:mm", java.util.Locale.FRENCH))
+                    )
+                } else null
+
                 val builder = NotificationCompat.Builder(context, channelId)
                     .setSmallIcon(R.drawable.ic_nav_today)
                     .setContentTitle(title)
                     .setContentIntent(tapIntent)
                     .setAutoCancel(true)
                     .setPriority(NotificationCompat.PRIORITY_HIGH)
-                    .addAction(0, "Done", completeIntent)
-                    .addAction(0, "Snooze 15 min", snoozeIntent)
+                    .addAction(0, "Terminer", completeIntent)
+                    .addAction(0, "Reporter 15 min", snoozeIntent)
 
-                if (note != null) builder.setContentText(note)
+                if (bodyText != null) {
+                    builder.setContentText(bodyText)
+                    builder.setStyle(NotificationCompat.BigTextStyle().bigText(bodyText))
+                }
 
                 // Sound
                 if (soundEnabled) {

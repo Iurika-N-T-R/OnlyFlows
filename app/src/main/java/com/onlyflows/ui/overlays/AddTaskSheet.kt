@@ -39,7 +39,7 @@ fun AddTaskSheet(
     defaultGroup: TaskGroup = TaskGroup.TODAY,
     tags: List<Tag> = emptyList(),
     projects: List<Project> = emptyList(),
-    onAdd: (id: String, title: String, group: TaskGroup, dueDate: LocalDate?, priority: TaskPriority, projectId: String?, sectionId: String?, checklistItems: List<String>) -> Unit,
+    onAdd: (id: String, title: String, note: String, group: TaskGroup, dueDate: LocalDate?, priority: TaskPriority, projectId: String?, sectionId: String?, checklistItems: List<String>) -> Unit,
     onDismiss: () -> Unit,
     onTaskCreated: ((taskId: String) -> Unit)? = null,
 ) {
@@ -363,7 +363,7 @@ fun AddTaskSheet(
                         onClick = {
                             if (title.isNotBlank()) {
                                 val finalItems = if (checklistDraft.isNotBlank()) checklistItems + checklistDraft.trim() else checklistItems
-                                onAdd(taskId, title.trim(), group, dueDate, priority, selectedProjectId, selectedSectionId, finalItems)
+                                onAdd(taskId, title.trim(), note.trim(), group, dueDate, priority, selectedProjectId, selectedSectionId, finalItems)
                                 onTaskCreated(taskId)
                                 onDismiss()
                             }
@@ -385,7 +385,7 @@ fun AddTaskSheet(
                     onClick = {
                         if (title.isNotBlank()) {
                             val finalItems = if (checklistDraft.isNotBlank()) checklistItems + checklistDraft.trim() else checklistItems
-                            onAdd(taskId, title.trim(), group, dueDate, priority, selectedProjectId, selectedSectionId, finalItems)
+                            onAdd(taskId, title.trim(), note.trim(), group, dueDate, priority, selectedProjectId, selectedSectionId, finalItems)
                             resetForm()
                             focusRequester.requestFocus()
                         }
@@ -406,7 +406,7 @@ fun AddTaskSheet(
                     onClick  = {
                         if (title.isNotBlank()) {
                             val finalItems = if (checklistDraft.isNotBlank()) checklistItems + checklistDraft.trim() else checklistItems
-                            onAdd(taskId, title.trim(), group, dueDate, priority, selectedProjectId, selectedSectionId, finalItems)
+                            onAdd(taskId, title.trim(), note.trim(), group, dueDate, priority, selectedProjectId, selectedSectionId, finalItems)
                             onDismiss()
                         }
                     },
@@ -457,7 +457,7 @@ private fun AddTaskSheetPreview() {
     OnlyFlowsTheme {
         AddTaskSheet(
             tags      = MockData.tags,
-            onAdd     = { _, _, _, _, _, _, _, _ -> },
+            onAdd     = { _, _, _, _, _, _, _, _, _ -> },
             onDismiss = {},
         )
     }

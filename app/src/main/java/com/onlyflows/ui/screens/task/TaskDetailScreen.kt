@@ -372,72 +372,33 @@ fun TaskDetailScreen(
             // ── Notes + Checklist card ───────────────────────────────────────
             item(key = "notes_card") {
                 SectionCard {
-                var noteText      by remember(task.id) { mutableStateOf(task.note) }
-                var isEditMode    by remember(task.id) { mutableStateOf(false) }
-                val noteFocus     = remember { FocusRequester() }
-                val urlColor      = MaterialTheme.colorScheme.primary
-                val hasUrls       = remember(noteText) { URL_REGEX.containsMatchIn(noteText) }
-                val noteModifier  = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 12.dp)
+                var noteText by remember(task.id) { mutableStateOf(task.note) }
 
-                if (isEditMode) {
-                    LaunchedEffect(Unit) { noteFocus.requestFocus() }
-                    BasicTextField(
-                        value = noteText,
-                        onValueChange = {
-                            noteText = it
-                            viewModel.onEvent(TaskDetailEvent.UpdateNote(it))
-                        },
-                        textStyle = MaterialTheme.typography.bodyMedium.copy(
-                            color      = MaterialTheme.colorScheme.onSurfaceVariant,
-                            lineHeight = 22.sp,
-                        ),
-                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                        decorationBox = { inner ->
-                            if (noteText.isEmpty()) {
-                                Text(
-                                    "Notes",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                                )
-                            }
-                            inner()
-                        },
-                        modifier = noteModifier
-                            .focusRequester(noteFocus)
-                            .onFocusChanged { if (!it.isFocused) isEditMode = false },
-                    )
-                } else {
-                    Box(modifier = noteModifier.clickable { isEditMode = true }) {
-                        when {
-                            noteText.isEmpty() -> Text(
+                BasicTextField(
+                    value = noteText,
+                    onValueChange = {
+                        noteText = it
+                        viewModel.onEvent(TaskDetailEvent.UpdateNote(it))
+                    },
+                    textStyle = MaterialTheme.typography.bodyMedium.copy(
+                        color      = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 22.sp,
+                    ),
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                    decorationBox = { inner ->
+                        if (noteText.isEmpty()) {
+                            Text(
                                 "Notes",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                             )
-                            hasUrls -> {
-                                val annotated = remember(noteText, urlColor) {
-                                    buildNoteAnnotated(noteText, urlColor)
-                                }
-                                Text(
-                                    text  = annotated,
-                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                        color      = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        lineHeight = 22.sp,
-                                    ),
-                                )
-                            }
-                            else -> Text(
-                                text  = noteText,
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    color      = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    lineHeight = 22.sp,
-                                ),
-                            )
                         }
-                    }
-                }
+                        inner()
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 12.dp),
+                )
 
                 // Checklist inside the notes card
                 if (task.checklistItems.isNotEmpty()) {
@@ -741,8 +702,9 @@ fun TaskDetailScreen(
 
     if (state.showReminderPicker) {
         ReminderPickerSheet(
-            onApply   = { at, locId -> viewModel.onEvent(TaskDetailEvent.AddReminder(at, locId)) },
-            onDismiss = { viewModel.onEvent(TaskDetailEvent.HideReminderPicker) },
+            taskDueDate = task.dueDate,
+            onApply     = { at, locId -> viewModel.onEvent(TaskDetailEvent.AddReminder(at, locId)) },
+            onDismiss   = { viewModel.onEvent(TaskDetailEvent.HideReminderPicker) },
         )
     }
 
@@ -1556,12 +1518,17 @@ private fun RecurrencePickerSheet(
     onApply: (RecurrenceRule?) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var selectedType by remember { mutableStateOf(current?.type ?: RecurrenceType.DAILY) }
-    var interval     by remember { mutableStateOf(current?.interval ?: 1) }
-    var selectedDays by remember { mutableStateOf(current?.daysOfWeek?.toSet() ?: emptySet<Int>()) }
-    var basis        by remember { mutableStateOf(current?.basis ?: RecurrenceBasis.COMPLETION_DATE) }
-    var skipWeekends by remember { mutableStateOf(current?.skipWeekends ?: false) }
-    var enabled      by remember { mutableStateOf(current != null) }
+    var selectedType  by remember { mutableStateOf(current?.type ?: RecurrenceType.DAILY) }
+    var interval      by remember { mutableStateOf(current?.interval ?: 1) }
+    var selectedDays  by remember { mutableStateOf(current?.daysOfWeek?.toSet() ?: emptySet<Int>()) }
+    var basis         by remember { mutableStateOf(current?.basis ?: RecurrenceBasis.COMPLETION_DATE) }
+    var skipWeekends  by remember { mutableStateOf(current?.skipWeekends ?: false) }
+    var enabled       by remember { mutableStateOf(current != null) }
+    // Fin de récurrence: "never", "date", "count"
+    var endMode          by remember { mutableStateOf(if (current?.endDate != null) "date" else if (current?.endCount != null) "count" else "never") }
+    var endDate          by remember { mutableStateOf(current?.endDate ?: LocalDate.now().plusMonths(1)) }
+    var endCount         by remember { mutableStateOf(current?.endCount ?: 10) }
+    var showEndDatePicker by remember { mutableStateOf(false) }
 
     val types = RecurrenceType.entries
 
@@ -1673,11 +1640,60 @@ private fun RecurrencePickerSheet(
                         Text(label, style = MaterialTheme.typography.bodyMedium)
                     }
                 }
+
+                // ── Fin de récurrence ────────────────────────────────────────
+                Spacer(Modifier.height(12.dp))
+                Text("Fin de récurrence", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(6.dp))
+                listOf("never" to "Jamais", "date" to "Par date", "count" to "Par compte").forEach { (mode, label) ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { endMode = mode }
+                            .padding(vertical = 4.dp),
+                    ) {
+                        RadioButton(selected = endMode == mode, onClick = { endMode = mode })
+                        Spacer(Modifier.width(8.dp))
+                        Text(label, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+                if (endMode == "date") {
+                    Spacer(Modifier.height(6.dp))
+                    OutlinedButton(onClick = { showEndDatePicker = true }, modifier = Modifier.fillMaxWidth()) {
+                        Icon(Icons.Outlined.CalendarToday, null, modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(endDate.format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy", java.util.Locale.FRENCH)))
+                    }
+                }
+                if (endMode == "count") {
+                    Spacer(Modifier.height(6.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        OutlinedButton(
+                            onClick = { if (endCount > 1) endCount-- },
+                            modifier = Modifier.size(36.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+                        ) { Text("−") }
+                        Text(
+                            "Terminer après $endCount répétitions",
+                            modifier = Modifier.weight(1f),
+                            style    = MaterialTheme.typography.bodyMedium,
+                        )
+                        OutlinedButton(
+                            onClick = { endCount++ },
+                            modifier = Modifier.size(36.dp),
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+                        ) { Text("+") }
+                    }
+                }
             }
 
             Spacer(Modifier.height(16.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { onApply(null); onDismiss() }, modifier = Modifier.weight(1f)) { Text("Clear") }
+                OutlinedButton(onClick = { onApply(null); onDismiss() }, modifier = Modifier.weight(1f)) { Text("Effacer") }
                 Button(
                     onClick = {
                         if (enabled) {
@@ -1687,6 +1703,8 @@ private fun RecurrencePickerSheet(
                                 daysOfWeek   = selectedDays.sorted(),
                                 basis        = basis,
                                 skipWeekends = skipWeekends,
+                                endDate      = if (endMode == "date") endDate else null,
+                                endCount     = if (endMode == "count") endCount else null,
                             ))
                         } else {
                             onApply(null)
@@ -1694,10 +1712,33 @@ private fun RecurrencePickerSheet(
                         onDismiss()
                     },
                     modifier = Modifier.weight(1f),
-                ) { Text("Apply") }
+                ) { Text("Appliquer") }
             }
             Spacer(Modifier.height(8.dp))
         }
+    }
+
+    if (showEndDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = endDate
+                .atStartOfDay(java.time.ZoneId.systemDefault())
+                .toInstant()
+                .toEpochMilli(),
+        )
+        DatePickerDialog(
+            onDismissRequest = { showEndDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        endDate = java.time.Instant.ofEpochMilli(millis)
+                            .atZone(java.time.ZoneId.systemDefault())
+                            .toLocalDate()
+                    }
+                    showEndDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = { TextButton(onClick = { showEndDatePicker = false }) { Text("Annuler") } },
+        ) { DatePicker(state = datePickerState) }
     }
 }
 
@@ -1706,19 +1747,21 @@ private fun RecurrencePickerSheet(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ReminderPickerSheet(
+    taskDueDate: LocalDate?,
     onApply: (LocalDateTime, String?) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    var showDatePicker   by remember { mutableStateOf(false) }
-    var showTimePicker   by remember { mutableStateOf(false) }
-    var pickedDate       by remember { mutableStateOf(LocalDate.now()) }
-    var pickedHour       by remember { mutableStateOf(9) }
-    var pickedMinute     by remember { mutableStateOf(0) }
-    var selectedLocation by remember { mutableStateOf<com.onlyflows.domain.model.SavedLocation?>(null) }
-    var locationExpanded by remember { mutableStateOf(false) }
+    var selectedLocation    by remember { mutableStateOf<com.onlyflows.domain.model.SavedLocation?>(null) }
+    var locationExpanded    by remember { mutableStateOf(false) }
+    // Personnalisé mode: "daily" = X jours avant, "weekly" = X semaines avant
+    var persoMode           by remember { mutableStateOf("daily") }
+    var persoCount          by remember { mutableStateOf(1) }
+    var persoHour           by remember { mutableStateOf(9) }
+    var persoMinute         by remember { mutableStateOf(0) }
+    var showPersoTimePicker by remember { mutableStateOf(false) }
 
     val container = (context.applicationContext as com.onlyflows.OnlyFlowsApp).container
     val locations by container.savedLocationRepository.observeAll()
@@ -1731,9 +1774,6 @@ private fun ReminderPickerSheet(
     val hasLocationPerm = ContextCompat.checkSelfPermission(
         context, Manifest.permission.ACCESS_FINE_LOCATION
     ) == PackageManager.PERMISSION_GRANTED
-
-    val formatter = DateTimeFormatter.ofPattern("EEE, d MMM · HH:mm")
-    val preview   = LocalDateTime.of(pickedDate, java.time.LocalTime.of(pickedHour, pickedMinute))
 
     // Check if exact alarms are available (Android 12+)
     val canExact = remember {
@@ -1797,19 +1837,6 @@ private fun ReminderPickerSheet(
 
             Spacer(Modifier.height(8.dp))
 
-            // Test shortcut (fires in ~1 min) — for dev/debug verification
-            ReminderRow(
-                icon    = Icons.Outlined.Schedule,
-                tint    = MaterialTheme.colorScheme.primary,
-                label   = "In 1 minute (test)",
-                sublabel = "Fires immediately to test notifications",
-                onClick = {
-                    onApply(LocalDateTime.now().plusMinutes(1), null)
-                    onDismiss()
-                },
-            )
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
-
             // Today evening shortcut
             ReminderRow(
                 icon    = Icons.Outlined.NightlightRound,
@@ -1826,7 +1853,7 @@ private fun ReminderPickerSheet(
             ReminderRow(
                 icon    = Icons.Outlined.WbSunny,
                 tint    = Color(0xFFFF8800),
-                label   = "Tomorrow morning · 9:00",
+                label   = "Demain matin · 9:00",
                 onClick = {
                     onApply(LocalDate.now().plusDays(1).atTime(9, 0), null)
                     onDismiss()
@@ -1834,24 +1861,100 @@ private fun ReminderPickerSheet(
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
 
-            // Custom date + time
+            // Due-date relative templates
+            val dueDateTemplates = listOf(
+                Triple("Le jour même · 9:00",    Icons.Outlined.Today,            0L),
+                Triple("1 jour avant · 9:00",    Icons.Outlined.EventAvailable,   1L),
+                Triple("2 jours avant · 9:00",   Icons.Outlined.EventAvailable,   2L),
+                Triple("1 semaine avant · 9:00", Icons.Outlined.DateRange,        7L),
+            )
+            dueDateTemplates.forEach { (label, icon, daysBefore) ->
+                val targetDate = taskDueDate?.minusDays(daysBefore)
+                ReminderRow(
+                    icon     = icon,
+                    tint     = if (targetDate != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                    label    = label,
+                    sublabel = if (targetDate == null) "Aucune date d'échéance" else null,
+                    onClick  = if (targetDate != null) ({
+                        onApply(targetDate.atTime(9, 0), null)
+                        onDismiss()
+                    }) else ({}),
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+            }
+
+            // ── Personnalisé ────────────────────────────────────────────────
             Spacer(Modifier.height(12.dp))
-            Text("Custom", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(6.dp))
-            Text(preview.format(formatter), style = MaterialTheme.typography.bodyMedium)
-            Spacer(Modifier.height(10.dp))
+            Text("Personnalisé", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(8.dp))
+
+            // Mode toggle chips
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { showDatePicker = true }, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Outlined.CalendarToday, null, modifier = Modifier.size(14.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text(pickedDate.format(DateTimeFormatter.ofPattern("d MMM")))
-                }
-                OutlinedButton(onClick = { showTimePicker = true }, modifier = Modifier.weight(1f)) {
+                FilterChip(
+                    selected = persoMode == "daily",
+                    onClick  = { persoMode = "daily" },
+                    label    = { Text("Quotidien") },
+                )
+                FilterChip(
+                    selected = persoMode == "weekly",
+                    onClick  = { persoMode = "weekly" },
+                    label    = { Text("Hebdomadaire") },
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+
+            val unitLabel = if (persoMode == "daily") "jours avant" else "semaines avant"
+            val persoTarget: LocalDate? = taskDueDate?.let {
+                val days = if (persoMode == "daily") persoCount.toLong() else persoCount.toLong() * 7
+                it.minusDays(days)
+            }
+            val persoPreviewFormatter = DateTimeFormatter.ofPattern("d MMM yyyy", java.util.Locale.FRENCH)
+            val persoPreviewText = if (persoTarget != null)
+                "Rappel à %02d:%02d le %s".format(persoHour, persoMinute, persoTarget.format(persoPreviewFormatter))
+            else "Aucune date d'échéance"
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedButton(
+                    onClick  = { if (persoCount > 1) persoCount-- },
+                    modifier = Modifier.size(36.dp),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+                ) { Text("−") }
+                Text(
+                    "%d %s".format(persoCount, unitLabel),
+                    modifier = Modifier.weight(1f),
+                    style    = MaterialTheme.typography.bodyMedium,
+                )
+                OutlinedButton(
+                    onClick  = { persoCount++ },
+                    modifier = Modifier.size(36.dp),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
+                ) { Text("+") }
+                OutlinedButton(onClick = { showPersoTimePicker = true }) {
                     Icon(Icons.Outlined.Schedule, null, modifier = Modifier.size(14.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text(String.format("%02d:%02d", pickedHour, pickedMinute))
+                    Text(String.format("%02d:%02d", persoHour, persoMinute))
                 }
             }
+            Spacer(Modifier.height(6.dp))
+            Text(
+                persoPreviewText,
+                style = MaterialTheme.typography.bodySmall,
+                color = if (persoTarget != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(10.dp))
+            Button(
+                onClick  = {
+                    if (persoTarget != null) {
+                        onApply(persoTarget.atTime(persoHour, persoMinute), selectedLocation?.id)
+                        onDismiss()
+                    }
+                },
+                enabled  = persoTarget != null,
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Définir ce rappel") }
 
             // Location picker (only shown if saved locations exist)
             if (locations.isNotEmpty()) {
@@ -1930,58 +2033,26 @@ private fun ReminderPickerSheet(
                 }
             }
 
-            Spacer(Modifier.height(12.dp))
-            Button(
-                onClick  = {
-                    onApply(preview, selectedLocation?.id)
-                    onDismiss()
-                },
-                modifier = Modifier.fillMaxWidth(),
-            ) { Text("Set Reminder") }
         }
     }
 
-    // Date picker dialog
-    if (showDatePicker) {
-        val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = pickedDate
-                .atStartOfDay(java.time.ZoneId.systemDefault())
-                .toInstant()
-                .toEpochMilli(),
-        )
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    datePickerState.selectedDateMillis?.let { millis ->
-                        pickedDate = java.time.Instant.ofEpochMilli(millis)
-                            .atZone(java.time.ZoneId.systemDefault())
-                            .toLocalDate()
-                    }
-                    showDatePicker = false
-                }) { Text("OK") }
-            },
-            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("Cancel") } },
-        ) { DatePicker(state = datePickerState) }
-    }
-
-    // Time picker dialog
-    if (showTimePicker) {
+    // Personnalisé time picker dialog
+    if (showPersoTimePicker) {
         val timePickerState = rememberTimePickerState(
-            initialHour   = pickedHour,
-            initialMinute = pickedMinute,
+            initialHour   = persoHour,
+            initialMinute = persoMinute,
             is24Hour      = true,
         )
         AlertDialog(
-            onDismissRequest = { showTimePicker = false },
+            onDismissRequest = { showPersoTimePicker = false },
             confirmButton = {
                 TextButton(onClick = {
-                    pickedHour   = timePickerState.hour
-                    pickedMinute = timePickerState.minute
-                    showTimePicker = false
+                    persoHour   = timePickerState.hour
+                    persoMinute = timePickerState.minute
+                    showPersoTimePicker = false
                 }) { Text("OK") }
             },
-            dismissButton = { TextButton(onClick = { showTimePicker = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { showPersoTimePicker = false }) { Text("Annuler") } },
             text = { TimePicker(state = timePickerState) },
         )
     }

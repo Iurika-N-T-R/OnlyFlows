@@ -70,6 +70,7 @@ sealed interface TodayEvent {
     data class AddTask(
         val id: String,
         val title: String,
+        val note: String = "",
         val priority: TaskPriority = TaskPriority.NONE,
         val projectId: String? = null,
         val sectionId: String? = null,
@@ -217,7 +218,7 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
             is TodayEvent.ClearSelection -> _uiState.update { it.copy(selectedTaskIds = emptySet()) }
             is TodayEvent.ShowAddTask    -> _uiState.update { it.copy(showAddTask = true) }
             is TodayEvent.HideAddTask    -> _uiState.update { it.copy(showAddTask = false) }
-            is TodayEvent.AddTask        -> { AppLog.d("TodayVM", "addTask: \"${event.title}\" project=${event.projectId}"); addTask(event.id, event.title, event.priority, event.projectId, event.sectionId, event.checklistItems) }
+            is TodayEvent.AddTask        -> { AppLog.d("TodayVM", "addTask: \"${event.title}\" project=${event.projectId}"); addTask(event.id, event.title, event.note, event.priority, event.projectId, event.sectionId, event.checklistItems) }
             is TodayEvent.DeleteSelected -> { AppLog.d("TodayVM", "deleteSelected: ${event.ids.size} tasks"); deleteSelected(event.ids) }
             is TodayEvent.ToggleChecklistItem -> viewModelScope.launch {
                 taskRepo.toggleChecklistItem(event.itemId, event.completed)
@@ -315,12 +316,13 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    private fun addTask(id: String, title: String, priority: TaskPriority = TaskPriority.NONE, projectId: String? = null, sectionId: String? = null, checklistItems: List<String> = emptyList()) {
+    private fun addTask(id: String, title: String, note: String = "", priority: TaskPriority = TaskPriority.NONE, projectId: String? = null, sectionId: String? = null, checklistItems: List<String> = emptyList()) {
         if (title.isBlank()) return
         viewModelScope.launch {
             val newTask = Task(
                 id             = id,
                 title          = title,
+                note           = note,
                 priority       = priority,
                 projectId      = projectId,
                 sectionId      = sectionId,

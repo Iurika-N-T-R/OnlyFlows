@@ -21,6 +21,8 @@ data class RecurrenceRule(
     val daysOfWeek: List<Int> = emptyList(), // 1=Mon..7=Sun, used for WEEKLY
     val basis: RecurrenceBasis = RecurrenceBasis.COMPLETION_DATE,
     val skipWeekends: Boolean = false,
+    val endDate: LocalDate? = null,    // stop after this date
+    val endCount: Int? = null,         // stop after N completions
 )
 
 // ── ProjectStatus ────────────────────────────────────────────────────────────

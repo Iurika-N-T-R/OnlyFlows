@@ -127,6 +127,8 @@ private fun RecurrenceRule.toJson(): String {
         append("\"daysOfWeek\":[${daysOfWeek.joinToString(",")}],")
         append("\"basis\":\"${basis.name}\",")
         append("\"skipWeekends\":$skipWeekends")
+        if (endDate != null) append(",\"endDate\":\"$endDate\"")
+        if (endCount != null) append(",\"endCount\":$endCount")
         append("}")
     }
 }
@@ -141,5 +143,8 @@ private fun parseRecurrenceJson(json: String): RecurrenceRule? = runCatching {
         } ?: emptyList(),
         basis        = RecurrenceBasis.valueOf(obj.optString("basis", "COMPLETION_DATE")),
         skipWeekends = obj.optBoolean("skipWeekends", false),
+        endDate      = obj.optString("endDate").takeIf { it.isNotBlank() }
+                           ?.let { java.time.LocalDate.parse(it) },
+        endCount     = if (obj.has("endCount")) obj.getInt("endCount") else null,
     )
 }.getOrNull()

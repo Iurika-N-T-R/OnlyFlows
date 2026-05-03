@@ -38,6 +38,7 @@ sealed interface InboxEvent {
     data class AddTask(
         val id: String,
         val title: String,
+        val note: String = "",
         val priority: TaskPriority = TaskPriority.NONE,
         val projectId: String? = null,
         val sectionId: String? = null,
@@ -120,6 +121,7 @@ class InboxViewModel(app: Application) : AndroidViewModel(app) {
                 val task = Task(
                     id        = event.id,
                     title     = event.title,
+                    note      = event.note,
                     priority  = event.priority,
                     projectId = event.projectId,
                     sectionId = event.sectionId,
