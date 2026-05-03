@@ -20,7 +20,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class ArchivedTaskGroup(
-    val project: Project?,   // null = Inbox
+    val project: Project?,    // null = Inbox
+    val projectId: String?,   // kept for stable key even when project not resolved
     val tasks: List<Task>,
 )
 
@@ -52,13 +53,14 @@ class LogbookViewModel(app: Application) : AndroidViewModel(app) {
                 projectRepo.observeAll(),
                 taskRepo.observeAllArchived(),
             ) { archivedProjects, allProjects, archivedTasks ->
-                val projectMap = allProjects.associateBy { it.id }
+                val projectMap = (allProjects + archivedProjects).associateBy { it.id }
                 val grouped = archivedTasks
                     .groupBy { it.projectId }
                     .map { (projectId, tasks) ->
                         ArchivedTaskGroup(
-                            project = projectId?.let { projectMap[it] },
-                            tasks   = tasks,
+                            project   = projectId?.let { projectMap[it] },
+                            projectId = projectId,
+                            tasks     = tasks,
                         )
                     }
                     .sortedWith(compareBy(nullsLast()) { it.project?.title })

@@ -187,7 +187,7 @@ private fun ArchivedTab(
                 }
 
                 state.archivedTaskGroups.forEach { group ->
-                    val groupKey = group.project?.id ?: "inbox"
+                    val groupKey = group.projectId ?: "inbox"
                     val expanded = groupKey in state.expandedTaskGroups
 
                     item(key = "group_header_$groupKey") {
