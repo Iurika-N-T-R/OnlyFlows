@@ -23,7 +23,6 @@ import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.action.ActionCallback
 import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.action.actionStartActivity
-import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.lazy.LazyColumn
 import androidx.glance.appwidget.lazy.items
 import androidx.glance.appwidget.provideContent
@@ -46,6 +45,7 @@ import com.onlyflows.data.preferences.WidgetListType
 import com.onlyflows.data.preferences.WidgetPlusDestination
 import com.onlyflows.domain.model.Task
 import com.onlyflows.ui.widgets.common.WidgetColors
+import com.onlyflows.ui.widgets.common.circleImageProvider
 import kotlinx.coroutines.flow.first
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -77,13 +77,21 @@ class OnlyFlowsWidget : GlanceAppWidget() {
             WidgetListType.UPCOMING -> db.taskDao().observeUpcoming().first()
             WidgetListType.ANYTIME  -> db.taskDao().observeAnytime().first()
             WidgetListType.SOMEDAY  -> db.taskDao().observeSomeday().first()
-            WidgetListType.OVERDUE  -> db.taskDao().observeOverdueTasks(today).first()
+            WidgetListType.OVERDUE  -> db.taskDao().observeOverdueTasksForWidget(today).first()
         }
+
+        val overdueEntities: List<TaskEntity> = if (config.listType == WidgetListType.TODAY)
+            db.taskDao().observeOverdueTasksForWidget(today).first()
+        else emptyList()
 
         val projects: Map<String, ProjectEntity> = db.projectDao().observeActive().first()
             .associateBy { it.id }
 
         val tasks = entities
+            .filter { !it.isCompleted && it.deletedAt == null }
+            .map { it.toDomain() }
+
+        val overdueTasks = overdueEntities
             .filter { !it.isCompleted && it.deletedAt == null }
             .map { it.toDomain() }
 
@@ -158,8 +166,7 @@ class OnlyFlowsWidget : GlanceAppWidget() {
                             Box(
                                 modifier         = GlanceModifier
                                     .size(26.dp)
-                                    .background(WidgetColors.AccentBlue)
-                                    .cornerRadius(13.dp)
+                                    .background(ImageProvider(R.drawable.widget_btn_blue))
                                     .clickable(actionStartActivity(addTaskIntent)),
                                 contentAlignment = Alignment.Center,
                             ) {
@@ -176,7 +183,7 @@ class OnlyFlowsWidget : GlanceAppWidget() {
                             Box(
                                 modifier         = GlanceModifier
                                     .size(26.dp)
-                                    .cornerRadius(13.dp)
+                                    .background(ImageProvider(R.drawable.widget_btn_transparent))
                                     .clickable(actionStartActivity(configIntent)),
                                 contentAlignment = Alignment.Center,
                             ) {
@@ -192,7 +199,31 @@ class OnlyFlowsWidget : GlanceAppWidget() {
 
                         // ── Task list ─────────────────────────────────────────
                         LazyColumn(modifier = GlanceModifier.defaultWeight().fillMaxWidth()) {
-                            if (tasks.isEmpty()) {
+                            if (overdueTasks.isNotEmpty()) {
+                                item {
+                                    Text(
+                                        text     = "En retard",
+                                        style    = TextStyle(
+                                            color      = ColorProvider(WidgetColors.OverdueRed),
+                                            fontSize   = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                        ),
+                                        modifier = GlanceModifier.padding(bottom = 2.dp),
+                                    )
+                                }
+                                items(overdueTasks, itemId = { ("o_" + it.id).hashCode().toLong() }) { task ->
+                                    DarkWidgetTaskRow(
+                                        context        = context,
+                                        task           = task,
+                                        projectColor   = task.projectId?.let { projects[it]?.colorHex },
+                                        projectName    = task.projectId?.let { projects[it]?.title },
+                                        widgetId       = widgetId,
+                                        checkboxAction = config.checkboxAction,
+                                        overdue        = true,
+                                    )
+                                }
+                            }
+                            if (tasks.isEmpty() && overdueTasks.isEmpty()) {
                                 item {
                                     Text(
                                         text     = "No tasks",
@@ -206,12 +237,12 @@ class OnlyFlowsWidget : GlanceAppWidget() {
                             } else {
                                 items(tasks, itemId = { it.id.hashCode().toLong() }) { task ->
                                     DarkWidgetTaskRow(
-                                        context         = context,
-                                        task            = task,
-                                        projectColor    = task.projectId?.let { projects[it]?.colorHex },
-                                        projectName     = task.projectId?.let { projects[it]?.title },
-                                        widgetId        = widgetId,
-                                        checkboxAction  = config.checkboxAction,
+                                        context        = context,
+                                        task           = task,
+                                        projectColor   = task.projectId?.let { projects[it]?.colorHex },
+                                        projectName    = task.projectId?.let { projects[it]?.title },
+                                        widgetId       = widgetId,
+                                        checkboxAction = config.checkboxAction,
                                     )
                                 }
                             }
@@ -258,6 +289,7 @@ fun DarkWidgetTaskRow(
     projectName: String?,
     widgetId: Int,
     checkboxAction: WidgetCheckboxAction = WidgetCheckboxAction.COMPLETE,
+    overdue: Boolean = false,
 ) {
     val openIntent = Intent(context, MainActivity::class.java)
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
@@ -284,12 +316,10 @@ fun DarkWidgetTaskRow(
             .clickable(actionStartActivity(openIntent)),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Colored checkbox square
         Box(
             modifier = GlanceModifier
                 .size(16.dp)
-                .background(checkboxColor)
-                .cornerRadius(4.dp)
+                .background(circleImageProvider(context, checkboxColor, 16f))
                 .clickable(checkboxClickAction),
         ) {}
         Spacer(GlanceModifier.width(8.dp))
@@ -298,7 +328,7 @@ fun DarkWidgetTaskRow(
             maxLines = 1,
             style    = TextStyle(
                 fontSize = 13.sp,
-                color    = ColorProvider(WidgetColors.TextPrimary),
+                color    = ColorProvider(if (overdue) WidgetColors.OverdueRed else WidgetColors.TextPrimary),
             ),
             modifier = GlanceModifier.defaultWeight(),
         )

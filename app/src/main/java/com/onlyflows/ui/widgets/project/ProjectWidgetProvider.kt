@@ -15,7 +15,6 @@ import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.lazy.LazyColumn
 import androidx.glance.appwidget.lazy.items
-import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
 import androidx.glance.layout.*
@@ -29,6 +28,7 @@ import com.onlyflows.data.local.entity.ProjectEntity
 import com.onlyflows.data.local.entity.TaskEntity
 import com.onlyflows.data.preferences.WidgetPreferences
 import com.onlyflows.ui.widgets.common.WidgetColors
+import com.onlyflows.ui.widgets.common.circleImageProvider
 import kotlinx.coroutines.flow.first
 
 class ProjectWidgetProvider : GlanceAppWidget() {
@@ -73,7 +73,7 @@ class ProjectWidgetProvider : GlanceAppWidget() {
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Box(
-                        modifier = GlanceModifier.size(10.dp).cornerRadius(5.dp).background(projectColor),
+                        modifier = GlanceModifier.size(10.dp).background(circleImageProvider(context, projectColor, 10f)),
                     ) {}
                     Spacer(GlanceModifier.width(8.dp))
                     Text(
@@ -122,7 +122,7 @@ class ProjectWidgetProvider : GlanceAppWidget() {
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Box(
-                                    modifier = GlanceModifier.size(12.dp).cornerRadius(6.dp).background(projectColor),
+                                    modifier = GlanceModifier.size(12.dp).background(circleImageProvider(context, projectColor, 12f)),
                                 ) {}
                                 Spacer(GlanceModifier.width(8.dp))
                                 Text(

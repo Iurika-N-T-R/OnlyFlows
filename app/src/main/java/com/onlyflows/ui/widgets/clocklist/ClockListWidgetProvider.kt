@@ -10,12 +10,12 @@ import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
+import androidx.glance.ImageProvider
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.action.actionStartActivity
-import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.lazy.LazyColumn
 import androidx.glance.appwidget.lazy.items
 import androidx.glance.appwidget.provideContent
@@ -28,11 +28,13 @@ import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import com.onlyflows.MainActivity
 import com.onlyflows.OnlyFlowsApp
+import com.onlyflows.R
 import com.onlyflows.data.local.AppDatabase
 import com.onlyflows.data.local.entity.TaskEntity
 import com.onlyflows.data.preferences.WidgetListType
 import com.onlyflows.data.preferences.WidgetPreferences
 import com.onlyflows.ui.widgets.common.WidgetColors
+import com.onlyflows.ui.widgets.common.circleImageProvider
 import kotlinx.coroutines.flow.first
 import java.time.LocalDate
 import java.time.LocalTime
@@ -67,7 +69,7 @@ class ClockListWidgetProvider : GlanceAppWidget() {
             WidgetListType.UPCOMING -> db.taskDao().observeUpcoming().first()
             WidgetListType.ANYTIME  -> db.taskDao().observeAnytime().first()
             WidgetListType.SOMEDAY  -> db.taskDao().observeSomeday().first()
-            WidgetListType.OVERDUE  -> db.taskDao().observeOverdueTasks(today.toString()).first()
+            WidgetListType.OVERDUE  -> db.taskDao().observeOverdueTasksForWidget(today.toString()).first()
         }
         val projects = db.projectDao().observeActive().first().associateBy { it.id }
         val tasks = entities.filter { !it.isCompleted && it.deletedAt == null }
@@ -83,7 +85,7 @@ class ClockListWidgetProvider : GlanceAppWidget() {
         }
 
         val overdueCount = if (config.listType == WidgetListType.TODAY)
-            db.taskDao().observeOverdueTasks(today.toString()).first().size
+            db.taskDao().observeOverdueTasksForWidget(today.toString()).first().size
         else 0
 
         val configIntent = Intent(context, ClockListConfigActivity::class.java)
@@ -164,8 +166,7 @@ class ClockListWidgetProvider : GlanceAppWidget() {
                             if (overdueCount > 0) {
                                 Box(
                                     modifier         = GlanceModifier
-                                        .background(Color(0xFFFF3B30))
-                                        .cornerRadius(9.dp)
+                                        .background(ImageProvider(R.drawable.widget_badge_red))
                                         .padding(horizontal = 5.dp, vertical = 1.dp),
                                     contentAlignment = Alignment.Center,
                                 ) {
@@ -225,15 +226,13 @@ class ClockListWidgetProvider : GlanceAppWidget() {
                                         Box(
                                             modifier         = GlanceModifier
                                                 .size(16.dp)
-                                                .cornerRadius(8.dp)
-                                                .background(Color(0xFF3A3A3C)),
+                                                .background(circleImageProvider(context, WidgetColors.DotDark, 16f)),
                                             contentAlignment = Alignment.Center,
                                         ) {
                                             Box(
                                                 modifier = GlanceModifier
                                                     .size(10.dp)
-                                                    .cornerRadius(5.dp)
-                                                    .background(projectColor),
+                                                    .background(circleImageProvider(context, projectColor, 10f)),
                                             ) {}
                                         }
                                         Spacer(GlanceModifier.width(8.dp))

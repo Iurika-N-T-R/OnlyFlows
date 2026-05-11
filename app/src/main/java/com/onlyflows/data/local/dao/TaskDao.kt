@@ -125,6 +125,17 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE dueDate < :today AND isCompleted = 0 AND isArchived = 0 AND deletedAt IS NULL ORDER BY dueDate ASC, sortOrder ASC")
     fun observeOverdueTasks(today: String): Flow<List<TaskEntity>>
 
+    @Query("""
+        SELECT * FROM tasks
+        WHERE isCompleted = 0 AND isArchived = 0 AND deletedAt IS NULL
+          AND (
+            dueDate < :today
+            OR (scheduledGroup = 'TODAY' AND (dueDate IS NULL OR dueDate < :today))
+          )
+        ORDER BY dueDate ASC, sortOrder ASC
+    """)
+    fun observeOverdueTasksForWidget(today: String): Flow<List<TaskEntity>>
+
     @Query("SELECT * FROM tasks WHERE dueDate IS NOT NULL AND isCompleted = 0 AND isArchived = 0 AND deletedAt IS NULL ORDER BY dueDate ASC, sortOrder ASC")
     fun observeUpcoming(): Flow<List<TaskEntity>>
 

@@ -71,12 +71,11 @@ class CountdownConfigActivity : ComponentActivity() {
                     tasks = tasks,
                     onSave = { name, date ->
                         lifecycleScope.launch {
-                            val manager = GlanceAppWidgetManager(this@CountdownConfigActivity)
-                            val glanceId = manager.getGlanceIdBy(appWidgetId)
-                            val glanceIdHash = glanceId.hashCode()
                             WidgetPreferences(this@CountdownConfigActivity)
-                                .saveCountdownConfig(glanceIdHash, name, date.toString())
-                            CountdownWidgetProvider().update(this@CountdownConfigActivity, glanceId)
+                                .saveCountdownConfig(appWidgetId, name, date.toString())
+                            val manager = GlanceAppWidgetManager(this@CountdownConfigActivity)
+                            val glanceIds = manager.getGlanceIds(CountdownWidgetProvider::class.java)
+                            glanceIds.forEach { CountdownWidgetProvider().update(this@CountdownConfigActivity, it) }
                             val result = Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
                             setResult(RESULT_OK, result)
                             finish()

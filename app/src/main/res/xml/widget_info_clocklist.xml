@@ -9,7 +9,7 @@
     android:updatePeriodMillis="0"
     android:widgetCategory="home_screen"
     android:resizeMode="horizontal|vertical"
-    android:configure=".ui.widgets.clocklist.ClockListConfigActivity"
+    android:configure="com.onlyflows.ui.widgets.clocklist.ClockListConfigActivity"
     android:description="@string/app_name"
     android:previewImage="@mipmap/ic_launcher"
     android:previewLayout="@layout/widget_preview_clocklist" />

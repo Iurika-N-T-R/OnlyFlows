@@ -7,6 +7,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
+import androidx.glance.ImageProvider
 import androidx.glance.action.ActionParameters
 import androidx.glance.action.actionParametersOf
 import androidx.glance.action.clickable
@@ -15,7 +16,6 @@ import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.action.ActionCallback
 import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.action.actionStartActivity
-import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.lazy.LazyColumn
 import androidx.glance.appwidget.lazy.items
 import androidx.glance.appwidget.provideContent
@@ -28,6 +28,7 @@ import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
 import com.onlyflows.MainActivity
+import com.onlyflows.R
 import com.onlyflows.data.local.AppDatabase
 import com.onlyflows.data.local.entity.TaskEntity
 import com.onlyflows.data.preferences.WidgetPreferences
@@ -89,7 +90,7 @@ class WeekWidgetProvider : GlanceAppWidget() {
                     Box(
                         modifier = GlanceModifier
                             .size(24.dp)
-                            .cornerRadius(12.dp)
+                            .background(ImageProvider(R.drawable.widget_btn_transparent))
                             .clickable(
                                 actionRunCallback<WeekNavCallback>(
                                     actionParametersOf(
@@ -123,8 +124,7 @@ class WeekWidgetProvider : GlanceAppWidget() {
                             modifier = GlanceModifier
                                 .defaultWeight()
                                 .padding(2.dp)
-                                .cornerRadius(12.dp)
-                                .background(if (isSelected) WidgetColors.AccentBlue else WidgetColors.DarkBg)
+                                .background(ImageProvider(if (isSelected) R.drawable.widget_day_selected else R.drawable.widget_btn_transparent))
                                 .clickable(
                                     actionRunCallback<SelectDayCallback>(
                                         actionParametersOf(
@@ -160,7 +160,7 @@ class WeekWidgetProvider : GlanceAppWidget() {
                     Box(
                         modifier = GlanceModifier
                             .size(24.dp)
-                            .cornerRadius(12.dp)
+                            .background(ImageProvider(R.drawable.widget_btn_transparent))
                             .clickable(
                                 actionRunCallback<WeekNavCallback>(
                                     actionParametersOf(
@@ -213,8 +213,7 @@ class WeekWidgetProvider : GlanceAppWidget() {
                                 Box(
                                     modifier = GlanceModifier
                                         .size(10.dp)
-                                        .cornerRadius(5.dp)
-                                        .background(WidgetColors.AccentBlue),
+                                        .background(ImageProvider(R.drawable.widget_btn_blue)),
                                 ) {}
                                 Spacer(GlanceModifier.width(8.dp))
                                 Text(
