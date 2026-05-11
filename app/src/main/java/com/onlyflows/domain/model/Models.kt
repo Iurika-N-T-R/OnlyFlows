@@ -27,7 +27,7 @@ data class RecurrenceRule(
 
 // ── ProjectStatus ────────────────────────────────────────────────────────────
 
-enum class ProjectStatus { NOT_STARTED, IN_PROGRESS, WAITING, DONE }
+enum class ProjectStatus { NOT_STARTED, IN_PROGRESS, WAITING, DONE, PAUSED }
 
 // ── ProjectType ───────────────────────────────────────────────────────────────
 
@@ -152,6 +152,7 @@ data class Project(
     val sortOrder: Int = 0,
     val dueDate: LocalDate? = null,
     val status: ProjectStatus = ProjectStatus.NOT_STARTED,
+    val tagIds: List<String> = emptyList(),
     val isArchived: Boolean = false,
     val createdAt: LocalDateTime = LocalDateTime.now(),
     val updatedAt: LocalDateTime = LocalDateTime.now(),

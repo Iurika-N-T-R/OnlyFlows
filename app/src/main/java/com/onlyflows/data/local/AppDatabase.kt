@@ -60,7 +60,7 @@ import kotlinx.coroutines.launch
         RssFeedEntity::class,
         RssArticleEntity::class,
     ],
-    version = 29,
+    version = 30,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -136,12 +136,15 @@ abstract class AppDatabase : RoomDatabase() {
                     db.execSQL("CREATE INDEX IF NOT EXISTS index_rss_articles_isRead ON rss_articles(isRead)")
                     db.execSQL("CREATE INDEX IF NOT EXISTS index_rss_articles_pubDate ON rss_articles(pubDate)")
                 }
+                val migration29to30 = Migration(29, 30) { db ->
+                    db.execSQL("ALTER TABLE projects ADD COLUMN tagIds TEXT NOT NULL DEFAULT ''")
+                }
                 Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "onlyflows.db",
                 )
-                .addMigrations(migration27to28, migration28to29)
+                .addMigrations(migration27to28, migration28to29, migration29to30)
                 .fallbackToDestructiveMigration()
                 .fallbackToDestructiveMigrationOnDowngrade()
                 .addCallback(SeedCallback())

@@ -67,6 +67,7 @@ class ClockListWidgetProvider : GlanceAppWidget() {
             WidgetListType.UPCOMING -> db.taskDao().observeUpcoming().first()
             WidgetListType.ANYTIME  -> db.taskDao().observeAnytime().first()
             WidgetListType.SOMEDAY  -> db.taskDao().observeSomeday().first()
+            WidgetListType.OVERDUE  -> db.taskDao().observeOverdueTasks(today.toString()).first()
         }
         val projects = db.projectDao().observeActive().first().associateBy { it.id }
         val tasks = entities.filter { !it.isCompleted && it.deletedAt == null }
@@ -78,10 +79,11 @@ class ClockListWidgetProvider : GlanceAppWidget() {
             WidgetListType.UPCOMING -> "Upcoming"
             WidgetListType.ANYTIME  -> "Anytime"
             WidgetListType.SOMEDAY  -> "Someday"
+            WidgetListType.OVERDUE  -> "Overdue"
         }
 
         val overdueCount = if (config.listType == WidgetListType.TODAY)
-            tasks.count { it.dueDate != null && it.dueDate.isBefore(today) }
+            db.taskDao().observeOverdueTasks(today.toString()).first().size
         else 0
 
         val configIntent = Intent(context, ClockListConfigActivity::class.java)

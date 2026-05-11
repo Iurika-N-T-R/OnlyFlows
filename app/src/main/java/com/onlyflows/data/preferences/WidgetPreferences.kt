@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
-enum class WidgetListType { TODAY, TOMORROW, INBOX, UPCOMING, ANYTIME, SOMEDAY }
+enum class WidgetListType { TODAY, TOMORROW, INBOX, UPCOMING, ANYTIME, SOMEDAY, OVERDUE }
 enum class WidgetPlusDestination { TODAY, INBOX }
 enum class WidgetCheckboxAction  { COMPLETE, TOGGLE_PRIORITY }
 

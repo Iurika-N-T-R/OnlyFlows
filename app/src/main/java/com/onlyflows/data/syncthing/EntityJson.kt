@@ -146,6 +146,7 @@ fun ProjectEntity.toJson(): JSONObject = JSONObject().apply {
     put("sortOrder", sortOrder)
     putNullable("dueDate", dueDate)
     put("status", status)
+    put("tagIds", tagIds.toJsonArray())
     put("isArchived", isArchived)
     put("createdAt", createdAt)
     put("updatedAt", updatedAt)
@@ -164,6 +165,7 @@ fun projectEntityFromJson(j: JSONObject) = ProjectEntity(
     sortOrder       = j.optInt("sortOrder", 0),
     dueDate         = if (j.isNull("dueDate")) null else j.optString("dueDate"),
     status          = j.optString("status", "NOT_STARTED"),
+    tagIds          = j.getStringList("tagIds"),
     isArchived      = j.optBoolean("isArchived", false),
     createdAt       = j.optString("createdAt", LocalDateTime.now().toString()),
     updatedAt       = j.optString("updatedAt", LocalDateTime.now().toString()),

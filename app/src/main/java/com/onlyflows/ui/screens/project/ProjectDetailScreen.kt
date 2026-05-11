@@ -9,6 +9,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -23,6 +24,7 @@ import androidx.compose.material.icons.outlined.Article
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.FormatListBulleted
 import androidx.compose.material.icons.outlined.DragIndicator
+import androidx.compose.material.icons.outlined.Label
 import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -759,18 +761,20 @@ fun ProjectDetailScreen(
 
     if (showEditProject && project != null) {
         ProjectEditSheet(
-            project   = project,
-            statusLog = state.statusLog,
-            onSave    = { title, note, colorHex, dueDate ->
+            project    = project,
+            statusLog  = state.statusLog,
+            allTags    = state.tags,
+            onSave     = { title, note, colorHex, dueDate ->
                 viewModel.onEvent(ProjectDetailEvent.UpdateProject(title, note, colorHex, dueDate))
                 showEditProject = false
             },
-            onArchive = {
+            onToggleTag = { viewModel.onEvent(ProjectDetailEvent.ToggleProjectTag(it)) },
+            onArchive  = {
                 viewModel.onEvent(ProjectDetailEvent.Archive)
                 showEditProject = false
                 onBack()
             },
-            onDismiss = { showEditProject = false },
+            onDismiss  = { showEditProject = false },
         )
     }
 
@@ -860,6 +864,7 @@ private val ProjectStatus.label: String get() = when (this) {
     ProjectStatus.IN_PROGRESS -> "In Progress"
     ProjectStatus.WAITING     -> "Waiting"
     ProjectStatus.DONE        -> "Done"
+    ProjectStatus.PAUSED      -> "Paused"
 }
 
 private val ProjectStatus.emoji: String get() = when (this) {
@@ -867,6 +872,7 @@ private val ProjectStatus.emoji: String get() = when (this) {
     ProjectStatus.IN_PROGRESS -> "\uD83D\uDD35"
     ProjectStatus.WAITING     -> "\uD83D\uDFE1"
     ProjectStatus.DONE        -> "\u2705"
+    ProjectStatus.PAUSED      -> "\u23F8"
 }
 
 private val ProjectStatus.chipColor: Color @Composable get() = when (this) {
@@ -874,6 +880,7 @@ private val ProjectStatus.chipColor: Color @Composable get() = when (this) {
     ProjectStatus.IN_PROGRESS -> MaterialTheme.colorScheme.primaryContainer
     ProjectStatus.WAITING     -> Color(0xFFFFF3CD)
     ProjectStatus.DONE        -> Color(0xFFD4EDDA)
+    ProjectStatus.PAUSED      -> Color(0xFFE0E0E0)
 }
 
 private val ProjectStatus.chipTextColor: Color @Composable get() = when (this) {
@@ -881,6 +888,7 @@ private val ProjectStatus.chipTextColor: Color @Composable get() = when (this) {
     ProjectStatus.IN_PROGRESS -> MaterialTheme.colorScheme.onPrimaryContainer
     ProjectStatus.WAITING     -> Color(0xFF856404)
     ProjectStatus.DONE        -> Color(0xFF155724)
+    ProjectStatus.PAUSED      -> Color(0xFF616161)
 }
 
 @Composable
@@ -1038,12 +1046,14 @@ private fun ReorderSectionsSheet(
 
 // ── Project edit sheet ─────────────────────────────────────────────────────────
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun ProjectEditSheet(
     project: com.onlyflows.domain.model.Project,
     statusLog: List<StatusLogEntry> = emptyList(),
+    allTags: List<Tag> = emptyList(),
     onSave: (title: String, note: String, colorHex: String, dueDate: LocalDate?) -> Unit,
+    onToggleTag: (String) -> Unit = {},
     onArchive: () -> Unit = {},
     onDismiss: () -> Unit,
 ) {
@@ -1126,6 +1136,30 @@ private fun ProjectEditSheet(
                     TextButton(onClick = { dueDate = null }) { Text("Clear") }
                 }
             }
+            // Tags row
+            if (allTags.isNotEmpty()) {
+                Spacer(Modifier.height(12.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Icon(Icons.Outlined.Label, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Tags", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                }
+                Spacer(Modifier.height(6.dp))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    allTags.forEach { tag ->
+                        val selected = tag.id in project.tagIds
+                        FilterChip(
+                            selected = selected,
+                            onClick  = { onToggleTag(tag.id) },
+                            label    = { Text(tag.name, style = MaterialTheme.typography.labelMedium) },
+                        )
+                    }
+                }
+            }
+
             Spacer(Modifier.height(16.dp))
 
             // ── Project Info ──────────────────────────────────────────────────
@@ -1167,12 +1201,14 @@ private fun ProjectEditSheet(
                         com.onlyflows.domain.model.ProjectStatus.IN_PROGRESS -> "\uD83D\uDD35"
                         com.onlyflows.domain.model.ProjectStatus.WAITING     -> "\uD83D\uDFE1"
                         com.onlyflows.domain.model.ProjectStatus.DONE        -> "\u2705"
+                        com.onlyflows.domain.model.ProjectStatus.PAUSED      -> "\u23F8"
                     }
                     val statusLabel = when (entry.status) {
                         com.onlyflows.domain.model.ProjectStatus.NOT_STARTED -> "Not Started"
                         com.onlyflows.domain.model.ProjectStatus.IN_PROGRESS -> "In Progress"
                         com.onlyflows.domain.model.ProjectStatus.WAITING     -> "Waiting"
                         com.onlyflows.domain.model.ProjectStatus.DONE        -> "Done"
+                        com.onlyflows.domain.model.ProjectStatus.PAUSED      -> "Paused"
                     }
                     Text(
                         "$statusEmoji $statusLabel · ${entry.changedAt.format(logFmt)}",

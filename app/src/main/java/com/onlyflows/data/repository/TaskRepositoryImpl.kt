@@ -28,7 +28,10 @@ class TaskRepositoryImpl(
     private val actionLog: ActionLogRepository? = null,
     private val syncDao: SyncDao? = null,
     private val syncthingWriter: SyncthingWriter? = null,
+    private val onTaskMutated: (suspend () -> Unit)? = null,
 ) : TaskRepository {
+
+    private suspend fun refreshWidgets() = onTaskMutated?.invoke()
 
     private suspend fun syncWrite(id: String) {
         taskDao.getById(id)?.let { syncthingWriter?.writeTask(it) }
@@ -137,12 +140,14 @@ class TaskRepositoryImpl(
         syncthingWriter?.writeTask(task.toEntity())
         log(ActionType.TASK_CREATED, task.id, task.title)
         AppLog.d("TaskRepo", "insert: \"${task.title}\" id=${task.id} group=${task.scheduledGroup} due=${task.dueDate} project=${task.projectId}")
+        refreshWidgets()
     }
 
     override suspend fun update(task: Task) {
         taskDao.update(task.toEntity())
         syncthingWriter?.writeTask(task.toEntity())
         AppLog.d("TaskRepo", "update: \"${task.title}\" id=${task.id} due=${task.dueDate} start=${task.startDate} group=${task.scheduledGroup} priority=${task.priority} project=${task.projectId}")
+        refreshWidgets()
     }
 
     override suspend fun setCompleted(id: String, completed: Boolean) {
@@ -151,6 +156,7 @@ class TaskRepositoryImpl(
         syncWrite(id)
         log(if (completed) ActionType.TASK_COMPLETED else ActionType.TASK_UNCOMPLETED, id, label)
         AppLog.d("TaskRepo", "${if (completed) "complete" else "uncomplete"}: \"$label\" id=$id")
+        refreshWidgets()
     }
 
     override suspend fun setArchived(id: String, archived: Boolean) {

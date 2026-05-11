@@ -77,6 +77,7 @@ class OnlyFlowsWidget : GlanceAppWidget() {
             WidgetListType.UPCOMING -> db.taskDao().observeUpcoming().first()
             WidgetListType.ANYTIME  -> db.taskDao().observeAnytime().first()
             WidgetListType.SOMEDAY  -> db.taskDao().observeSomeday().first()
+            WidgetListType.OVERDUE  -> db.taskDao().observeOverdueTasks(today).first()
         }
 
         val projects: Map<String, ProjectEntity> = db.projectDao().observeActive().first()
@@ -93,6 +94,7 @@ class OnlyFlowsWidget : GlanceAppWidget() {
             WidgetListType.UPCOMING -> "Upcoming"
             WidgetListType.ANYTIME  -> "Anytime"
             WidgetListType.SOMEDAY  -> "Someday"
+            WidgetListType.OVERDUE  -> "Overdue"
         }
 
         val headerIconRes = when (config.listType) {
@@ -102,6 +104,7 @@ class OnlyFlowsWidget : GlanceAppWidget() {
             WidgetListType.UPCOMING -> R.drawable.ic_nav_upcoming
             WidgetListType.ANYTIME  -> R.drawable.ic_nav_anytime
             WidgetListType.SOMEDAY  -> R.drawable.ic_nav_someday
+            WidgetListType.OVERDUE  -> R.drawable.ic_nav_upcoming
         }
 
         val plusDest = when (config.plusDestination) {

@@ -253,6 +253,7 @@ private fun WidgetListType.label() = when (this) {
     WidgetListType.UPCOMING -> "Upcoming"
     WidgetListType.ANYTIME  -> "Anytime"
     WidgetListType.SOMEDAY  -> "Someday"
+    WidgetListType.OVERDUE  -> "En retard"
 }
 
 private fun WidgetPlusDestination.label() = when (this) {

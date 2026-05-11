@@ -112,6 +112,7 @@ sealed interface ProjectDetailEvent {
     data class BulkStar(val starred: Boolean)                               : ProjectDetailEvent
     data class BulkSetPriority(val priority: TaskPriority)                  : ProjectDetailEvent
     data class BulkAddTag(val tagId: String)                                : ProjectDetailEvent
+    data class ToggleProjectTag(val tagId: String)                          : ProjectDetailEvent
     data class BulkSchedule(val date: java.time.LocalDate?)                 : ProjectDetailEvent
     data object StartTimerForSelected                                       : ProjectDetailEvent
     data object AbandonSelected                                             : ProjectDetailEvent
@@ -480,6 +481,12 @@ class ProjectDetailViewModel(app: Application) : AndroidViewModel(app) {
                     taskRepo.update(task.copy(priority = event.priority, updatedAt = LocalDateTime.now()))
                 }
                 _uiState.update { it.copy(showBulkMore = false, selectedTaskIds = emptySet()) }
+            }
+            is ProjectDetailEvent.ToggleProjectTag -> viewModelScope.launch {
+                val p = _uiState.value.project ?: return@launch
+                val tags = p.tagIds.toMutableList()
+                if (event.tagId in tags) tags.remove(event.tagId) else tags.add(event.tagId)
+                projectRepo.update(p.copy(tagIds = tags, updatedAt = LocalDateTime.now()))
             }
             is ProjectDetailEvent.BulkAddTag -> viewModelScope.launch {
                 val ids = _uiState.value.selectedTaskIds.toList()

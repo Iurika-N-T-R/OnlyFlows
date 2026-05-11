@@ -50,6 +50,9 @@ import com.onlyflows.data.syncthing.SyncthingImporter
 import com.onlyflows.data.syncthing.SyncthingPreferences
 import com.onlyflows.data.syncthing.SyncthingStatusMonitor
 import com.onlyflows.data.syncthing.SyncthingWriter
+import androidx.glance.appwidget.updateAll
+import com.onlyflows.ui.widgets.OnlyFlowsWidget
+import com.onlyflows.ui.widgets.clocklist.ClockListWidgetProvider
 
 class AppContainer(context: Context) {
     private val db = AppDatabase.getInstance(context)
@@ -81,6 +84,10 @@ class AppContainer(context: Context) {
         actionLog       = actionLogRepository,
         syncDao         = syncDao,
         syncthingWriter = syncthingWriter,
+        onTaskMutated   = {
+            OnlyFlowsWidget().updateAll(context)
+            ClockListWidgetProvider().updateAll(context)
+        },
     )
 
     val projectRepository: ProjectRepository = ProjectRepositoryImpl(

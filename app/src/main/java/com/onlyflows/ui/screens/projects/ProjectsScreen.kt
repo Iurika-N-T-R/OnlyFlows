@@ -490,6 +490,7 @@ private val ProjectStatus.columnHeaderColor: Color
             ProjectStatus.IN_PROGRESS -> MaterialTheme.colorScheme.primaryContainer
             ProjectStatus.WAITING     -> if (dark) Color(0xFF4D3A00) else Color(0xFFFFF3CD)
             ProjectStatus.DONE        -> if (dark) Color(0xFF1A3D2A) else Color(0xFFD4EDDA)
+            ProjectStatus.PAUSED      -> if (dark) Color(0xFF3A3A3A) else Color(0xFFE0E0E0)
         }
     }
 
@@ -501,6 +502,7 @@ private val ProjectStatus.columnHeaderContentColor: Color
             ProjectStatus.IN_PROGRESS -> MaterialTheme.colorScheme.onPrimaryContainer
             ProjectStatus.WAITING     -> if (dark) Color(0xFFFFE082) else Color(0xFF5D4200)
             ProjectStatus.DONE        -> if (dark) Color(0xFF81C995) else Color(0xFF1B5E35)
+            ProjectStatus.PAUSED      -> if (dark) Color(0xFFBDBDBD) else Color(0xFF616161)
         }
     }
 
@@ -509,4 +511,5 @@ private val ProjectStatus.labelWithEmoji: String get() = when (this) {
     ProjectStatus.IN_PROGRESS -> "\uD83D\uDD35 In Progress"
     ProjectStatus.WAITING     -> "\uD83D\uDFE1 Waiting"
     ProjectStatus.DONE        -> "\u2705 Done"
+    ProjectStatus.PAUSED      -> "\u23F8 Paused"
 }
