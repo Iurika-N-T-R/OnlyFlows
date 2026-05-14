@@ -72,7 +72,7 @@ class AnytimeViewModel(app: Application) : AndroidViewModel(app) {
             combine(
                 taskRepo.observeAnytime(),
                 tagRepo.observeAll(),
-                projectRepo.observeAll(),
+                projectRepo.observeAllProjectsAndLists(),
             ) { tasks, tags, projects -> Triple(tasks, tags, projects) }
             .collect { (tasks, tags, projects) ->
                 _uiState.update { it.copy(tasks = tasks, tags = tags, projects = projects, isLoading = false) }

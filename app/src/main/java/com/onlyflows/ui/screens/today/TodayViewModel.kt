@@ -113,7 +113,7 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
                 taskRepo.observeToday(),
                 taskRepo.observeOverdue(),
                 tagRepo.observeAll(),
-                projectRepo.observeAll(),
+                projectRepo.observeAllProjectsAndLists(),
                 taskRepo.observeTodayCompleted(),
             ) { args ->
                 args

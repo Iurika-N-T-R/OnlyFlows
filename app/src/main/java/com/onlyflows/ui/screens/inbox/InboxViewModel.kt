@@ -80,7 +80,7 @@ class InboxViewModel(app: Application) : AndroidViewModel(app) {
             combine(
                 taskRepo.observeInbox(),
                 tagRepo.observeAll(),
-                projectRepo.observeAll(),
+                projectRepo.observeAllProjectsAndLists(),
             ) { tasks, tags, projects -> Triple(tasks, tags, projects) }
             .distinctUntilChanged()
             .collect { (tasks, tags, projects) ->

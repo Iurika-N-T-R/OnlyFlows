@@ -198,7 +198,7 @@ class ProjectDetailViewModel(app: Application) : AndroidViewModel(app) {
                 taskRepo.observeByProject(projectId),
                 tagRepo.observeAll(),
                 projectRepo.observeStatusLog(projectId),
-                projectRepo.observeAll(),
+                projectRepo.observeAllProjectsAndLists(),
             ) { projAndChildren, tasks, tags, statusLog, allProjects ->
                 arrayOf<Any?>(projAndChildren, tasks, tags, statusLog, allProjects)
             }

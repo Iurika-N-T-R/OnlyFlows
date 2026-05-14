@@ -279,7 +279,7 @@ class TaskDetailViewModel(app: Application) : AndroidViewModel(app) {
 
     fun loadProjects() {
         viewModelScope.launch {
-            projectRepo.observeAll().collect { projects ->
+            projectRepo.observeAllProjectsAndLists().collect { projects ->
                 _uiState.update { it.copy(projects = projects) }
             }
         }
