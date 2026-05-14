@@ -30,7 +30,6 @@ import com.onlyflows.domain.model.TaskPriority
 import com.onlyflows.ui.layout.AdaptiveAppLayout
 import com.onlyflows.ui.navigation.Screen
 import com.onlyflows.ui.overlays.AddTaskSheet
-import com.onlyflows.ui.widgets.EXTRA_TASK_ID
 import com.onlyflows.ui.theme.LocalFontScale
 import com.onlyflows.ui.theme.LocalUse24hFormat
 import com.onlyflows.ui.theme.OnlyFlowsTheme
@@ -46,6 +45,7 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_DESTINATION   = "extra_destination"
         const val DESTINATION_TODAY   = "TODAY"
         const val DESTINATION_INBOX   = "INBOX"
+        const val EXTRA_TASK_ID       = "extra_task_id"
     }
 
     var keyShortcutHandler: ((android.view.KeyEvent) -> Boolean)? = null

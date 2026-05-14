@@ -121,7 +121,7 @@ fun TaskItem(
 
             // Title row
             Row(
-                verticalAlignment = Alignment.CenterVertically,
+                verticalAlignment = Alignment.Top,
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 // Checklist progress badge "done/total"

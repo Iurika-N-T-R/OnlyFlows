@@ -28,7 +28,6 @@ import com.onlyflows.data.preferences.SidebarPreferences
 import com.onlyflows.data.local.QuoteRepository
 import com.onlyflows.data.repository.DateTrackerRepositoryImpl
 import com.onlyflows.domain.repository.DateTrackerRepository
-import com.onlyflows.data.preferences.WidgetPreferences
 import com.onlyflows.data.repository.GoalRepositoryImpl
 import com.onlyflows.data.repository.GoalLogRepositoryImpl
 import com.onlyflows.data.repository.FolderRepositoryImpl
@@ -50,9 +49,6 @@ import com.onlyflows.data.syncthing.SyncthingImporter
 import com.onlyflows.data.syncthing.SyncthingPreferences
 import com.onlyflows.data.syncthing.SyncthingStatusMonitor
 import com.onlyflows.data.syncthing.SyncthingWriter
-import androidx.glance.appwidget.updateAll
-import com.onlyflows.ui.widgets.OnlyFlowsWidget
-import com.onlyflows.ui.widgets.clocklist.ClockListWidgetProvider
 
 class AppContainer(context: Context) {
     private val db = AppDatabase.getInstance(context)
@@ -84,10 +80,7 @@ class AppContainer(context: Context) {
         actionLog       = actionLogRepository,
         syncDao         = syncDao,
         syncthingWriter = syncthingWriter,
-        onTaskMutated   = {
-            OnlyFlowsWidget().updateAll(context)
-            ClockListWidgetProvider().updateAll(context)
-        },
+        onTaskMutated   = {},
     )
 
     val projectRepository: ProjectRepository = ProjectRepositoryImpl(
@@ -134,7 +127,6 @@ class AppContainer(context: Context) {
     val calendarRepository: CalendarRepository   = CalendarRepository(context)
     val backupPreferences: BackupPreferences     = BackupPreferences(context)
     val backupManager: BackupManager             = BackupManager(context)
-    val widgetPreferences: WidgetPreferences     = WidgetPreferences(context)
     val quoteRepository: QuoteRepository         = QuoteRepository(context)
     val dateTrackerRepository: DateTrackerRepository = DateTrackerRepositoryImpl(db.dateTrackerDao(), syncDao, syncthingWriter)
     val rssRepository: com.onlyflows.domain.repository.RssRepository =

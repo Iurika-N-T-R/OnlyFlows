@@ -14,8 +14,8 @@ android {
         applicationId = "com.onlyflows"
         minSdk = 26
         targetSdk = 35
-        versionCode = 69
-        versionName = "0.53.1"
+        versionCode = 70
+        versionName = "0.53.2"
     }
 
     signingConfigs {
@@ -107,9 +107,6 @@ dependencies {
     // WorkManager
     implementation(libs.androidx.work.runtime.ktx)
 
-    // Glance (home screen widgets)
-    implementation(libs.androidx.glance.appwidget)
-    implementation(libs.androidx.glance.material3)
     implementation(libs.androidx.documentfile)
 
     // Location + Geofencing

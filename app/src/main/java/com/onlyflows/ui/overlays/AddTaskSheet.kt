@@ -31,6 +31,7 @@ import com.onlyflows.domain.model.TaskPriority
 import com.onlyflows.ui.theme.FlowGold
 import com.onlyflows.ui.theme.OnlyFlowsTheme
 import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -300,10 +301,12 @@ fun AddTaskSheet(
                     onClick  = { showDatePicker = true },
                     label    = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            val (iconRes, chipLabel) = when (group) {
-                                TaskGroup.TODAY        -> R.drawable.ic_nav_today    to "Today"
-                                TaskGroup.THIS_EVENING -> R.drawable.ic_nav_evening  to "This Evening"
-                                else                   -> R.drawable.ic_nav_someday  to "Someday"
+                            val (iconRes, chipLabel) = when {
+                                group == TaskGroup.TODAY        -> R.drawable.ic_nav_today    to "Today"
+                                group == TaskGroup.THIS_EVENING -> R.drawable.ic_nav_evening  to "This Evening"
+                                dueDate != null                 -> R.drawable.ic_nav_anytime to
+                                    dueDate!!.format(DateTimeFormatter.ofPattern("d MMM"))
+                                else                            -> R.drawable.ic_nav_someday  to "Someday"
                             }
                             Icon(painter = painterResource(iconRes), contentDescription = null, tint = Color.Unspecified, modifier = Modifier.size(14.dp))
                             Spacer(Modifier.width(4.dp))
@@ -432,8 +435,8 @@ fun AddTaskSheet(
                 dueDate = picked
                 group = when {
                     picked == null              -> TaskGroup.SOMEDAY
-                    picked == java.time.LocalDate.now() -> TaskGroup.TODAY
-                    else                        -> TaskGroup.SOMEDAY
+                    picked == LocalDate.now()   -> TaskGroup.TODAY
+                    else                        -> TaskGroup.ANYTIME
                 }
                 showDatePicker = false
             },
