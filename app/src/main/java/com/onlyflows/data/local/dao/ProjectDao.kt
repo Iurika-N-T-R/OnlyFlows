@@ -59,6 +59,9 @@ interface SectionDao {
     @Query("SELECT * FROM sections WHERE projectId = :projectId ORDER BY sortOrder ASC")
     fun observeByProject(projectId: String): Flow<List<SectionEntity>>
 
+    @Query("SELECT * FROM sections ORDER BY sortOrder ASC")
+    suspend fun getAll(): List<SectionEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(section: SectionEntity)
 

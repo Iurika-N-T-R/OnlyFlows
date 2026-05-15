@@ -5,6 +5,22 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.55.0] — 2026-05-15 · Widget écran d'accueil
+
+### Ajouté
+
+- **Widget Glance 2×2** — widget redimensionnable affichant les tâches actives sur l'écran d'accueil
+  - Sélecteur de portée : All / Projet / Section (tap pour cycler)
+  - Filtre de tri : Date / Priority / Tag / None
+  - Liste scrollable de tâches avec titre, étiquette projet/section, date, heure et indicateur de priorité
+  - Bouton `[+]` pour ouvrir l'application
+  - Tap sur une tâche → marque comme complétée (avec gestion correcte de la récurrence)
+- **Thème** : suit automatiquement le thème système (clair / sombre), zéro coin dur
+- **Auto-refresh sans latence** : Room Flow → `updateAll` déclenché à chaque mutation de tâche
+- **Récurrence** : le widget appelle `completeRecurring()` au lieu de `setCompleted()` — la prochaine occurrence est correctement créée
+
+---
+
 ## [0.50.3] — 2026-05-02 · Correctifs sync Syncthing — mises à jour manquantes
 
 ### Corrigé

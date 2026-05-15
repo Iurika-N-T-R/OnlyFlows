@@ -49,6 +49,8 @@ import com.onlyflows.data.syncthing.SyncthingImporter
 import com.onlyflows.data.syncthing.SyncthingPreferences
 import com.onlyflows.data.syncthing.SyncthingStatusMonitor
 import com.onlyflows.data.syncthing.SyncthingWriter
+import com.onlyflows.ui.widget.WidgetPrefsRepository
+import com.onlyflows.ui.widget.WidgetStateManager
 
 class AppContainer(context: Context) {
     private val db = AppDatabase.getInstance(context)
@@ -160,4 +162,7 @@ class AppContainer(context: Context) {
         syncDao         = syncDao,
         syncthingWriter = syncthingWriter,
     )
+
+    val widgetPrefsRepository: WidgetPrefsRepository = WidgetPrefsRepository(context)
+    val widgetStateManager: WidgetStateManager       = WidgetStateManager(context, widgetPrefsRepository)
 }

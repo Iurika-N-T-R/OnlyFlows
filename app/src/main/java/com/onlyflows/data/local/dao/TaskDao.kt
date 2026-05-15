@@ -136,6 +136,20 @@ interface TaskDao {
     """)
     fun observeOverdueTasksForWidget(today: String): Flow<List<TaskEntity>>
 
+    @Query("""
+        SELECT * FROM tasks
+        WHERE isCompleted = 0 AND isArchived = 0 AND deletedAt IS NULL
+          AND (:projectId IS NULL OR projectId = :projectId)
+          AND (:sectionId IS NULL OR sectionId = :sectionId)
+        ORDER BY
+          CASE WHEN dueDate IS NULL THEN 1 ELSE 0 END,
+          dueDate ASC, sortOrder ASC
+    """)
+    fun observeActiveForWidget(
+        projectId: String? = null,
+        sectionId: String? = null
+    ): Flow<List<TaskEntity>>
+
     @Query("SELECT * FROM tasks WHERE dueDate IS NOT NULL AND isCompleted = 0 AND isArchived = 0 AND deletedAt IS NULL ORDER BY dueDate ASC, sortOrder ASC")
     fun observeUpcoming(): Flow<List<TaskEntity>>
 
