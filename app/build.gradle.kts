@@ -14,8 +14,8 @@ android {
         applicationId = "com.onlyflows"
         minSdk = 26
         targetSdk = 35
-        versionCode = 77
-        versionName = "0.55.2"
+        versionCode = 78
+        versionName = "0.55.3"
     }
 
     signingConfigs {
