@@ -17,15 +17,23 @@ import com.onlyflows.domain.model.TimeEntry
 import com.onlyflows.domain.repository.TagRepository
 import com.onlyflows.domain.repository.TaskRepository
 import com.onlyflows.domain.repository.TimeEntryRepository
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -93,6 +101,7 @@ sealed interface TodayEvent {
     data object AbandonSelected                                         : TodayEvent
 }
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class TodayViewModel(app: Application) : AndroidViewModel(app) {
 
     private val container = (app as OnlyFlowsApp).container
@@ -106,17 +115,30 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
     private val _uiState = MutableStateFlow(TodayUiState())
     val uiState: StateFlow<TodayUiState> = _uiState.asStateFlow()
 
+    private fun dateChangeFlow() = callbackFlow {
+        trySend(LocalDate.now())
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) { trySend(LocalDate.now()) }
+        }
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_DATE_CHANGED)
+            addAction(Intent.ACTION_TIMEZONE_CHANGED)
+        }
+        getApplication<android.app.Application>().registerReceiver(receiver, filter)
+        awaitClose { getApplication<android.app.Application>().unregisterReceiver(receiver) }
+    }.distinctUntilChanged()
+
     init {
         AppLog.d("TodayVM", "init")
         viewModelScope.launch {
-            combine(
-                taskRepo.observeToday(),
-                taskRepo.observeOverdue(),
-                tagRepo.observeAll(),
-                projectRepo.observeAllProjectsAndLists(),
-                taskRepo.observeTodayCompleted(),
-            ) { args ->
-                args
+            dateChangeFlow().flatMapLatest {
+                combine(
+                    taskRepo.observeToday(),
+                    taskRepo.observeOverdue(),
+                    tagRepo.observeAll(),
+                    projectRepo.observeAllProjectsAndLists(),
+                    taskRepo.observeTodayCompleted(),
+                ) { args -> args }
             }.distinctUntilChanged().collect { args ->
                 @Suppress("UNCHECKED_CAST")
                 val tasks     = args[0] as List<Task>
@@ -157,14 +179,19 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
         viewModelScope.launch {
-            taskRepo.observeTodayAbandoned().distinctUntilChanged().collect { abandoned ->
+            dateChangeFlow().flatMapLatest {
+                taskRepo.observeTodayAbandoned()
+            }.distinctUntilChanged().collect { abandoned ->
                 _uiState.update { it.copy(abandonedTasks = abandoned) }
             }
         }
         viewModelScope.launch {
             val hasPermission = calendarRepo.hasPermission()
             _uiState.update { it.copy(hasCalendarPermission = hasPermission) }
-            calendarPrefs.disabledCalendarIds.collectLatest { disabledIds ->
+            combine(
+                calendarPrefs.disabledCalendarIds,
+                dateChangeFlow(),
+            ) { disabledIds, _ -> disabledIds }.collectLatest { disabledIds ->
                 if (_uiState.value.hasCalendarPermission) {
                     val events = withContext(Dispatchers.IO) {
                         calendarRepo.getEventsForDay(LocalDate.now(), disabledIds)

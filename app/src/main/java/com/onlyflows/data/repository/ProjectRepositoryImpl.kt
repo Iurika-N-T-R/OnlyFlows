@@ -148,12 +148,12 @@ class ProjectRepositoryImpl(
     }
 
     override suspend fun archive(id: String) {
-        projectDao.archive(id)
+        projectDao.archive(id, LocalDateTime.now().toString())
         projectDao.getById(id)?.let { syncthingWriter?.writeProject(it) }
     }
 
     override suspend fun unarchive(id: String) {
-        projectDao.unarchive(id)
+        projectDao.unarchive(id, LocalDateTime.now().toString())
         projectDao.getById(id)?.let { syncthingWriter?.writeProject(it) }
     }
 

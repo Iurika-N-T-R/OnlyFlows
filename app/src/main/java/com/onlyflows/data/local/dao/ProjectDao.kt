@@ -31,11 +31,11 @@ interface ProjectDao {
     @Query("SELECT * FROM projects WHERE id = :id")
     suspend fun getById(id: String): ProjectEntity?
 
-    @Query("UPDATE projects SET isArchived = 1 WHERE id = :id")
-    suspend fun archive(id: String)
+    @Query("UPDATE projects SET isArchived = 1, updatedAt = :now WHERE id = :id")
+    suspend fun archive(id: String, now: String)
 
-    @Query("UPDATE projects SET isArchived = 0 WHERE id = :id")
-    suspend fun unarchive(id: String)
+    @Query("UPDATE projects SET isArchived = 0, updatedAt = :now WHERE id = :id")
+    suspend fun unarchive(id: String, now: String)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(project: ProjectEntity)
