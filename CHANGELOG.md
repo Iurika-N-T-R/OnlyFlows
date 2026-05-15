@@ -5,6 +5,16 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.55.1] — 2026-05-15 · Fix widget boutons silencieusement supprimés par R8
+
+### Corrigé
+
+- **ProGuard** — règle `ui.widgets.**` (ancienne tentative) corrigée en `ui.widget.**` ; les `ActionCallback` étaient silencieusement supprimés par R8 en release → aucun bouton ne répondait
+- **`@Keep`** ajouté sur `ToggleTaskCallback`, `SetScopeCallback`, `SetSortCallback`
+- Règle explicite `-keep class * implements ActionCallback` ajoutée
+
+---
+
 ## [0.55.0] — 2026-05-15 · Widget écran d'accueil
 
 ### Ajouté

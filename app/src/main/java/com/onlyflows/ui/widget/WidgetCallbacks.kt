@@ -1,6 +1,7 @@
 package com.onlyflows.ui.widget
 
 import android.content.Context
+import androidx.annotation.Keep
 import androidx.glance.GlanceId
 import androidx.glance.action.ActionParameters
 import androidx.glance.appwidget.action.ActionCallback
@@ -14,6 +15,7 @@ val keyScopeType = ActionParameters.Key<String>("scopeType")
 val keyScopeId   = ActionParameters.Key<String>("scopeId")
 val keySortBy    = ActionParameters.Key<String>("sortBy")
 
+@Keep
 class ToggleTaskCallback : ActionCallback {
     override suspend fun onAction(
         context: Context,
@@ -33,6 +35,7 @@ class ToggleTaskCallback : ActionCallback {
     }
 }
 
+@Keep
 class SetScopeCallback : ActionCallback {
     override suspend fun onAction(
         context: Context,
@@ -47,6 +50,7 @@ class SetScopeCallback : ActionCallback {
     }
 }
 
+@Keep
 class SetSortCallback : ActionCallback {
     override suspend fun onAction(
         context: Context,
