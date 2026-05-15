@@ -43,7 +43,7 @@ sealed interface SidebarEvent {
     data class DeleteFolder(val folderId: String)                       : SidebarEvent
     data class MoveProject(val projectId: String, val folderId: String?): SidebarEvent
     data class DeleteProject(val projectId: String)                     : SidebarEvent
-    data class CreateProject(val title: String, val colorHex: String, val folderId: String?, val type: ProjectType = ProjectType.PROJECT) : SidebarEvent
+    data class CreateProject(val title: String, val colorHex: String, val folderId: String?, val type: ProjectType = ProjectType.PROJECT, val iconEmoji: String = "") : SidebarEvent
     data class CreateFolder(val name: String) : SidebarEvent
     data class ReorderEntries(
         val folderIds: List<String>,
@@ -182,11 +182,12 @@ class SidebarViewModel(app: Application) : AndroidViewModel(app) {
             }
             is SidebarEvent.CreateProject -> viewModelScope.launch {
                 val newProject = Project(
-                    id       = "project_${System.currentTimeMillis()}",
-                    title    = event.title,
-                    colorHex = event.colorHex,
-                    folderId = event.folderId,
-                    type     = event.type,
+                    id        = "project_${System.currentTimeMillis()}",
+                    title     = event.title,
+                    colorHex  = event.colorHex,
+                    folderId  = event.folderId,
+                    type      = event.type,
+                    iconEmoji = event.iconEmoji,
                 )
                 projectRepo.insert(newProject)
             }

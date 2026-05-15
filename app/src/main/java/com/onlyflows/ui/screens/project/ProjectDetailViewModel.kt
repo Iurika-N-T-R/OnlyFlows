@@ -78,6 +78,7 @@ sealed interface ProjectDetailEvent {
         val note: String,
         val colorHex: String,
         val dueDate: java.time.LocalDate?,
+        val iconEmoji: String = "",
     ) : ProjectDetailEvent
     data class AddSection(val title: String)                                    : ProjectDetailEvent
     data class RenameSection(val sectionId: String, val title: String)         : ProjectDetailEvent
@@ -322,10 +323,11 @@ class ProjectDetailViewModel(app: Application) : AndroidViewModel(app) {
             is ProjectDetailEvent.UpdateProject -> viewModelScope.launch {
                 val p = _uiState.value.project ?: return@launch
                 projectRepo.update(p.copy(
-                    title    = event.title,
-                    note     = event.note,
-                    colorHex = event.colorHex,
-                    dueDate  = event.dueDate,
+                    title     = event.title,
+                    note      = event.note,
+                    colorHex  = event.colorHex,
+                    dueDate   = event.dueDate,
+                    iconEmoji = event.iconEmoji,
                 ))
             }
             is ProjectDetailEvent.AddSection -> viewModelScope.launch {

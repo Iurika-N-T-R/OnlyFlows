@@ -764,8 +764,8 @@ fun ProjectDetailScreen(
             project    = project,
             statusLog  = state.statusLog,
             allTags    = state.tags,
-            onSave     = { title, note, colorHex, dueDate ->
-                viewModel.onEvent(ProjectDetailEvent.UpdateProject(title, note, colorHex, dueDate))
+            onSave     = { title, note, colorHex, dueDate, iconEmoji ->
+                viewModel.onEvent(ProjectDetailEvent.UpdateProject(title, note, colorHex, dueDate, iconEmoji))
                 showEditProject = false
             },
             onToggleTag = { viewModel.onEvent(ProjectDetailEvent.ToggleProjectTag(it)) },
@@ -1052,7 +1052,7 @@ private fun ProjectEditSheet(
     project: com.onlyflows.domain.model.Project,
     statusLog: List<StatusLogEntry> = emptyList(),
     allTags: List<Tag> = emptyList(),
-    onSave: (title: String, note: String, colorHex: String, dueDate: LocalDate?) -> Unit,
+    onSave: (title: String, note: String, colorHex: String, dueDate: LocalDate?, iconEmoji: String) -> Unit,
     onToggleTag: (String) -> Unit = {},
     onArchive: () -> Unit = {},
     onDismiss: () -> Unit,
@@ -1065,6 +1065,7 @@ private fun ProjectEditSheet(
     var note        by remember(project.id) { mutableStateOf(project.note) }
     var colorHex    by remember(project.id) { mutableStateOf(project.colorHex) }
     var dueDate     by remember(project.id) { mutableStateOf(project.dueDate) }
+    var iconEmoji   by remember(project.id) { mutableStateOf(project.iconEmoji) }
     var showDatePicker by remember { mutableStateOf(false) }
 
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surface) {
@@ -1089,6 +1090,20 @@ private fun ProjectEditSheet(
                 singleLine    = true,
                 modifier      = Modifier.fillMaxWidth(),
             )
+            if (project.type == ProjectType.LIST) {
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value         = iconEmoji,
+                    onValueChange = { new ->
+                        val emoji = new.trim()
+                        if (emoji.length <= 2) iconEmoji = emoji
+                    },
+                    label         = { Text("Icon (emoji)") },
+                    placeholder   = { Text("e.g. 📋") },
+                    singleLine    = true,
+                    modifier      = Modifier.fillMaxWidth(),
+                )
+            }
             Spacer(Modifier.height(10.dp))
             OutlinedTextField(
                 value         = note,
@@ -1220,7 +1235,7 @@ private fun ProjectEditSheet(
 
             Spacer(Modifier.height(16.dp))
             Button(
-                onClick  = { onSave(title.trim(), note.trim(), colorHex, dueDate) },
+                onClick  = { onSave(title.trim(), note.trim(), colorHex, dueDate, iconEmoji.trim()) },
                 enabled  = title.isNotBlank(),
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("Save") }

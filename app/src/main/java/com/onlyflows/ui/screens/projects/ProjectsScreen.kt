@@ -229,7 +229,7 @@ private fun ProjectBoardCard(
             Row(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                ProjectTypeIcon(type = project.type, colorHex = project.colorHex, ratio = progress.ratio, size = 18.dp)
+                ProjectTypeIcon(type = project.type, colorHex = project.colorHex, ratio = progress.ratio, size = 18.dp, iconEmoji = project.iconEmoji)
                 Spacer(Modifier.width(8.dp))
                 Text(
                     text       = project.title,
@@ -345,7 +345,7 @@ private fun ProjectListRow(
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 8.dp),
         ) {
-            ProjectTypeIcon(type = project.type, colorHex = project.colorHex, ratio = progress.ratio, size = 16.dp)
+            ProjectTypeIcon(type = project.type, colorHex = project.colorHex, ratio = progress.ratio, size = 16.dp, iconEmoji = project.iconEmoji)
             Spacer(Modifier.width(10.dp))
             Text(
                 text     = project.title,
@@ -405,13 +405,16 @@ private fun ProjectTypeIcon(
     colorHex: String,
     ratio: Float,
     size: androidx.compose.ui.unit.Dp,
+    iconEmoji: String = "",
     modifier: Modifier = Modifier,
 ) {
     val color = remember(colorHex) {
         try { Color(android.graphics.Color.parseColor(colorHex)) }
         catch (e: Exception) { Color(0xFF4A90D9) }
     }
-    when (type) {
+    if (type == ProjectType.LIST && iconEmoji.isNotBlank()) {
+        Text(iconEmoji, style = MaterialTheme.typography.bodyMedium, modifier = modifier.size(size))
+    } else when (type) {
         ProjectType.PROJECT -> ProjectPieIcon(ratio = ratio, colorHex = colorHex, size = size, modifier = modifier)
         ProjectType.LIST    -> Icon(Icons.Outlined.FormatListBulleted, null, tint = color, modifier = modifier.size(size))
         ProjectType.NOTE    -> Icon(Icons.Outlined.Article, null, tint = color, modifier = modifier.size(size))

@@ -330,8 +330,8 @@ fun AppSidebar(
                 state.entries.filterIsInstance<SidebarEntry.FolderHeader>()
                     .firstOrNull { it.folder.id == fid }?.folder?.title
             },
-            onCreate  = { title, colorHex, type ->
-                viewModel.onEvent(SidebarEvent.CreateProject(title, colorHex, createProjectFolderId, type))
+            onCreate  = { title, colorHex, type, iconEmoji ->
+                viewModel.onEvent(SidebarEvent.CreateProject(title, colorHex, createProjectFolderId, type, iconEmoji))
             },
             onDismiss = { showCreateProject = false },
         )
@@ -596,7 +596,9 @@ private fun ProjectItem(
             .combinedClickable(onClick = onClick, onLongClick = onLongPress)
             .padding(horizontal = 10.dp, vertical = 7.dp),
     ) {
-        when (project.type) {
+        if (project.type == ProjectType.LIST && project.iconEmoji.isNotBlank()) {
+            Text(project.iconEmoji, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.size(18.dp))
+        } else when (project.type) {
             ProjectType.PROJECT -> PieProgressIcon(ratio = progress.ratio, color = color, size = 18)
             ProjectType.LIST    -> Icon(Icons.Outlined.FormatListBulleted, null, tint = color, modifier = Modifier.size(18.dp))
             ProjectType.NOTE    -> Icon(Icons.Outlined.Article, null, tint = color, modifier = Modifier.size(18.dp))
@@ -906,16 +908,17 @@ private fun ContextAction(
 private fun ProjectCreateSheet(
     folderId: String?,
     folderName: String?,
-    onCreate: (title: String, colorHex: String, type: ProjectType) -> Unit,
+    onCreate: (title: String, colorHex: String, type: ProjectType, iconEmoji: String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val presetColors = listOf(
         "#4A90D9", "#EC4899", "#F59E0B", "#10B981",
         "#8B5CF6", "#EF4444", "#6366F1", "#0EA5E9",
     )
-    var title    by remember { mutableStateOf("") }
-    var selected by remember { mutableStateOf(presetColors.first()) }
-    var type     by remember { mutableStateOf(ProjectType.PROJECT) }
+    var title     by remember { mutableStateOf("") }
+    var selected  by remember { mutableStateOf(presetColors.first()) }
+    var type      by remember { mutableStateOf(ProjectType.PROJECT) }
+    var iconEmoji by remember { mutableStateOf("") }
 
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surface) {
         Column(
@@ -979,6 +982,20 @@ private fun ProjectCreateSheet(
                 singleLine    = true,
                 modifier      = Modifier.fillMaxWidth(),
             )
+            if (type == ProjectType.LIST) {
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value         = iconEmoji,
+                    onValueChange = { new ->
+                        val emoji = new.trim()
+                        if (emoji.length <= 2) iconEmoji = emoji
+                    },
+                    label         = { Text("Icon (emoji)") },
+                    placeholder   = { Text("e.g. 📋") },
+                    singleLine    = true,
+                    modifier      = Modifier.fillMaxWidth(),
+                )
+            }
             Spacer(Modifier.height(12.dp))
             Text("Color", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(8.dp))
@@ -998,7 +1015,7 @@ private fun ProjectCreateSheet(
             }
             Spacer(Modifier.height(16.dp))
             Button(
-                onClick  = { if (title.isNotBlank()) { onCreate(title.trim(), selected, type); onDismiss() } },
+                onClick  = { if (title.isNotBlank()) { onCreate(title.trim(), selected, type, iconEmoji.trim()); onDismiss() } },
                 enabled  = title.isNotBlank(),
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("Create") }
