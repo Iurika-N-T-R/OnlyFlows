@@ -9,7 +9,6 @@ import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.ImageProvider
-import androidx.glance.LocalContext
 import androidx.glance.action.actionParametersOf
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
@@ -50,14 +49,14 @@ import java.util.Locale
 class OnlyFlowsWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        val db = AppDatabase.getInstance(context)
+        val db        = AppDatabase.getInstance(context)
         val prefsRepo = WidgetPrefsRepository(context)
-        val prefs = prefsRepo.prefs.first()
+        val prefs     = prefsRepo.prefs.first()
 
         val projectId = if (prefs.scopeType == "PROJECT") prefs.scopeId.ifEmpty { null } else null
         val sectionId = if (prefs.scopeType == "SECTION") prefs.scopeId.ifEmpty { null } else null
 
-        val rawTasks = db.taskDao().observeActiveForWidget(projectId, sectionId).first()
+        val rawTasks    = db.taskDao().observeActiveForWidget(projectId, sectionId).first()
         val allProjects = db.projectDao().observeActiveProjectsAndLists().first()
         val allSections = db.sectionDao().getAll()
 
@@ -74,7 +73,7 @@ class OnlyFlowsWidget : GlanceAppWidget() {
         val scopeLabel = when (prefs.scopeType) {
             "PROJECT" -> projectMap[prefs.scopeId]?.title ?: "All"
             "SECTION" -> sectionMap[prefs.scopeId]?.title ?: "All"
-            else -> "All"
+            else      -> "All"
         }
 
         val scopeOptions = buildScopeOptions(allProjects, allSections)
@@ -84,14 +83,14 @@ class OnlyFlowsWidget : GlanceAppWidget() {
 
         provideContent {
             WidgetContent(
-                tasks = sortedTasks,
-                projectMap = projectMap,
-                sectionMap = sectionMap,
-                prefs = prefs,
-                scopeLabel = scopeLabel,
+                tasks         = sortedTasks,
+                projectMap    = projectMap,
+                sectionMap    = sectionMap,
+                prefs         = prefs,
+                scopeLabel    = scopeLabel,
                 nextScopeType = nextType,
-                nextScopeId = nextId,
-                isDark = context.isNightMode(),
+                nextScopeId   = nextId,
+                isDark        = context.isNightMode(),
             )
         }
     }
@@ -148,7 +147,7 @@ private fun darkColors() = WColors(
     taskMeta         = Color(0xFF6B7A94),
 )
 
-// ── Root composable ────────────────────────────────────────────────────────────
+// ── Root ──────────────────────────────────────────────────────────────────────
 
 @Composable
 private fun WidgetContent(
@@ -161,7 +160,7 @@ private fun WidgetContent(
     nextScopeId: String,
     isDark: Boolean,
 ) {
-    val c = if (isDark) darkColors() else lightColors()
+    val c     = if (isDark) darkColors() else lightColors()
     val bgRes = if (isDark) R.drawable.widget_bg_dark else R.drawable.widget_bg_light
 
     Box(
@@ -174,29 +173,25 @@ private fun WidgetContent(
     ) {
         Column(modifier = GlanceModifier.fillMaxSize()) {
 
-            // ── Header row ────────────────────────────────────────────────────
-            Box(modifier = GlanceModifier.fillMaxWidth()) {
-                // Scope pill: fills width minus room for the + button
-                Box(modifier = GlanceModifier.fillMaxWidth().padding(end = 36.dp)) {
-                    ScopePill(
-                        label = scopeLabel,
-                        nextScopeType = nextScopeType,
-                        nextScopeId = nextScopeId,
-                        modifier = GlanceModifier.fillMaxWidth(),
-                    )
-                }
-                // Add button: right-aligned overlay
-                Box(
-                    modifier = GlanceModifier.fillMaxWidth(),
-                    contentAlignment = Alignment.CenterEnd,
-                ) {
-                    AddButton()
-                }
+            // ── Header: scope pill (fills) + [+] button ───────────────────
+            Row(
+                modifier = GlanceModifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // fillMaxWidth() inside a Row = weight(1) in Glance → takes all remaining space
+                ScopePill(
+                    label         = scopeLabel,
+                    nextScopeType = nextScopeType,
+                    nextScopeId   = nextScopeId,
+                    modifier      = GlanceModifier.fillMaxWidth(),
+                )
+                Spacer(GlanceModifier.width(6.dp))
+                AddButton()
             }
 
             Spacer(GlanceModifier.height(8.dp))
 
-            // ── Sort chips ────────────────────────────────────────────────────
+            // ── Sort chips ────────────────────────────────────────────────
             Row(modifier = GlanceModifier.fillMaxWidth()) {
                 SortChip("Date",     "DATE",     prefs.sortBy == "DATE",     c)
                 Spacer(GlanceModifier.width(4.dp))
@@ -209,7 +204,7 @@ private fun WidgetContent(
 
             Spacer(GlanceModifier.height(6.dp))
 
-            // ── Divider ───────────────────────────────────────────────────────
+            // ── Divider ───────────────────────────────────────────────────
             Box(
                 modifier = GlanceModifier
                     .fillMaxWidth()
@@ -219,16 +214,16 @@ private fun WidgetContent(
 
             Spacer(GlanceModifier.height(4.dp))
 
-            // ── Task list ─────────────────────────────────────────────────────
+            // ── Task list ─────────────────────────────────────────────────
             if (tasks.isEmpty()) {
                 Box(
                     modifier = GlanceModifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = "No tasks",
+                        text  = "No tasks",
                         style = TextStyle(
-                            color = ColorProvider(c.onSurface),
+                            color    = ColorProvider(c.onSurface),
                             fontSize = 13.sp,
                         ),
                     )
@@ -244,7 +239,8 @@ private fun WidgetContent(
     }
 }
 
-// ── Scope pill ─────────────────────────────────────────────────────────────────
+// ── Scope pill ────────────────────────────────────────────────────────────────
+// clickable FIRST — required by Glance/RemoteViews
 
 @Composable
 private fun ScopePill(
@@ -255,25 +251,25 @@ private fun ScopePill(
 ) {
     Box(
         modifier = modifier
-            .background(ImageProvider(R.drawable.widget_chip_selected_bg))
-            .cornerRadius(50.dp)
-            .padding(horizontal = 10.dp, vertical = 5.dp)
-            .clickable(
+            .clickable(                                          // ← FIRST
                 actionRunCallback<SetScopeCallback>(
                     actionParametersOf(
                         keyScopeType to nextScopeType,
                         keyScopeId   to nextScopeId,
                     )
                 )
-            ),
+            )
+            .background(ImageProvider(R.drawable.widget_chip_selected_bg))
+            .cornerRadius(50.dp)
+            .padding(horizontal = 10.dp, vertical = 5.dp),
         contentAlignment = Alignment.CenterStart,
     ) {
         Text(
-            text = label,
+            text  = label,
             maxLines = 1,
             style = TextStyle(
-                color = ColorProvider(Color(0xFFFFFFFF)),
-                fontSize = 11.sp,
+                color      = ColorProvider(Color(0xFFFFFFFF)),
+                fontSize   = 11.sp,
                 fontWeight = FontWeight.Bold,
             ),
         )
@@ -286,19 +282,19 @@ private fun ScopePill(
 private fun AddButton() {
     Box(
         modifier = GlanceModifier
+            .clickable(actionStartActivity<MainActivity>())      // ← FIRST
             .size(28.dp)
             .background(ImageProvider(R.drawable.widget_btn_circle))
-            .cornerRadius(50.dp)
-            .clickable(actionStartActivity<MainActivity>()),
+            .cornerRadius(50.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = "+",
+            text  = "+",
             style = TextStyle(
-                color = ColorProvider(Color(0xFFFFFFFF)),
-                fontSize = 18.sp,
+                color      = ColorProvider(Color(0xFFFFFFFF)),
+                fontSize   = 18.sp,
                 fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
+                textAlign  = TextAlign.Center,
             ),
         )
     }
@@ -317,23 +313,23 @@ private fun SortChip(
     val textColor = if (selected) c.chipSelectedText else c.onSurface
     Box(
         modifier = GlanceModifier
-            .wrapContentWidth()
-            .background(ColorProvider(bgColor))
-            .cornerRadius(50.dp)
-            .padding(horizontal = 6.dp, vertical = 3.dp)
-            .clickable(
+            .clickable(                                          // ← FIRST
                 actionRunCallback<SetSortCallback>(
                     actionParametersOf(keySortBy to sort)
                 )
-            ),
+            )
+            .wrapContentWidth()
+            .background(ColorProvider(bgColor))
+            .cornerRadius(50.dp)
+            .padding(horizontal = 6.dp, vertical = 3.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = label,
+            text     = label,
             maxLines = 1,
-            style = TextStyle(
-                color = ColorProvider(textColor),
-                fontSize = 9.sp,
+            style    = TextStyle(
+                color     = ColorProvider(textColor),
+                fontSize  = 9.sp,
                 textAlign = TextAlign.Center,
             ),
         )
@@ -352,28 +348,28 @@ private fun TaskRow(
     val contextLabel = when {
         task.sectionId != null -> sectionMap[task.sectionId]?.title
         task.projectId != null -> projectMap[task.projectId]?.title
-        else -> null
+        else                   -> null
     }
     val contextColor = task.projectId
         ?.let { projectMap[it]?.colorHex }
         ?.let { parseHexColor(it) }
         ?: c.accent
 
-    val dateText = buildDateText(task)
-    val pColor = priorityColor(task.priority)
+    val dateText   = buildDateText(task)
+    val pColor     = priorityColor(task.priority)
     val hasMetaRow = dateText != null || pColor != null || contextLabel != null
 
     Column(
         modifier = GlanceModifier
-            .fillMaxWidth()
-            .padding(vertical = 3.dp)
-            .clickable(
+            .clickable(                                          // ← FIRST
                 actionRunCallback<ToggleTaskCallback>(
                     actionParametersOf(keyTaskId to task.id)
                 )
-            ),
+            )
+            .fillMaxWidth()
+            .padding(vertical = 3.dp),
     ) {
-        // ── Title row ──────────────────────────────────────────────────
+        // Title row
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = GlanceModifier
@@ -383,34 +379,34 @@ private fun TaskRow(
             ) {}
             Spacer(GlanceModifier.width(5.dp))
             Text(
-                text = task.title,
+                text     = task.title,
                 maxLines = 1,
-                style = TextStyle(
-                    color = ColorProvider(c.onBg),
-                    fontSize = 12.sp,
+                style    = TextStyle(
+                    color      = ColorProvider(c.onBg),
+                    fontSize   = 12.sp,
                     fontWeight = FontWeight.Bold,
                 ),
             )
         }
 
-        // ── Meta row: context label · date · priority dot ──────────────
+        // Meta row: project/section · date · priority dot
         if (hasMetaRow) {
             Spacer(GlanceModifier.height(1.dp))
             Row(
-                modifier = GlanceModifier.padding(start = 18.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                modifier           = GlanceModifier.padding(start = 18.dp),
+                verticalAlignment  = Alignment.CenterVertically,
             ) {
                 val metaParts = buildList {
                     if (contextLabel != null) add(contextLabel)
-                    if (dateText != null) add(dateText)
+                    if (dateText != null)     add(dateText)
                 }.joinToString(" · ")
 
                 if (metaParts.isNotEmpty()) {
                     Text(
-                        text = metaParts,
+                        text     = metaParts,
                         maxLines = 1,
-                        style = TextStyle(
-                            color = ColorProvider(contextColor),
+                        style    = TextStyle(
+                            color    = ColorProvider(contextColor),
                             fontSize = 9.sp,
                         ),
                     )
@@ -435,7 +431,7 @@ private val dateFormatter = DateTimeFormatter.ofPattern("d MMM", Locale.getDefau
 private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm", Locale.getDefault())
 
 private fun buildDateText(task: TaskEntity): String? {
-    val date = task.dueDate ?: return null
+    val date     = task.dueDate ?: return null
     val datePart = date.format(dateFormatter)
     val timePart = task.dueTime?.format(timeFormatter)
     return if (timePart != null) "$datePart · $timePart" else datePart

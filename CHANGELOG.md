@@ -5,6 +5,15 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.55.2] — 2026-05-15 · Fix widget boutons — clickable premier dans la chaîne
+
+### Corrigé
+
+- **Root cause réel des boutons morts** : dans Glance/RemoteViews, `.clickable()` doit être le **premier** modifier de la chaîne — s'il est après `.background()` / `.padding()`, la vue englobante absorbe l'event et le click n'est jamais reçu. Chaque élément cliquable du widget avait clickable EN DERNIER.
+- **Header Box overlay** remplacé par un `Row` — la deuxième Box full-width interceptait silencieusement tous les taps destinés à la scope pill en dessous.
+
+---
+
 ## [0.55.1] — 2026-05-15 · Fix widget boutons silencieusement supprimés par R8
 
 ### Corrigé
