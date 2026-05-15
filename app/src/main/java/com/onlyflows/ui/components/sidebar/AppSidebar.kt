@@ -699,7 +699,9 @@ private fun ArchivedProjectItem(project: Project, onUnarchive: () -> Unit) {
             .clip(RoundedCornerShape(8.dp))
             .padding(horizontal = 10.dp, vertical = 7.dp),
     ) {
-        when (project.type) {
+        if (project.type == ProjectType.LIST && project.iconEmoji.isNotBlank()) {
+            Text(project.iconEmoji, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.size(18.dp))
+        } else when (project.type) {
             ProjectType.PROJECT -> PieProgressIcon(ratio = 0f, color = color, size = 18)
             ProjectType.LIST    -> Icon(Icons.Outlined.FormatListBulleted, null, tint = color, modifier = Modifier.size(18.dp))
             ProjectType.NOTE    -> Icon(Icons.Outlined.Article, null, tint = color, modifier = Modifier.size(18.dp))

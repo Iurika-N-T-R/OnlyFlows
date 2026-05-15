@@ -222,7 +222,9 @@ fun ProjectDetailScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.padding(bottom = 4.dp),
                         ) {
-                            when (project.type) {
+                            if (project.type == ProjectType.LIST && project.iconEmoji.isNotBlank()) {
+                                Text(project.iconEmoji, style = MaterialTheme.typography.headlineSmall)
+                            } else when (project.type) {
                                 ProjectType.PROJECT -> ProjectPieIcon(ratio = progressRatio, color = projectColor)
                                 ProjectType.LIST    -> Icon(Icons.Outlined.FormatListBulleted, null, tint = projectColor, modifier = Modifier.size(24.dp))
                                 ProjectType.NOTE    -> Icon(Icons.Outlined.Article, null, tint = projectColor, modifier = Modifier.size(24.dp))
@@ -461,7 +463,11 @@ fun ProjectDetailScreen(
                             try { Color(android.graphics.Color.parseColor(child.colorHex)) }
                             catch (e: Exception) { Color(0xFF4A90D9) }
                         }
-                        Icon(Icons.Outlined.FormatListBulleted, null, tint = childColor, modifier = Modifier.size(18.dp))
+                        if (child.iconEmoji.isNotBlank()) {
+                            Text(child.iconEmoji, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.size(18.dp))
+                        } else {
+                            Icon(Icons.Outlined.FormatListBulleted, null, tint = childColor, modifier = Modifier.size(18.dp))
+                        }
                         Spacer(Modifier.width(12.dp))
                         Text(child.title, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                         Icon(Icons.Outlined.ArrowDropDown, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
