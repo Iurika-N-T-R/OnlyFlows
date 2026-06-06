@@ -17,10 +17,14 @@ import androidx.core.app.NotificationCompat
 import com.onlyflows.MainActivity
 import com.onlyflows.OnlyFlowsApp
 import com.onlyflows.R
+import com.onlyflows.domain.model.ReminderRecurrence
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.time.Instant
 import java.time.LocalDateTime
+import java.time.ZoneId
 import kotlin.math.abs
 
 class ReminderReceiver : BroadcastReceiver() {
@@ -31,10 +35,12 @@ class ReminderReceiver : BroadcastReceiver() {
         const val ACTION_SHOW         = "com.onlyflows.ACTION_SHOW_REMINDER"
         const val ACTION_COMPLETE     = "com.onlyflows.ACTION_COMPLETE_TASK"
         const val ACTION_SNOOZE       = "com.onlyflows.ACTION_SNOOZE_REMINDER"
-        const val EXTRA_TASK_ID       = "task_id"
-        const val EXTRA_TITLE         = "task_title"
-        const val EXTRA_NOTE          = "task_note"
-        const val EXTRA_SCHEDULED_AT  = "scheduled_at_ms"
+        const val EXTRA_REMINDER_ID      = "reminder_id"
+        const val EXTRA_TASK_ID          = "task_id"
+        const val EXTRA_TITLE            = "task_title"
+        const val EXTRA_NOTE             = "task_note"
+        const val EXTRA_SCHEDULED_AT     = "scheduled_at_ms"
+        const val EXTRA_RECURRENCE_TYPE  = "recurrence_type"
 
         private const val TAG = "ReminderReceiver"
 
@@ -79,7 +85,7 @@ class ReminderReceiver : BroadcastReceiver() {
         val taskId = intent.getStringExtra(EXTRA_TASK_ID) ?: return
         when (intent.action) {
             ACTION_SHOW     -> showNotification(context, taskId, intent)
-            ACTION_COMPLETE -> completeTask(context, taskId)
+            ACTION_COMPLETE -> completeTask(context, taskId, intent)
             ACTION_SNOOZE   -> snoozeReminder(context, taskId, intent)
         }
     }
@@ -89,6 +95,10 @@ class ReminderReceiver : BroadcastReceiver() {
         val title          = intent.getStringExtra(EXTRA_TITLE) ?: "Reminder"
         val note           = intent.getStringExtra(EXTRA_NOTE)?.takeIf { it.isNotBlank() }
         val scheduledAtMs  = intent.getLongExtra(EXTRA_SCHEDULED_AT, 0L)
+        val reminderId     = intent.getStringExtra(EXTRA_REMINDER_ID)
+        val recurrenceType = intent.getStringExtra(EXTRA_RECURRENCE_TYPE)
+            ?.let { runCatching { ReminderRecurrence.valueOf(it) }.getOrNull() }
+            ?: ReminderRecurrence.NONE
         val notifId        = abs(taskId.hashCode())
 
         Log.d(TAG, "Showing notification for task $taskId: '$title'")
@@ -114,6 +124,7 @@ class ReminderReceiver : BroadcastReceiver() {
                     Intent(context, ReminderReceiver::class.java).apply {
                         action = ACTION_COMPLETE
                         putExtra(EXTRA_TASK_ID, taskId)
+                        if (reminderId != null) putExtra(EXTRA_REMINDER_ID, reminderId)
                     },
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
                 )
@@ -176,13 +187,48 @@ class ReminderReceiver : BroadcastReceiver() {
 
                 val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                 nm.notify(notifId, builder.build())
+
+                if (recurrenceType != ReminderRecurrence.NONE && reminderId != null) {
+                    val container = (context.applicationContext as OnlyFlowsApp).container
+                    val task = container.taskRepository.observeById(taskId).first()
+                    if (task != null && !task.isCompleted) {
+                        val current = LocalDateTime.ofInstant(
+                            Instant.ofEpochMilli(scheduledAtMs), ZoneId.systemDefault()
+                        )
+                        val next = when (recurrenceType) {
+                            ReminderRecurrence.DAILY  -> current.plusDays(1)
+                            ReminderRecurrence.WEEKLY -> current.plusWeeks(1)
+                            else                      -> null
+                        }
+                        if (next != null) {
+                            val existing = container.reminderRepository.getById(reminderId)
+                            if (existing != null) {
+                                val updated = existing.copy(
+                                    scheduledAt = next,
+                                    updatedAt   = LocalDateTime.now(),
+                                )
+                                container.reminderRepository.update(updated)
+                                ReminderScheduler(context).schedule(
+                                    reminderId     = reminderId,
+                                    taskId         = taskId,
+                                    title          = title,
+                                    note           = note,
+                                    at             = next,
+                                    recurrenceType = recurrenceType,
+                                )
+                                Log.d(TAG, "Rescheduled recurring reminder $reminderId → $next")
+                            }
+                        }
+                    }
+                }
             } finally {
                 pendingResult.finish()
             }
         }
     }
 
-    private fun completeTask(context: Context, taskId: String) {
+    private fun completeTask(context: Context, taskId: String, intent: Intent) {
+        val reminderId = intent.getStringExtra(EXTRA_REMINDER_ID)
         val pendingResult = goAsync()
         val repo = (context.applicationContext as OnlyFlowsApp).container.taskRepository
         CoroutineScope(Dispatchers.IO).launch {
@@ -193,15 +239,19 @@ class ReminderReceiver : BroadcastReceiver() {
                 pendingResult.finish()
             }
         }
+        val scheduler = ReminderScheduler(context)
+        if (reminderId != null) scheduler.cancelByReminderId(reminderId)
+        scheduler.cancel(taskId)
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.cancel(abs(taskId.hashCode()))
     }
 
     private fun snoozeReminder(context: Context, taskId: String, intent: Intent) {
-        val title    = intent.getStringExtra(EXTRA_TITLE) ?: ""
-        val note     = intent.getStringExtra(EXTRA_NOTE) ?: ""
-        val snoozeAt = LocalDateTime.now().plusMinutes(15)
-        ReminderScheduler(context).schedule(taskId, title, note, snoozeAt)
+        val reminderId = intent.getStringExtra(EXTRA_REMINDER_ID) ?: taskId
+        val title      = intent.getStringExtra(EXTRA_TITLE) ?: ""
+        val note       = intent.getStringExtra(EXTRA_NOTE) ?: ""
+        val snoozeAt   = LocalDateTime.now().plusMinutes(15)
+        ReminderScheduler(context).schedule(reminderId, taskId, title, note, snoozeAt)
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.cancel(abs(taskId.hashCode()))
         Log.d(TAG, "Task $taskId snoozed until $snoozeAt")

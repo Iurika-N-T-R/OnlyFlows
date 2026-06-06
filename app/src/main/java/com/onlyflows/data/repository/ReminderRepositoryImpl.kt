@@ -26,6 +26,15 @@ class ReminderRepositoryImpl(
         syncthingWriter?.writeReminder(reminder.toEntity())
     }
 
+    override suspend fun update(reminder: Reminder) {
+        val entity = reminder.toEntity()
+        dao.upsert(entity)
+        syncthingWriter?.writeReminder(entity)
+    }
+
+    override suspend fun getById(id: String): Reminder? =
+        dao.getById(id)?.toDomain()
+
     override suspend fun delete(id: String) {
         val now = LocalDateTime.now()
         syncDao?.insertTombstone(DeletedEntityEntity("tomb_$id", "reminders", id, now))

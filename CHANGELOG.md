@@ -5,6 +5,16 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.55.4] — 2026-06-06 · Fix rappels récurrents + bouton rappel + navigation backstack
+
+### Corrigé
+
+- **Rappels récurrents** : les rappels quotidiens/hebdomadaires se reprogramment automatiquement après affichage si la tâche n'est pas complétée. Nouveau champ `recurrenceType` persisté en DB (v31), alarmes désormais keyed par `reminderId` (était `taskId`). `BootReceiver` et `ToggleComplete` mis à jour en conséquence.
+- **Bouton "Définir ce rappel" toujours grisé** : `persoTarget` était `null` quand la tâche n'avait pas de deadline. Remplacé par un fallback "N jours/semaines à partir d'aujourd'hui".
+- **BackStack écrans racines** : `popUpTo(Int)` (API Navigation Fragments, silencieusement no-op en Navigation Compose) remplacé par `popUpTo(findStartDestination().id)` + `saveState`/`restoreState`.
+
+---
+
 ## [0.55.2] — 2026-05-15 · Fix widget boutons — clickable premier dans la chaîne
 
 ### Corrigé

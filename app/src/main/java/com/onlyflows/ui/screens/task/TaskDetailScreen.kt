@@ -705,7 +705,7 @@ fun TaskDetailScreen(
     if (state.showReminderPicker) {
         ReminderPickerSheet(
             taskDueDate = task.dueDate,
-            onApply     = { at, locId -> viewModel.onEvent(TaskDetailEvent.AddReminder(at, locId)) },
+            onApply     = { at, locId, recType -> viewModel.onEvent(TaskDetailEvent.AddReminder(at, locId, recType)) },
             onDismiss   = { viewModel.onEvent(TaskDetailEvent.HideReminderPicker) },
         )
     }
@@ -1752,7 +1752,7 @@ private fun RecurrencePickerSheet(
 @Composable
 private fun ReminderPickerSheet(
     taskDueDate: LocalDate?,
-    onApply: (LocalDateTime, String?) -> Unit,
+    onApply: (LocalDateTime, String?, com.onlyflows.domain.model.ReminderRecurrence) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -1849,7 +1849,7 @@ private fun ReminderPickerSheet(
                 tint    = Color(0xFF8B8FC9),
                 label   = "This evening · 18:00",
                 onClick = {
-                    onApply(LocalDate.now().atTime(18, 0), null)
+                    onApply(LocalDate.now().atTime(18, 0), null, com.onlyflows.domain.model.ReminderRecurrence.NONE)
                     onDismiss()
                 },
             )
@@ -1861,7 +1861,7 @@ private fun ReminderPickerSheet(
                 tint    = Color(0xFFFF8800),
                 label   = "Demain matin · 9:00",
                 onClick = {
-                    onApply(LocalDate.now().plusDays(1).atTime(9, 0), null)
+                    onApply(LocalDate.now().plusDays(1).atTime(9, 0), null, com.onlyflows.domain.model.ReminderRecurrence.NONE)
                     onDismiss()
                 },
             )
@@ -1882,7 +1882,7 @@ private fun ReminderPickerSheet(
                     label    = label,
                     sublabel = if (targetDate == null) "Aucune date d'échéance" else null,
                     onClick  = if (targetDate != null) ({
-                        onApply(targetDate.atTime(9, 0), null)
+                        onApply(targetDate.atTime(9, 0), null, com.onlyflows.domain.model.ReminderRecurrence.NONE)
                         onDismiss()
                     }) else ({}),
                 )
@@ -1909,15 +1909,24 @@ private fun ReminderPickerSheet(
             }
             Spacer(Modifier.height(8.dp))
 
-            val unitLabel = if (persoMode == "daily") "jours avant" else "semaines avant"
-            val persoTarget: LocalDate? = taskDueDate?.let {
+            val hasDueDate = taskDueDate != null
+            val unitLabel = when {
+                persoMode == "daily"  && hasDueDate  -> "jours avant l'échéance"
+                persoMode == "weekly" && hasDueDate  -> "semaines avant l'échéance"
+                persoMode == "daily"                 -> "jours à partir d'aujourd'hui"
+                else                                 -> "semaines à partir d'aujourd'hui"
+            }
+            val persoTarget: LocalDate = taskDueDate?.let {
                 val days = if (persoMode == "daily") persoCount.toLong() else persoCount.toLong() * 7
                 it.minusDays(days)
+            } ?: run {
+                val days = if (persoMode == "daily") persoCount.toLong() else persoCount.toLong() * 7
+                LocalDate.now().plusDays(days)
             }
             val persoPreviewFormatter = DateTimeFormatter.ofPattern("d MMM yyyy", java.util.Locale.FRENCH)
-            val persoPreviewText = if (persoTarget != null)
-                "Rappel à %02d:%02d le %s".format(persoHour, persoMinute, persoTarget.format(persoPreviewFormatter))
-            else "Aucune date d'échéance"
+            val persoPreviewText = "Rappel à %02d:%02d le %s".format(
+                persoHour, persoMinute, persoTarget.format(persoPreviewFormatter)
+            )
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -1948,17 +1957,16 @@ private fun ReminderPickerSheet(
             Text(
                 persoPreviewText,
                 style = MaterialTheme.typography.bodySmall,
-                color = if (persoTarget != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                color = MaterialTheme.colorScheme.primary,
             )
             Spacer(Modifier.height(10.dp))
             Button(
                 onClick  = {
-                    if (persoTarget != null) {
-                        onApply(persoTarget.atTime(persoHour, persoMinute), selectedLocation?.id)
-                        onDismiss()
-                    }
+                    val recType = if (persoMode == "daily") com.onlyflows.domain.model.ReminderRecurrence.DAILY
+                                  else com.onlyflows.domain.model.ReminderRecurrence.WEEKLY
+                    onApply(persoTarget.atTime(persoHour, persoMinute), selectedLocation?.id, recType)
+                    onDismiss()
                 },
-                enabled  = persoTarget != null,
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("Définir ce rappel") }
 

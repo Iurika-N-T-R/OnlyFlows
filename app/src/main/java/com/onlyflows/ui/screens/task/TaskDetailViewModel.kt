@@ -101,7 +101,11 @@ sealed interface TaskDetailEvent {
     data object Delete                                                       : TaskDetailEvent
     data class SetStartDate(val date: LocalDate?)                            : TaskDetailEvent
     data class SetRecurrence(val rule: RecurrenceRule?)                      : TaskDetailEvent
-    data class AddReminder(val at: LocalDateTime, val locationId: String? = null) : TaskDetailEvent
+    data class AddReminder(
+        val at: LocalDateTime,
+        val locationId: String? = null,
+        val recurrenceType: com.onlyflows.domain.model.ReminderRecurrence = com.onlyflows.domain.model.ReminderRecurrence.NONE,
+    ) : TaskDetailEvent
     data class DeleteReminder(val id: String)                               : TaskDetailEvent
     data object ShowStartDatePicker                                          : TaskDetailEvent
     data object HideStartDatePicker                                          : TaskDetailEvent
@@ -385,6 +389,9 @@ class TaskDetailViewModel(app: Application) : AndroidViewModel(app) {
                 val completing = !task.isCompleted
                 AppLog.d("TaskDetailVM", "toggleComplete: \"${task.title}\" ${task.isCompleted} → $completing recurrence=${task.recurrence != null}")
                 if (completing) {
+                    // Cancel each reminder alarm individually (keyed by reminderId)
+                    _uiState.value.reminders.forEach { scheduler.cancelByReminderId(it.id) }
+                    // Legacy cancel for any alarm keyed by taskId (pre-v31 reminders)
                     scheduler.cancel(task.id)
                     reminderRepo.deleteByTask(task.id)
                     taskRepo.update(task.copy(hasReminders = false, updatedAt = LocalDateTime.now()))
@@ -451,15 +458,17 @@ class TaskDetailViewModel(app: Application) : AndroidViewModel(app) {
                 _uiState.update { it.copy(showRecurrencePicker = false) }
             }
             is TaskDetailEvent.AddReminder -> viewModelScope.launch {
-                AppLog.d("TaskDetailVM", "AddReminder: at=${event.at} for \"${task.title}\" id=${task.id}")
+                AppLog.d("TaskDetailVM", "AddReminder: at=${event.at} recurrence=${event.recurrenceType} for \"${task.title}\" id=${task.id}")
+                val reminderId = "rem_${System.currentTimeMillis()}"
                 val reminder = Reminder(
-                    id          = "rem_${System.currentTimeMillis()}",
-                    taskId      = task.id,
-                    scheduledAt = event.at,
-                    locationId  = event.locationId,
+                    id             = reminderId,
+                    taskId         = task.id,
+                    scheduledAt    = event.at,
+                    locationId     = event.locationId,
+                    recurrenceType = event.recurrenceType,
                 )
                 reminderRepo.add(reminder)
-                scheduler.schedule(task.id, task.title, task.note, event.at)
+                scheduler.schedule(reminderId, task.id, task.title, task.note, event.at, event.recurrenceType)
                 // Register geofence if a location is attached
                 event.locationId?.let { locId ->
                     locationRepo.getById(locId)?.let { loc ->
@@ -476,7 +485,9 @@ class TaskDetailViewModel(app: Application) : AndroidViewModel(app) {
                 reminderRepo.delete(event.id)
                 val remaining = _uiState.value.reminders.filter { it.id != event.id }
                 scheduler.cancel(task.id)
-                remaining.forEach { scheduler.schedule(task.id, task.title, task.note, it.scheduledAt) }
+                remaining.forEach { r ->
+                    scheduler.schedule(r.id, task.id, task.title, task.note, r.scheduledAt, r.recurrenceType)
+                }
                 taskRepo.update(task.copy(hasReminders = remaining.isNotEmpty(), updatedAt = LocalDateTime.now()))
             }
             TaskDetailEvent.ShowStartDatePicker  -> _uiState.update { it.copy(showStartDatePicker = true) }

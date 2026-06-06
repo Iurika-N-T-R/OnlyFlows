@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.onlyflows.domain.model.Folder
@@ -1066,9 +1067,14 @@ private fun FolderCreateSheet(
 // ── Helper ────────────────────────────────────────────────────────────────────
 
 private fun navigate(navController: NavController, route: String) {
+    android.util.Log.d("OnlyFlowsNav", "navigate→$route stack=${navController.currentBackStack.value.map { it.destination.route }}")
     navController.navigate(route) {
+        popUpTo(navController.graph.findStartDestination().id) {
+            saveState = true
+            inclusive = false
+        }
         launchSingleTop = true
-        popUpTo(navController.graph.startDestinationId) { inclusive = false }
+        restoreState    = true
     }
 }
 

@@ -189,6 +189,10 @@ data class Tag(
     @IgnoredOnParcel val updatedAt: LocalDateTime = LocalDateTime.now(),
 ) : Parcelable
 
+// ── ReminderRecurrence ────────────────────────────────────────────────────────
+
+enum class ReminderRecurrence { NONE, DAILY, WEEKLY }
+
 // ── Reminder ─────────────────────────────────────────────────────────────────
 
 @Immutable
@@ -198,6 +202,7 @@ data class Reminder(
     val taskId: String,
     val scheduledAt: LocalDateTime,
     val locationId: String? = null,
+    val recurrenceType: ReminderRecurrence = ReminderRecurrence.NONE,
     @IgnoredOnParcel val updatedAt: LocalDateTime = LocalDateTime.now(),
 ) : Parcelable
 

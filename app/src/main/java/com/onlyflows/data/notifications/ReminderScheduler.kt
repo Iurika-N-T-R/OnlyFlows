@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.util.Log
+import com.onlyflows.domain.model.ReminderRecurrence
 import java.time.LocalDateTime
 import java.time.ZoneId
 import kotlin.math.abs
@@ -14,32 +15,40 @@ class ReminderScheduler(private val context: Context) {
 
     private val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
-    fun schedule(taskId: String, title: String, note: String?, at: LocalDateTime) {
+    /**
+     * Schedule an alarm keyed by [reminderId].
+     * Recurring reminders pass a non-NONE [recurrenceType]; the Receiver reschedules them
+     * automatically until the task is completed.
+     */
+    fun schedule(
+        reminderId: String,
+        taskId: String,
+        title: String,
+        note: String?,
+        at: LocalDateTime,
+        recurrenceType: ReminderRecurrence = ReminderRecurrence.NONE,
+    ) {
         val triggerMs = at.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
         if (triggerMs <= System.currentTimeMillis()) {
             Log.w(TAG, "Reminder for '$title' is in the past — skipped (at=$at)")
             return
         }
 
-        val intent = buildIntent(taskId, title, note, triggerMs)
+        val intent = buildIntent(reminderId, taskId, title, note, triggerMs, recurrenceType)
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                // API 31+: need explicit user grant
                 if (alarmManager.canScheduleExactAlarms()) {
                     alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMs, intent)
-                    Log.d(TAG, "Exact alarm set for '$title' at $at")
+                    Log.d(TAG, "Exact alarm set for '$title' at $at (reminderId=$reminderId recurrence=$recurrenceType)")
                 } else {
-                    // Best effort — will fire within ~5 min (still works, just not pinpoint)
                     alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMs, intent)
                     Log.w(TAG, "Inexact alarm (no exact-alarm permission) for '$title' at $at")
                 }
             } else {
-                // API 21-30: setExactAndAllowWhileIdle works without any special permission
                 alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMs, intent)
                 Log.d(TAG, "Exact alarm set for '$title' at $at (API ${Build.VERSION.SDK_INT})")
             }
         } catch (e: SecurityException) {
-            // Permission denied at runtime — fall back
             alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMs, intent)
             Log.e(TAG, "SecurityException scheduling alarm for '$title', used inexact fallback", e)
         } catch (e: Exception) {
@@ -47,23 +56,52 @@ class ReminderScheduler(private val context: Context) {
         }
     }
 
-    fun cancel(taskId: String) {
-        val intent = buildIntent(taskId, "", null, 0L)
+    /** Cancel an alarm keyed by reminderId (new-style, post-v31). */
+    fun cancelByReminderId(reminderId: String) {
+        val intent = buildCancelIntent(abs(reminderId.hashCode()))
         alarmManager.cancel(intent)
-        Log.d(TAG, "Alarm cancelled for task $taskId")
+        Log.d(TAG, "Alarm cancelled for reminderId=$reminderId")
     }
 
-    private fun buildIntent(taskId: String, title: String, note: String?, scheduledAtMs: Long): PendingIntent {
+    /** Legacy cancel keyed by taskId (pre-v31 alarms). */
+    fun cancel(taskId: String) {
+        val intent = buildCancelIntent(abs(taskId.hashCode()))
+        alarmManager.cancel(intent)
+        Log.d(TAG, "Legacy alarm cancelled for taskId=$taskId")
+    }
+
+    private fun buildIntent(
+        reminderId: String,
+        taskId: String,
+        title: String,
+        note: String?,
+        scheduledAtMs: Long,
+        recurrenceType: ReminderRecurrence,
+    ): PendingIntent {
         val intent = Intent(context, ReminderReceiver::class.java).apply {
             action = ReminderReceiver.ACTION_SHOW
+            putExtra(ReminderReceiver.EXTRA_REMINDER_ID, reminderId)
             putExtra(ReminderReceiver.EXTRA_TASK_ID, taskId)
             putExtra(ReminderReceiver.EXTRA_TITLE, title)
             putExtra(ReminderReceiver.EXTRA_NOTE, note ?: "")
             putExtra(ReminderReceiver.EXTRA_SCHEDULED_AT, scheduledAtMs)
+            putExtra(ReminderReceiver.EXTRA_RECURRENCE_TYPE, recurrenceType.name)
         }
         return PendingIntent.getBroadcast(
             context,
-            abs(taskId.hashCode()),
+            abs(reminderId.hashCode()),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+    }
+
+    private fun buildCancelIntent(requestCode: Int): PendingIntent {
+        val intent = Intent(context, ReminderReceiver::class.java).apply {
+            action = ReminderReceiver.ACTION_SHOW
+        }
+        return PendingIntent.getBroadcast(
+            context,
+            requestCode,
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )

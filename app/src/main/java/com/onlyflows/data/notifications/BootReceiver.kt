@@ -30,7 +30,14 @@ class BootReceiver : BroadcastReceiver() {
                     // Fetch task title/note for the notification
                     taskRepo.observeById(reminder.taskId).collect { task ->
                         if (task != null) {
-                            scheduler.schedule(reminder.taskId, task.title, task.note, reminder.scheduledAt)
+                            scheduler.schedule(
+                                reminderId     = reminder.id,
+                                taskId         = reminder.taskId,
+                                title          = task.title,
+                                note           = task.note,
+                                at             = reminder.scheduledAt,
+                                recurrenceType = reminder.recurrenceType,
+                            )
                         }
                         return@collect
                     }
