@@ -5,6 +5,14 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.55.5] — 2026-06-06 · Fix migration DB 30→31
+
+### Corrigé
+
+- **Crash au démarrage** : migration Room 30→31 manquante — `fallbackToDestructiveMigration()` ignoré quand des migrations explicites existent. Ajout de `Migration(30, 31)` avec `ALTER TABLE reminders ADD COLUMN recurrenceType`.
+
+---
+
 ## [0.55.4] — 2026-06-06 · Fix rappels récurrents + bouton rappel + navigation backstack
 
 ### Corrigé

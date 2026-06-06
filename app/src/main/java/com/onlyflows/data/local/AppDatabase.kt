@@ -139,12 +139,15 @@ abstract class AppDatabase : RoomDatabase() {
                 val migration29to30 = Migration(29, 30) { db ->
                     db.execSQL("ALTER TABLE projects ADD COLUMN tagIds TEXT NOT NULL DEFAULT ''")
                 }
+                val migration30to31 = Migration(30, 31) { db ->
+                    db.execSQL("ALTER TABLE reminders ADD COLUMN recurrenceType TEXT NOT NULL DEFAULT 'NONE'")
+                }
                 Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "onlyflows.db",
                 )
-                .addMigrations(migration27to28, migration28to29, migration29to30)
+                .addMigrations(migration27to28, migration28to29, migration29to30, migration30to31)
                 .fallbackToDestructiveMigration()
                 .fallbackToDestructiveMigrationOnDowngrade()
                 .addCallback(SeedCallback())
