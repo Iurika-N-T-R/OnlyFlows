@@ -61,6 +61,8 @@ class LanSyncViewModel(app: Application) : AndroidViewModel(app) {
 
     fun generateCode() { coordinator.generatePairingCode() }
 
+    fun rescan() { coordinator.rescan() }
+
     fun forceSync() {
         viewModelScope.launch { coordinator.forceSync() }
     }

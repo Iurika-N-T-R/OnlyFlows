@@ -18,6 +18,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.onlyflows.data.lan.LanSyncCoordinator
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -29,6 +30,7 @@ fun LanSyncSettingsScreen(
     var showPairDialog by remember { mutableStateOf(false) }
     var selectedPeer by remember { mutableStateOf<Triple<String, Int, String>?>(null) }
     var codeInput by remember { mutableStateOf("") }
+    var manualIp by remember { mutableStateOf("") }
     var nameEditing by remember { mutableStateOf(false) }
     var nameInput by remember { mutableStateOf("") }
 
@@ -42,8 +44,8 @@ fun LanSyncSettingsScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = vm::forceSync) {
-                        Icon(Icons.Outlined.Refresh, contentDescription = "Sync maintenant")
+                    IconButton(onClick = vm::rescan) {
+                        Icon(Icons.Outlined.Refresh, contentDescription = "Scanner le réseau")
                     }
                 }
             )
@@ -136,13 +138,17 @@ fun LanSyncSettingsScreen(
                             OutlinedButton(onClick = vm::generateCode, modifier = Modifier.weight(1f)) {
                                 Text("Generer code")
                             }
-                            if (state.discoveredPeers.isNotEmpty()) {
-                                Button(
-                                    onClick = { selectedPeer = state.discoveredPeers.first(); showPairDialog = true },
-                                    modifier = Modifier.weight(1f)
-                                ) {
+                            Button(
+                                onClick = {
+                                    selectedPeer = state.discoveredPeers.firstOrNull()
+                                    showPairDialog = true
+                                },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                if (state.discoveredPeers.isNotEmpty())
                                     Text("Entrer code (${state.discoveredPeers.size})")
-                                }
+                                else
+                                    Text("Entrer code")
                             }
                         }
                     }
@@ -180,29 +186,42 @@ fun LanSyncSettingsScreen(
         }
     }
 
-    if (showPairDialog && state.discoveredPeers.isNotEmpty()) {
+    if (showPairDialog) {
+        val hasPeers = state.discoveredPeers.isNotEmpty()
         AlertDialog(
-            onDismissRequest = { showPairDialog = false; codeInput = "" },
+            onDismissRequest = { showPairDialog = false; codeInput = ""; manualIp = "" },
             title = { Text("Jumeler avec un appareil") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    if (state.discoveredPeers.size > 1) {
-                        state.discoveredPeers.forEach { peer ->
-                            FilterChip(
-                                selected = selectedPeer == peer,
-                                onClick  = { selectedPeer = peer },
-                                label    = { Text("${peer.third} (${peer.first})") }
-                            )
+                    if (hasPeers) {
+                        if (state.discoveredPeers.size > 1) {
+                            state.discoveredPeers.forEach { peer ->
+                                FilterChip(
+                                    selected = selectedPeer == peer,
+                                    onClick  = { selectedPeer = peer },
+                                    label    = { Text("${peer.third} (${peer.first})") }
+                                )
+                            }
+                        } else {
+                            Text("Appareil détecté : ${state.discoveredPeers.first().third}",
+                                style = MaterialTheme.typography.bodyMedium)
                         }
                     } else {
-                        Text("Appareil : ${state.discoveredPeers.first().third}",
-                            style = MaterialTheme.typography.bodyMedium)
+                        Text("Aucun appareil détecté automatiquement.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        OutlinedTextField(
+                            value = manualIp,
+                            onValueChange = { manualIp = it.trim() },
+                            label = { Text("IP de l'autre appareil") },
+                            placeholder = { Text("192.168.1.x") },
+                            singleLine = true,
+                        )
                     }
-                    Spacer(Modifier.height(4.dp))
                     OutlinedTextField(
                         value = codeInput,
                         onValueChange = { if (it.length <= 6 && it.all(Char::isDigit)) codeInput = it },
-                        label = { Text("Code a 6 chiffres") },
+                        label = { Text("Code à 6 chiffres") },
                         singleLine = true,
                     )
                 }
@@ -210,14 +229,16 @@ fun LanSyncSettingsScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        selectedPeer?.let { p -> vm.pairWithPeer(p.first, p.second, codeInput) }
-                        showPairDialog = false; codeInput = ""
+                        val ip   = selectedPeer?.first ?: manualIp
+                        val port = selectedPeer?.second ?: LanSyncCoordinator.PORT
+                        vm.pairWithPeer(ip, port, codeInput)
+                        showPairDialog = false; codeInput = ""; manualIp = ""
                     },
-                    enabled = codeInput.length == 6 && selectedPeer != null,
+                    enabled = codeInput.length == 6 && (selectedPeer != null || manualIp.isNotBlank()),
                 ) { Text("Jumeler") }
             },
             dismissButton = {
-                TextButton(onClick = { showPairDialog = false; codeInput = "" }) { Text("Annuler") }
+                TextButton(onClick = { showPairDialog = false; codeInput = ""; manualIp = "" }) { Text("Annuler") }
             },
         )
     }

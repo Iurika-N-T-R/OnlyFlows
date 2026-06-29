@@ -50,6 +50,21 @@ class LanSyncCoordinator(
         }
     }
 
+    fun rescan() {
+        _discoveredPeers.value = emptyList()
+        discovery?.stop()
+        scope.launch {
+            val deviceName = prefs.getDeviceName()
+            discovery = LanSyncDiscovery(
+                context     = context,
+                port        = PORT,
+                deviceName  = deviceName,
+                onPeerFound = { ip, port -> scope.launch { onPeerDiscovered(ip, port) } },
+                onPeerLost  = { },
+            ).also { it.start() }
+        }
+    }
+
     private val queue = Channel<JSONObject>(Channel.UNLIMITED)
     private var server: LanSyncServer? = null
     private var discovery: LanSyncDiscovery? = null
