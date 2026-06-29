@@ -6,7 +6,6 @@ import com.onlyflows.data.local.dao.SyncDao
 import com.onlyflows.data.local.entity.*
 import com.onlyflows.data.syncthing.*
 import kotlinx.coroutines.*
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -121,7 +120,6 @@ class LanSyncCoordinator(
             }
     }
 
-    private val queue = Channel<JSONObject>(Channel.UNLIMITED)
     private var server: LanSyncServer? = null
     private var discovery: LanSyncDiscovery? = null
 
@@ -137,18 +135,6 @@ class LanSyncCoordinator(
                 onPeerLost   = { },
             ).also { it.start() }
         }
-        // Process mutation queue — each peer gets its own fire-and-forget coroutine
-        // so an offline peer never blocks mutations to online peers
-        scope.launch {
-            for (delta in queue) {
-                val peers = pairedDeviceDao.getAll()
-                peers.forEach { peer ->
-                    scope.launch(Dispatchers.IO) {
-                        runCatching { client.postApply(peer.lastKnownIp, peer.port, delta) }
-                    }
-                }
-            }
-        }
     }
 
     fun stop() {
@@ -156,14 +142,28 @@ class LanSyncCoordinator(
         discovery?.stop()
     }
 
-    // Called from LanSyncWriter — fire and forget onto the queue
+    // Each mutation launches its own coroutine — no Channel, no consumer to die
     fun enqueue(entityType: String, json: JSONObject) {
-        queue.trySend(JSONObject().put(entityType, JSONArray().put(json)))
+        val delta = JSONObject().put(entityType, JSONArray().put(json))
+        scope.launch(Dispatchers.IO) {
+            val peers = pairedDeviceDao.getAll()
+            Log.d(TAG, "push $entityType to ${peers.size} peers")
+            peers.forEach { peer ->
+                runCatching { client.postApply(peer.lastKnownIp, peer.port, delta) }
+                    .onSuccess { Log.d(TAG, "push OK → ${peer.lastKnownIp}") }
+                    .onFailure { Log.w(TAG, "push FAIL → ${peer.lastKnownIp}: ${it.message}") }
+            }
+        }
     }
 
     fun enqueueTombstone(entityType: String, entityId: String, deletedAt: LocalDateTime) {
-        val t = JSONObject().put("entityType", entityType).put("entityId", entityId).put("deletedAt", deletedAt.toString())
-        queue.trySend(JSONObject().put("tombstones", JSONArray().put(t)))
+        val delta = JSONObject().put("tombstones",
+            JSONArray().put(JSONObject().put("entityType", entityType).put("entityId", entityId).put("deletedAt", deletedAt.toString())))
+        scope.launch(Dispatchers.IO) {
+            pairedDeviceDao.getAll().forEach { peer ->
+                runCatching { client.postApply(peer.lastKnownIp, peer.port, delta) }
+            }
+        }
     }
 
     fun generatePairingCode(): String {
