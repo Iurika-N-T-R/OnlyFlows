@@ -8,50 +8,47 @@ import com.onlyflows.data.local.entity.toDomain
 import com.onlyflows.data.local.entity.toEntity
 import com.onlyflows.data.syncthing.SyncthingWriter
 import com.onlyflows.domain.model.Attachment
-import com.onlyflows.domain.repository.AttachmentRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.time.LocalDateTime
 
-class AttachmentRepositoryImpl(
+class AttachmentRepository(
     private val dao: AttachmentDao,
-    private val syncDao: SyncDao? = null,
-    private val syncthingWriter: SyncthingWriter? = null,
-) : AttachmentRepository {
+    private val syncDao: SyncDao,
+    private val syncthingWriter: SyncthingWriter,
+) {
 
-    override fun observeByTask(taskId: String): Flow<List<Attachment>> =
+    fun observeByTask(taskId: String): Flow<List<Attachment>> =
         dao.observeByTask(taskId).map { list -> list.map { it.toDomain() } }
 
-    override suspend fun add(attachment: Attachment) {
+    suspend fun add(attachment: Attachment) {
         dao.insert(attachment.toEntity())
-        syncthingWriter?.let { writer ->
-            runCatching {
-                writer.copyAttachmentFile(
-                    id        = attachment.id,
-                    fileName  = attachment.fileName,
-                    sourceUri = Uri.parse(attachment.uri),
-                )
-                writer.writeAttachmentMeta(attachment.toEntity())
-            }
+        runCatching {
+            syncthingWriter.copyAttachmentFile(
+                id        = attachment.id,
+                fileName  = attachment.fileName,
+                sourceUri = Uri.parse(attachment.uri),
+            )
+            syncthingWriter.writeAttachmentMeta(attachment.toEntity())
         }
     }
 
-    override suspend fun delete(id: String) {
+    suspend fun delete(id: String) {
         val now = LocalDateTime.now()
-        syncDao?.insertTombstone(DeletedEntityEntity("tomb_$id", "attachments", id, now))
-        syncthingWriter?.writeTombstone("attachments", id, now)
+        syncDao.insertTombstone(DeletedEntityEntity("tomb_$id", "attachments", id, now))
+        syncthingWriter.writeTombstone("attachments", id, now)
         dao.delete(id)
     }
 
-    override suspend fun deleteByTask(taskId: String) {
+    suspend fun deleteByTask(taskId: String) {
         val now = LocalDateTime.now()
         dao.getByTask(taskId).forEach { attachment ->
-            syncDao?.insertTombstone(DeletedEntityEntity("tomb_${attachment.id}", "attachments", attachment.id, now))
-            syncthingWriter?.writeTombstone("attachments", attachment.id, now)
+            syncDao.insertTombstone(DeletedEntityEntity("tomb_${attachment.id}", "attachments", attachment.id, now))
+            syncthingWriter.writeTombstone("attachments", attachment.id, now)
         }
         dao.deleteByTask(taskId)
     }
 
-    override suspend fun countByTask(taskId: String): Int =
+    suspend fun countByTask(taskId: String): Int =
         dao.countByTask(taskId)
 }

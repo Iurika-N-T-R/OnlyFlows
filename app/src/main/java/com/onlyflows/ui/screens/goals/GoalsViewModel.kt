@@ -8,7 +8,7 @@ import com.onlyflows.domain.model.Goal
 import com.onlyflows.domain.model.GoalFrequency
 import com.onlyflows.domain.model.GoalStatus
 import com.onlyflows.domain.model.computeStatus
-import com.onlyflows.domain.repository.GoalRepository
+import com.onlyflows.data.repository.GoalRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow

@@ -6,9 +6,9 @@ import androidx.lifecycle.viewModelScope
 import com.onlyflows.OnlyFlowsApp
 import com.onlyflows.domain.model.ActionType
 import com.onlyflows.domain.model.DailyCount
-import com.onlyflows.domain.repository.ActionLogRepository
-import com.onlyflows.domain.repository.ProjectRepository
-import com.onlyflows.domain.repository.TaskRepository
+import com.onlyflows.data.repository.ActionLogRepository
+import com.onlyflows.data.repository.ProjectRepository
+import com.onlyflows.data.repository.TaskRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

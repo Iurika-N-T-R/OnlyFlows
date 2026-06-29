@@ -7,34 +7,33 @@ import com.onlyflows.data.local.entity.toDomain
 import com.onlyflows.data.local.entity.toEntity
 import com.onlyflows.data.syncthing.SyncthingWriter
 import com.onlyflows.domain.model.GoalLog
-import com.onlyflows.domain.repository.GoalLogRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.time.LocalDateTime
 
-class GoalLogRepositoryImpl(
+class GoalLogRepository(
     private val dao: GoalLogDao,
-    private val syncDao: SyncDao? = null,
-    private val syncthingWriter: SyncthingWriter? = null,
-) : GoalLogRepository {
+    private val syncDao: SyncDao,
+    private val syncthingWriter: SyncthingWriter,
+) {
 
-    override fun observeByGoal(goalId: String): Flow<List<GoalLog>> =
+    fun observeByGoal(goalId: String): Flow<List<GoalLog>> =
         dao.observeByGoal(goalId).map { it.map { e -> e.toDomain() } }
 
-    override suspend fun insert(log: GoalLog) {
+    suspend fun insert(log: GoalLog) {
         dao.insert(log.toEntity())
-        syncthingWriter?.writeGoalLog(log.toEntity())
+        syncthingWriter.writeGoalLog(log.toEntity())
     }
 
-    override suspend fun setStarred(id: String, starred: Boolean) {
+    suspend fun setStarred(id: String, starred: Boolean) {
         dao.setStarred(id, starred)
-        dao.getById(id)?.let { syncthingWriter?.writeGoalLog(it) }
+        dao.getById(id)?.let { syncthingWriter.writeGoalLog(it) }
     }
 
-    override suspend fun softDelete(id: String) {
+    suspend fun softDelete(id: String) {
         val now = LocalDateTime.now()
         dao.softDelete(id)
-        syncthingWriter?.writeTombstone("goal_logs", id, now)
-        syncDao?.insertTombstone(DeletedEntityEntity("tomb_$id", "goal_logs", id, now))
+        syncthingWriter.writeTombstone("goal_logs", id, now)
+        syncDao.insertTombstone(DeletedEntityEntity("tomb_$id", "goal_logs", id, now))
     }
 }

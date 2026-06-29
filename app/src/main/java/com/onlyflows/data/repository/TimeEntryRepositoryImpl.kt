@@ -9,22 +9,20 @@ import com.onlyflows.data.syncthing.SyncthingWriter
 import com.onlyflows.domain.model.ActionLog
 import com.onlyflows.domain.model.ActionType
 import com.onlyflows.domain.model.TimeEntry
-import com.onlyflows.domain.repository.ActionLogRepository
-import com.onlyflows.domain.repository.TimeEntryRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
 
-class TimeEntryRepositoryImpl(
+class TimeEntryRepository(
     private val dao: TimeEntryDao,
-    private val actionLog: ActionLogRepository? = null,
-    private val syncDao: SyncDao? = null,
-    private val syncthingWriter: SyncthingWriter? = null,
-) : TimeEntryRepository {
+    private val actionLog: ActionLogRepository,
+    private val syncDao: SyncDao,
+    private val syncthingWriter: SyncthingWriter,
+) {
 
     private suspend fun log(type: ActionType, entryId: String, taskId: String, extra: String? = null) {
-        actionLog?.insert(
+        actionLog.insert(
             ActionLog(
                 id         = "al_${System.currentTimeMillis()}_${type.name}",
                 actionType = type,
@@ -37,46 +35,46 @@ class TimeEntryRepositoryImpl(
         )
     }
 
-    override fun observeByTask(taskId: String): Flow<List<TimeEntry>> =
+    fun observeByTask(taskId: String): Flow<List<TimeEntry>> =
         dao.observeByTask(taskId).map { list -> list.map { it.toDomain() } }
 
-    override fun observeByProject(projectId: String): Flow<List<TimeEntry>> =
+    fun observeByProject(projectId: String): Flow<List<TimeEntry>> =
         dao.observeByProject(projectId).map { list -> list.map { it.toDomain() } }
 
-    override suspend fun getActiveEntry(taskId: String): TimeEntry? =
+    suspend fun getActiveEntry(taskId: String): TimeEntry? =
         dao.getActiveEntry(taskId)?.toDomain()
 
-    override suspend fun insert(entry: TimeEntry) {
+    suspend fun insert(entry: TimeEntry) {
         dao.insert(entry.toEntity())
-        syncthingWriter?.writeTimeEntry(entry.toEntity())
+        syncthingWriter.writeTimeEntry(entry.toEntity())
         log(ActionType.TIMER_STARTED, entry.id, entry.taskId)
     }
 
-    override suspend fun stopEntry(id: String) {
+    suspend fun stopEntry(id: String) {
         val entity = dao.getById(id) ?: return
         val endedAt = LocalDateTime.now()
         val updated = entity.copy(endedAt = endedAt)
         dao.update(updated)
-        syncthingWriter?.writeTimeEntry(updated)
+        syncthingWriter.writeTimeEntry(updated)
         val duration = ChronoUnit.SECONDS.between(entity.startedAt, endedAt)
         log(ActionType.TIMER_STOPPED, id, entity.taskId, extra = "${duration}s")
     }
 
-    override suspend fun getTotalCompletedSeconds(taskId: String): Long =
+    suspend fun getTotalCompletedSeconds(taskId: String): Long =
         dao.getByTask(taskId)
             .filter { it.endedAt != null }
             .sumOf { ChronoUnit.SECONDS.between(it.startedAt, it.endedAt!!) }
 
-    override suspend fun getTotalSecondsForProject(projectId: String): Long =
+    suspend fun getTotalSecondsForProject(projectId: String): Long =
         dao.getByProject(projectId)
             .filter { it.endedAt != null }
             .sumOf { ChronoUnit.SECONDS.between(it.startedAt, it.endedAt!!) }
 
-    override suspend fun deleteByTask(taskId: String) {
+    suspend fun deleteByTask(taskId: String) {
         val now = LocalDateTime.now()
         dao.getByTask(taskId).forEach { entry ->
-            syncDao?.insertTombstone(DeletedEntityEntity("tomb_${entry.id}", "time_entries", entry.id, now))
-            syncthingWriter?.writeTombstone("time_entries", entry.id, now)
+            syncDao.insertTombstone(DeletedEntityEntity("tomb_${entry.id}", "time_entries", entry.id, now))
+            syncthingWriter.writeTombstone("time_entries", entry.id, now)
         }
         dao.deleteByTask(taskId)
     }

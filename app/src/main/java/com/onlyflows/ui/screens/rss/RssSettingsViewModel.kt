@@ -7,7 +7,7 @@ import com.onlyflows.OnlyFlowsApp
 import com.onlyflows.data.preferences.AppPreferences
 import com.onlyflows.data.rss.RssSyncWorker
 import com.onlyflows.domain.model.RssFeed
-import com.onlyflows.domain.repository.RssRepository
+import com.onlyflows.data.repository.RssRepository
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 

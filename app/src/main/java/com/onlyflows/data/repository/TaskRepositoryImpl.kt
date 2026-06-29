@@ -1,6 +1,5 @@
 package com.onlyflows.data.repository
 
-import com.onlyflows.data.debug.AppLog
 import com.onlyflows.data.local.dao.ChecklistItemDao
 import com.onlyflows.data.local.dao.SyncDao
 import com.onlyflows.data.local.dao.TaskDao
@@ -14,32 +13,30 @@ import com.onlyflows.domain.model.ActionType
 import com.onlyflows.domain.model.ChecklistItem
 import com.onlyflows.domain.model.Task
 import com.onlyflows.domain.nextDueDate
-import com.onlyflows.domain.repository.ActionLogRepository
-import com.onlyflows.domain.repository.TaskRepository
 import java.time.LocalDate
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import java.time.LocalDateTime
 
-class TaskRepositoryImpl(
+class TaskRepository(
     private val taskDao: TaskDao,
     private val checklistDao: ChecklistItemDao,
-    private val actionLog: ActionLogRepository? = null,
-    private val syncDao: SyncDao? = null,
-    private val syncthingWriter: SyncthingWriter? = null,
-    private val onTaskMutated: (suspend () -> Unit)? = null,
-) : TaskRepository {
+    private val actionLog: ActionLogRepository,
+    private val syncDao: SyncDao,
+    private val syncthingWriter: SyncthingWriter,
+    private val onTaskMutated: suspend () -> Unit,
+) {
 
-    private suspend fun refreshWidgets() = onTaskMutated?.invoke()
+    private suspend fun refreshWidgets() = onTaskMutated()
 
     private suspend fun syncWrite(id: String) {
-        taskDao.getById(id)?.let { syncthingWriter?.writeTask(it) }
+        taskDao.getById(id)?.let { syncthingWriter.writeTask(it) }
     }
 
     private suspend fun tombstone(id: String) {
         val now = LocalDateTime.now()
-        syncDao?.insertTombstone(
+        syncDao.insertTombstone(
             DeletedEntityEntity(
                 id         = "tomb_$id",
                 entityType = "tasks",
@@ -47,11 +44,11 @@ class TaskRepositoryImpl(
                 deletedAt  = now,
             )
         )
-        syncthingWriter?.writeTombstone("tasks", id, now)
+        syncthingWriter.writeTombstone("tasks", id, now)
     }
 
     private suspend fun log(type: ActionType, taskId: String, label: String, extra: String? = null) {
-        actionLog?.insert(
+        actionLog.insert(
             ActionLog(
                 id         = "al_${System.currentTimeMillis()}_${type.name}",
                 actionType = type,
@@ -64,110 +61,106 @@ class TaskRepositoryImpl(
         )
     }
 
-    override fun observeAll(): Flow<List<Task>> =
+    fun observeAll(): Flow<List<Task>> =
         taskDao.observeAllWithItems().map { list -> list.map { it.toDomain() } }
 
-    override fun observeUpcoming(): Flow<List<Task>> =
+    fun observeUpcoming(): Flow<List<Task>> =
         taskDao.observeUpcomingWithItems().map { list -> list.map { it.toDomain() } }
 
-    override fun observeOverdue(): Flow<List<Task>> =
+    fun observeOverdue(): Flow<List<Task>> =
         taskDao.observeOverdueWithItems(java.time.LocalDate.now().toString()).map { list -> list.map { it.toDomain() } }
 
-    override fun observeInbox(): Flow<List<Task>> =
+    fun observeInbox(): Flow<List<Task>> =
         taskDao.observeInboxWithItems().map { list -> list.map { it.toDomain() } }
 
-    override fun observeByGroup(group: com.onlyflows.domain.model.TaskGroup): Flow<List<Task>> =
+    fun observeByGroup(group: com.onlyflows.domain.model.TaskGroup): Flow<List<Task>> =
         taskDao.observeByGroupWithItems(group.name).map { list -> list.map { it.toDomain() } }
 
-    override fun observeToday(): Flow<List<Task>> =
+    fun observeToday(): Flow<List<Task>> =
         taskDao.observeTodayWithItems(java.time.LocalDate.now().toString()).map { list -> list.map { it.toDomain() } }
 
-    override fun observeTodayCompleted(): Flow<List<Task>> =
+    fun observeTodayCompleted(): Flow<List<Task>> =
         taskDao.observeTodayCompletedWithItems(java.time.LocalDate.now().toString()).map { list -> list.map { it.toDomain() } }
 
-    override fun observeTodayAbandoned(): Flow<List<Task>> =
+    fun observeTodayAbandoned(): Flow<List<Task>> =
         taskDao.observeTodayAbandonedWithItems(java.time.LocalDate.now().toString()).map { list -> list.map { it.toDomain() } }
 
-    override fun observeByProject(projectId: String): Flow<List<Task>> =
+    fun observeByProject(projectId: String): Flow<List<Task>> =
         taskDao.observeByProjectWithItems(projectId).map { list -> list.map { it.toDomain() } }
 
-    override fun observeArchivedByProject(projectId: String): Flow<List<Task>> =
+    fun observeArchivedByProject(projectId: String): Flow<List<Task>> =
         taskDao.observeArchivedByProjectWithItems(projectId).map { list -> list.map { it.toDomain() } }
 
-    override fun observeAllArchived(): Flow<List<Task>> =
+    fun observeAllArchived(): Flow<List<Task>> =
         taskDao.observeAllArchivedWithItems().map { list -> list.map { it.toDomain() } }
 
-    override fun observeById(id: String): Flow<Task?> =
+    fun observeById(id: String): Flow<Task?> =
         taskDao.observeByIdWithItems(id).map { it?.toDomain() }
 
-    override fun observeDependents(taskId: String): Flow<List<Task>> =
+    fun observeDependents(taskId: String): Flow<List<Task>> =
         taskDao.observeDependentsWithItems(taskId).map { list -> list.map { it.toDomain() } }
 
-    override suspend fun setDependsOn(id: String, dependsOnId: String?) {
+    suspend fun setDependsOn(id: String, dependsOnId: String?) {
         taskDao.setDependsOn(id, dependsOnId, LocalDateTime.now().toString())
         syncWrite(id)
     }
 
-    override suspend fun setGoals(id: String, goalIds: List<String>) {
+    suspend fun setGoals(id: String, goalIds: List<String>) {
         taskDao.setGoals(id, goalIds.joinToString(","), LocalDateTime.now().toString())
         syncWrite(id)
     }
 
-    override fun observeAnytime(): Flow<List<Task>> =
+    fun observeAnytime(): Flow<List<Task>> =
         taskDao.observeAnytimeWithItems().map { list -> list.map { it.toDomain() } }
 
-    override fun observeSomeday(): Flow<List<Task>> =
+    fun observeSomeday(): Flow<List<Task>> =
         taskDao.observeSomedayWithItems().map { list -> list.map { it.toDomain() } }
 
-    override suspend fun setScheduledGroup(id: String, group: com.onlyflows.domain.model.TaskGroup?) {
+    suspend fun setScheduledGroup(id: String, group: com.onlyflows.domain.model.TaskGroup?) {
         taskDao.setScheduledGroup(id, group?.name, LocalDateTime.now().toString())
         syncWrite(id)
     }
 
-    override fun search(query: String): Flow<List<Task>> =
+    fun search(query: String): Flow<List<Task>> =
         if (query.isBlank()) flowOf(emptyList())
         else taskDao.searchWithItems(query).map { list -> list.map { it.toDomain() } }
 
-    override fun searchByDate(date: java.time.LocalDate): Flow<List<Task>> =
+    fun searchByDate(date: java.time.LocalDate): Flow<List<Task>> =
         taskDao.searchByDateWithItems(date.toString()).map { list -> list.map { it.toDomain() } }
 
-    override fun searchByDateRange(start: java.time.LocalDate, end: java.time.LocalDate): Flow<List<Task>> =
+    fun searchByDateRange(start: java.time.LocalDate, end: java.time.LocalDate): Flow<List<Task>> =
         taskDao.searchByDateRangeWithItems(start.toString(), end.toString()).map { list -> list.map { it.toDomain() } }
 
-    override suspend fun insert(task: Task) {
+    suspend fun insert(task: Task) {
         taskDao.insert(task.toEntity())
         checklistDao.insertAll(task.checklistItems.map { it.toEntity() })
-        syncthingWriter?.writeTask(task.toEntity())
+        syncthingWriter.writeTask(task.toEntity())
         log(ActionType.TASK_CREATED, task.id, task.title)
-        AppLog.d("TaskRepo", "insert: \"${task.title}\" id=${task.id} group=${task.scheduledGroup} due=${task.dueDate} project=${task.projectId}")
         refreshWidgets()
     }
 
-    override suspend fun update(task: Task) {
+    suspend fun update(task: Task) {
         taskDao.update(task.toEntity())
-        syncthingWriter?.writeTask(task.toEntity())
-        AppLog.d("TaskRepo", "update: \"${task.title}\" id=${task.id} due=${task.dueDate} start=${task.startDate} group=${task.scheduledGroup} priority=${task.priority} project=${task.projectId}")
+        syncthingWriter.writeTask(task.toEntity())
         refreshWidgets()
     }
 
-    override suspend fun setCompleted(id: String, completed: Boolean) {
+    suspend fun setCompleted(id: String, completed: Boolean) {
         taskDao.setCompleted(id, completed, LocalDateTime.now().toString())
         val label = taskDao.getById(id)?.title ?: id
         syncWrite(id)
         log(if (completed) ActionType.TASK_COMPLETED else ActionType.TASK_UNCOMPLETED, id, label)
-        AppLog.d("TaskRepo", "${if (completed) "complete" else "uncomplete"}: \"$label\" id=$id")
         refreshWidgets()
     }
 
-    override suspend fun setArchived(id: String, archived: Boolean) {
+    suspend fun setArchived(id: String, archived: Boolean) {
         taskDao.setArchived(id, archived, LocalDateTime.now().toString())
         val label = taskDao.getById(id)?.title ?: id
         syncWrite(id)
         log(if (archived) ActionType.TASK_ARCHIVED else ActionType.TASK_RESTORED, id, label)
-        AppLog.d("TaskRepo", "${if (archived) "archive" else "restore"}: \"$label\" id=$id")
     }
 
-    override suspend fun completeRecurring(id: String) {
+    suspend fun completeRecurring(id: String) {
         val entity = taskDao.getById(id) ?: return
         val items  = checklistDao.getByTask(id)
         val task   = entity.toDomain(items)
@@ -211,14 +204,14 @@ class TaskRepositoryImpl(
         syncWrite(nextTask.id)
     }
 
-    override suspend fun abandonTask(id: String) {
+    suspend fun abandonTask(id: String) {
         taskDao.setArchived(id, true, LocalDateTime.now().toString())
         val label = taskDao.getById(id)?.title ?: id
         syncWrite(id)
         log(ActionType.TASK_ABANDONED, id, label)
     }
 
-    override suspend fun abandonRecurring(id: String) {
+    suspend fun abandonRecurring(id: String) {
         val entity = taskDao.getById(id) ?: return
         val items  = checklistDao.getByTask(id)
         val task   = entity.toDomain(items)
@@ -252,108 +245,101 @@ class TaskRepositoryImpl(
             updatedAt      = LocalDateTime.now(),
         )
         taskDao.insert(nextTask.toEntity())
-        syncthingWriter?.writeTask(nextTask.toEntity())
+        syncthingWriter.writeTask(nextTask.toEntity())
         if (nextTask.checklistItems.isNotEmpty()) {
             val newItems = nextTask.checklistItems.mapIndexed { idx, item ->
                 item.copy(id = "cli_${System.currentTimeMillis()}_$idx", taskId = nextTask.id).toEntity()
             }
             checklistDao.insertAll(newItems)
-            newItems.forEach { syncthingWriter?.writeChecklistItem(it) }
+            newItems.forEach { syncthingWriter.writeChecklistItem(it) }
         }
         syncWrite(id)
     }
 
-    override suspend fun setStarred(id: String, starred: Boolean) {
+    suspend fun setStarred(id: String, starred: Boolean) {
         taskDao.setStarred(id, starred, LocalDateTime.now().toString())
         syncWrite(id)
-        AppLog.d("TaskRepo", "${if (starred) "star" else "unstar"}: id=$id")
     }
 
-    override suspend fun moveTask(id: String, projectId: String?, sectionId: String?) {
+    suspend fun moveTask(id: String, projectId: String?, sectionId: String?) {
         taskDao.moveTask(id, projectId, sectionId, LocalDateTime.now().toString())
         val label = taskDao.getById(id)?.title ?: id
         syncWrite(id)
         log(ActionType.TASK_MOVED, id, label, extra = projectId ?: "inbox")
-        AppLog.d("TaskRepo", "move: \"$label\" id=$id → project=${projectId ?: "inbox"} section=$sectionId")
     }
 
-    override suspend fun delete(id: String) {
+    suspend fun delete(id: String) {
         tombstone(id)
         taskDao.delete(id)
-        AppLog.d("TaskRepo", "hardDelete: id=$id")
     }
 
-    override suspend fun deleteAll(ids: List<String>) {
+    suspend fun deleteAll(ids: List<String>) {
         ids.forEach { tombstone(it) }
         taskDao.deleteAll(ids)
-        AppLog.d("TaskRepo", "hardDeleteAll: ${ids.size} tasks")
     }
 
-    override suspend fun softDelete(id: String) {
+    suspend fun softDelete(id: String) {
         val label = taskDao.getById(id)?.title ?: id
         taskDao.softDelete(id, LocalDateTime.now().toString())
         syncWrite(id)
         log(ActionType.TASK_DELETED, id, label)
-        AppLog.d("TaskRepo", "softDelete: \"$label\" id=$id")
     }
 
-    override fun observeTrash(): Flow<List<Task>> =
+    fun observeTrash(): Flow<List<Task>> =
         taskDao.observeTrashWithItems().map { list -> list.map { it.toDomain() } }
 
-    override suspend fun restoreFromTrash(id: String) {
+    suspend fun restoreFromTrash(id: String) {
         taskDao.restoreFromTrash(id)
         syncWrite(id)
         val label = taskDao.getById(id)?.title ?: id
         log(ActionType.TASK_RESTORED, id, label)
     }
 
-    override suspend fun emptyTrash() {
+    suspend fun emptyTrash() {
         taskDao.getTrashIds().forEach { tombstone(it) }
         taskDao.emptyTrash()
     }
 
-    override suspend fun addChecklistItem(item: ChecklistItem) {
+    suspend fun addChecklistItem(item: ChecklistItem) {
         checklistDao.insert(item.toEntity())
-        syncthingWriter?.writeChecklistItem(item.toEntity())
-        AppLog.d("TaskRepo", "addChecklist: \"${item.title}\" taskId=${item.taskId}")
+        syncthingWriter.writeChecklistItem(item.toEntity())
     }
 
-    override suspend fun toggleChecklistItem(id: String, completed: Boolean) {
+    suspend fun toggleChecklistItem(id: String, completed: Boolean) {
         checklistDao.setCompleted(id, completed)
-        checklistDao.getById(id)?.let { syncthingWriter?.writeChecklistItem(it) }
-        AppLog.d("TaskRepo", "toggleChecklist: id=$id completed=$completed")
+        checklistDao.getById(id)?.let { syncthingWriter.writeChecklistItem(it) }
     }
 
-    override suspend fun deleteChecklistItem(id: String) {
+    suspend fun deleteChecklistItem(id: String) {
         val now = LocalDateTime.now()
-        syncDao?.insertTombstone(DeletedEntityEntity("tomb_$id", "checklist_items", id, now))
-        syncthingWriter?.writeTombstone("checklist_items", id, now)
+        syncDao.insertTombstone(DeletedEntityEntity("tomb_$id", "checklist_items", id, now))
+        syncthingWriter.writeTombstone("checklist_items", id, now)
         checklistDao.delete(id)
     }
 
-    override suspend fun updateChecklistItem(item: ChecklistItem) {
+    suspend fun updateChecklistItem(item: ChecklistItem) {
         checklistDao.update(item.toEntity())
-        syncthingWriter?.writeChecklistItem(item.toEntity())
+        syncthingWriter.writeChecklistItem(item.toEntity())
     }
 
-    override suspend fun reorderTasks(idsInOrder: List<String>) {
+    suspend fun reorderTasks(idsInOrder: List<String>) {
         idsInOrder.forEachIndexed { index, id ->
             taskDao.updateSortOrder(id, index)
         }
         idsInOrder.forEach { syncWrite(it) }
     }
 
-    override fun observeInboxCount(): Flow<Int>   = taskDao.observeInboxCount()
-    override fun observeTodayCount(): Flow<Int>   = taskDao.observeTodayCount()
-    override fun observeOverdueCount(): Flow<Int> = taskDao.observeOverdueCount(java.time.LocalDate.now().toString())
-    override fun observeAllCount(projectId: String): Flow<Int>       = taskDao.observeAllCount(projectId)
-    override fun observeCompletedCount(projectId: String): Flow<Int> = taskDao.observeCompletedCount(projectId)
-    override fun observeAllProjectProgress(): Flow<List<com.onlyflows.domain.model.ProjectTaskProgress>> =
+    fun observeInboxCount(): Flow<Int>   = taskDao.observeInboxCount()
+    fun observeTodayCount(): Flow<Int>   = taskDao.observeTodayCount()
+    fun observeOverdueCount(): Flow<Int> = taskDao.observeOverdueCount(java.time.LocalDate.now().toString())
+    fun observeAllCount(projectId: String): Flow<Int>       = taskDao.observeAllCount(projectId)
+    fun observeCompletedCount(projectId: String): Flow<Int> = taskDao.observeCompletedCount(projectId)
+    fun observeAllProjectProgress(): Flow<List<com.onlyflows.domain.model.ProjectTaskProgress>> =
         taskDao.observeAllProjectProgress().map { list ->
             list.map { com.onlyflows.domain.model.ProjectTaskProgress(it.projectId, it.total, it.completed) }
         }
 
-    override fun observeActiveCount(): Flow<Int>        = taskDao.observeActiveCount()
-    override fun observeAllCompletedCount(): Flow<Int>  = taskDao.observeAllCompletedCount()
-    override fun observeAllArchivedCount(): Flow<Int>   = taskDao.observeAllArchivedCount()
+    fun observeActiveCount(): Flow<Int>        = taskDao.observeActiveCount()
+    fun observeAllCompletedCount(): Flow<Int>  = taskDao.observeAllCompletedCount()
+    fun observeAllArchivedCount(): Flow<Int>   = taskDao.observeAllArchivedCount()
 }

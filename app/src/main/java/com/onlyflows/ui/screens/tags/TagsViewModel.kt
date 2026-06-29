@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.onlyflows.OnlyFlowsApp
 import com.onlyflows.domain.model.Tag
-import com.onlyflows.domain.repository.TagRepository
+import com.onlyflows.data.repository.TagRepository
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime

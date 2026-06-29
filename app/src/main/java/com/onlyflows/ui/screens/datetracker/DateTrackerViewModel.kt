@@ -6,7 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.onlyflows.OnlyFlowsApp
 import com.onlyflows.domain.model.DateTracker
 import com.onlyflows.domain.model.DateTrackerCategory
-import com.onlyflows.domain.repository.DateTrackerRepository
+import com.onlyflows.data.repository.DateTrackerRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow

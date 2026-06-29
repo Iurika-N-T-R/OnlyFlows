@@ -7,39 +7,38 @@ import com.onlyflows.data.local.entity.toDomain
 import com.onlyflows.data.local.entity.toEntity
 import com.onlyflows.data.syncthing.SyncthingWriter
 import com.onlyflows.domain.model.DateTracker
-import com.onlyflows.domain.repository.DateTrackerRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.time.LocalDateTime
 
-class DateTrackerRepositoryImpl(
+class DateTrackerRepository(
     private val dao: DateTrackerDao,
-    private val syncDao: SyncDao? = null,
-    private val syncthingWriter: SyncthingWriter? = null,
-) : DateTrackerRepository {
+    private val syncDao: SyncDao,
+    private val syncthingWriter: SyncthingWriter,
+) {
 
-    override fun observeAll(): Flow<List<DateTracker>> =
+    fun observeAll(): Flow<List<DateTracker>> =
         dao.observeAll().map { it.map { e -> e.toDomain() } }
 
-    override suspend fun getById(id: String): DateTracker? =
+    suspend fun getById(id: String): DateTracker? =
         dao.getById(id)?.toDomain()
 
-    override suspend fun insert(tracker: DateTracker) {
+    suspend fun insert(tracker: DateTracker) {
         val entity = tracker.toEntity()
         dao.insert(entity)
-        syncthingWriter?.writeDateTracker(entity)
+        syncthingWriter.writeDateTracker(entity)
     }
 
-    override suspend fun update(tracker: DateTracker) {
+    suspend fun update(tracker: DateTracker) {
         val entity = tracker.toEntity()
         dao.update(entity)
-        syncthingWriter?.writeDateTracker(entity)
+        syncthingWriter.writeDateTracker(entity)
     }
 
-    override suspend fun delete(id: String) {
+    suspend fun delete(id: String) {
         val now = LocalDateTime.now()
-        syncDao?.insertTombstone(DeletedEntityEntity("tomb_$id", "date_trackers", id, now))
-        syncthingWriter?.writeTombstone("date_trackers", id, now)
+        syncDao.insertTombstone(DeletedEntityEntity("tomb_$id", "date_trackers", id, now))
+        syncthingWriter.writeTombstone("date_trackers", id, now)
         dao.softDelete(id)
     }
 }

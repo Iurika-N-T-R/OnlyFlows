@@ -7,7 +7,6 @@ import com.onlyflows.data.local.entity.RssFeedEntity
 import com.onlyflows.data.rss.RssSyncWorker
 import com.onlyflows.domain.model.RssArticle
 import com.onlyflows.domain.model.RssFeed
-import com.onlyflows.domain.repository.RssRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
@@ -16,16 +15,16 @@ import org.json.JSONArray
 import java.time.LocalDateTime
 import java.util.UUID
 
-class RssRepositoryImpl(
+class RssRepository(
     private val feedDao: RssFeedDao,
     private val articleDao: RssArticleDao,
     private val context: Context,
-) : RssRepository {
+) {
 
-    override fun observeFeeds(): Flow<List<RssFeed>> =
+    fun observeFeeds(): Flow<List<RssFeed>> =
         feedDao.observeAll().map { list -> list.map { it.toDomain() } }
 
-    override fun observeArticles(feedId: String?): Flow<List<RssArticle>> =
+    fun observeArticles(feedId: String?): Flow<List<RssArticle>> =
         combine(
             feedDao.observeAll(),
             articleDao.observeAll(feedId),
@@ -37,7 +36,7 @@ class RssRepositoryImpl(
             }
         }
 
-    override fun observeUnreadArticles(feedId: String?): Flow<List<RssArticle>> =
+    fun observeUnreadArticles(feedId: String?): Flow<List<RssArticle>> =
         combine(
             feedDao.observeAll(),
             articleDao.observeUnread(feedId),
@@ -49,10 +48,10 @@ class RssRepositoryImpl(
             }
         }
 
-    override fun observeUnreadCount(feedId: String?): Flow<Int> =
+    fun observeUnreadCount(feedId: String?): Flow<Int> =
         articleDao.observeUnreadCount(feedId)
 
-    override suspend fun addFeed(name: String, url: String, keywords: List<String>, colorHex: String) {
+    suspend fun addFeed(name: String, url: String, keywords: List<String>, colorHex: String) {
         val id = UUID.randomUUID().toString()
         feedDao.insert(
             RssFeedEntity(
@@ -69,7 +68,7 @@ class RssRepositoryImpl(
         catch (_: Exception) {}
     }
 
-    override suspend fun updateFeed(feed: RssFeed) {
+    suspend fun updateFeed(feed: RssFeed) {
         val existing = feedDao.getById(feed.id) ?: return
         feedDao.update(existing.copy(
             name     = feed.name.trim(),
@@ -79,23 +78,23 @@ class RssRepositoryImpl(
         ))
     }
 
-    override suspend fun deleteFeed(id: String) {
+    suspend fun deleteFeed(id: String) {
         feedDao.softDelete(id, LocalDateTime.now().toString())
         articleDao.deleteByFeed(id)
     }
 
-    override suspend fun setRead(articleId: String, read: Boolean) =
+    suspend fun setRead(articleId: String, read: Boolean) =
         articleDao.setRead(articleId, read)
 
-    override suspend fun markAllRead(feedId: String?) =
+    suspend fun markAllRead(feedId: String?) =
         articleDao.markAllRead(feedId)
 
-    override suspend fun syncFeed(feedId: String) {
+    suspend fun syncFeed(feedId: String) {
         val feed = feedDao.getById(feedId) ?: return
         RssSyncWorker.syncFeedNow(context, feed.id, feed.url, feed.keywords)
     }
 
-    override suspend fun syncAll() {
+    suspend fun syncAll() {
         feedDao.getAll().forEach { feed ->
             try { RssSyncWorker.syncFeedNow(context, feed.id, feed.url, feed.keywords) }
             catch (_: Exception) {}

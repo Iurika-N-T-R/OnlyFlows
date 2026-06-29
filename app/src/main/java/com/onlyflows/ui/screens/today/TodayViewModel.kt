@@ -12,11 +12,11 @@ import com.onlyflows.domain.model.Tag
 import com.onlyflows.domain.model.Task
 import com.onlyflows.domain.model.TaskGroup
 import com.onlyflows.domain.model.TaskPriority
-import com.onlyflows.domain.repository.ProjectRepository
+import com.onlyflows.data.repository.ProjectRepository
 import com.onlyflows.domain.model.TimeEntry
-import com.onlyflows.domain.repository.TagRepository
-import com.onlyflows.domain.repository.TaskRepository
-import com.onlyflows.domain.repository.TimeEntryRepository
+import com.onlyflows.data.repository.TagRepository
+import com.onlyflows.data.repository.TaskRepository
+import com.onlyflows.data.repository.TimeEntryRepository
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent

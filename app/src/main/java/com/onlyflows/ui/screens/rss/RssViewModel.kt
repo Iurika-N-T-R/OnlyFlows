@@ -6,7 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.onlyflows.OnlyFlowsApp
 import com.onlyflows.domain.model.RssArticle
 import com.onlyflows.domain.model.RssFeed
-import com.onlyflows.domain.repository.RssRepository
+import com.onlyflows.data.repository.RssRepository
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 

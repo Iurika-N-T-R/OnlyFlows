@@ -10,7 +10,7 @@ import com.onlyflows.domain.model.Task
 import com.onlyflows.domain.model.TaskGroup
 import com.onlyflows.domain.model.TaskPriority
 import com.onlyflows.domain.model.TimeEntry
-import com.onlyflows.domain.repository.TimeEntryRepository
+import com.onlyflows.data.repository.TimeEntryRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

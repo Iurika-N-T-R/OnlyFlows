@@ -8,40 +8,26 @@ import com.onlyflows.data.notifications.DailyAlertScheduler
 import com.onlyflows.data.notifications.ReminderScheduler
 import com.onlyflows.data.preferences.DailyAlertPreferences
 import com.onlyflows.data.notifications.GeofenceManager
-import com.onlyflows.data.repository.ActionLogRepositoryImpl
-import com.onlyflows.data.repository.AttachmentRepositoryImpl
-import com.onlyflows.data.repository.SavedLocationRepositoryImpl
-import com.onlyflows.data.repository.CommentRepositoryImpl
-import com.onlyflows.data.repository.ReminderRepositoryImpl
-import com.onlyflows.data.repository.TimeEntryRepositoryImpl
-import com.onlyflows.domain.repository.ActionLogRepository
-import com.onlyflows.domain.repository.AttachmentRepository
-import com.onlyflows.domain.repository.SavedLocationRepository
-import com.onlyflows.domain.repository.CommentRepository
-import com.onlyflows.domain.repository.ReminderRepository
-import com.onlyflows.domain.repository.TimeEntryRepository
+import com.onlyflows.data.repository.ActionLogRepository
+import com.onlyflows.data.repository.AttachmentRepository
+import com.onlyflows.data.repository.SavedLocationRepository
+import com.onlyflows.data.repository.CommentRepository
+import com.onlyflows.data.repository.ReminderRepository
+import com.onlyflows.data.repository.TimeEntryRepository
 import com.onlyflows.data.preferences.AppPreferences
 import com.onlyflows.data.preferences.BackupPreferences
 import com.onlyflows.data.preferences.CalendarPreferences
 import com.onlyflows.data.preferences.NotificationPreferences
 import com.onlyflows.data.preferences.SidebarPreferences
 import com.onlyflows.data.local.QuoteRepository
-import com.onlyflows.data.repository.DateTrackerRepositoryImpl
-import com.onlyflows.domain.repository.DateTrackerRepository
-import com.onlyflows.data.repository.GoalRepositoryImpl
-import com.onlyflows.data.repository.GoalLogRepositoryImpl
-import com.onlyflows.data.repository.FolderRepositoryImpl
-import com.onlyflows.data.repository.NoteRepositoryImpl
-import com.onlyflows.data.repository.ProjectRepositoryImpl
-import com.onlyflows.data.repository.TagRepositoryImpl
-import com.onlyflows.data.repository.TaskRepositoryImpl
-import com.onlyflows.domain.repository.GoalRepository
-import com.onlyflows.domain.repository.GoalLogRepository
-import com.onlyflows.domain.repository.FolderRepository
-import com.onlyflows.domain.repository.NoteRepository
-import com.onlyflows.domain.repository.ProjectRepository
-import com.onlyflows.domain.repository.TagRepository
-import com.onlyflows.domain.repository.TaskRepository
+import com.onlyflows.data.repository.DateTrackerRepository
+import com.onlyflows.data.repository.GoalRepository
+import com.onlyflows.data.repository.GoalLogRepository
+import com.onlyflows.data.repository.FolderRepository
+import com.onlyflows.data.repository.NoteRepository
+import com.onlyflows.data.repository.ProjectRepository
+import com.onlyflows.data.repository.TagRepository
+import com.onlyflows.data.repository.TaskRepository
 import com.onlyflows.data.syncthing.ConflictResolver
 import com.onlyflows.data.syncthing.SyncthingCoordinator
 import com.onlyflows.data.syncthing.SyncthingExporter
@@ -73,10 +59,10 @@ class AppContainer(context: Context) {
     )
 
     // ── Repositories ──────────────────────────────────────────────────────────
-    val actionLogRepository: ActionLogRepository        = ActionLogRepositoryImpl(db.actionLogDao())
+    val actionLogRepository: ActionLogRepository        = ActionLogRepository(db.actionLogDao())
     val geofenceManager: GeofenceManager                = GeofenceManager(context)
 
-    val taskRepository: TaskRepository = TaskRepositoryImpl(
+    val taskRepository: TaskRepository = TaskRepository(
         taskDao         = db.taskDao(),
         checklistDao    = db.checklistItemDao(),
         actionLog       = actionLogRepository,
@@ -85,7 +71,7 @@ class AppContainer(context: Context) {
         onTaskMutated   = {},
     )
 
-    val projectRepository: ProjectRepository = ProjectRepositoryImpl(
+    val projectRepository: ProjectRepository = ProjectRepository(
         projectDao      = db.projectDao(),
         sectionDao      = db.sectionDao(),
         statusLogDao    = db.statusLogDao(),
@@ -95,28 +81,28 @@ class AppContainer(context: Context) {
         syncthingWriter = syncthingWriter,
     )
 
-    val goalRepository: GoalRepository       = GoalRepositoryImpl(db.goalDao(), syncDao, syncthingWriter)
-    val goalLogRepository: GoalLogRepository = GoalLogRepositoryImpl(db.goalLogDao(), syncDao, syncthingWriter)
+    val goalRepository: GoalRepository       = GoalRepository(db.goalDao(), syncDao, syncthingWriter)
+    val goalLogRepository: GoalLogRepository = GoalLogRepository(db.goalLogDao(), syncDao, syncthingWriter)
 
-    val folderRepository: FolderRepository = FolderRepositoryImpl(
+    val folderRepository: FolderRepository = FolderRepository(
         folderDao       = db.folderDao(),
         syncDao         = syncDao,
         syncthingWriter = syncthingWriter,
     )
 
-    val tagRepository: TagRepository = TagRepositoryImpl(
+    val tagRepository: TagRepository = TagRepository(
         tagDao          = db.tagDao(),
         syncDao         = syncDao,
         syncthingWriter = syncthingWriter,
     )
 
-    val noteRepository: NoteRepository = NoteRepositoryImpl(
+    val noteRepository: NoteRepository = NoteRepository(
         noteDao         = db.noteDao(),
         syncDao         = syncDao,
         syncthingWriter = syncthingWriter,
     )
 
-    val savedLocationRepository: SavedLocationRepository = SavedLocationRepositoryImpl(
+    val savedLocationRepository: SavedLocationRepository = SavedLocationRepository(
         dao             = db.savedLocationDao(),
         syncDao         = syncDao,
         syncthingWriter = syncthingWriter,
@@ -130,34 +116,34 @@ class AppContainer(context: Context) {
     val backupPreferences: BackupPreferences     = BackupPreferences(context)
     val backupManager: BackupManager             = BackupManager(context)
     val quoteRepository: QuoteRepository         = QuoteRepository(context)
-    val dateTrackerRepository: DateTrackerRepository = DateTrackerRepositoryImpl(db.dateTrackerDao(), syncDao, syncthingWriter)
-    val rssRepository: com.onlyflows.domain.repository.RssRepository =
-        com.onlyflows.data.repository.RssRepositoryImpl(db.rssFeedDao(), db.rssArticleDao(), context)
+    val dateTrackerRepository: DateTrackerRepository = DateTrackerRepository(db.dateTrackerDao(), syncDao, syncthingWriter)
+    val rssRepository: com.onlyflows.data.repository.RssRepository =
+        com.onlyflows.data.repository.RssRepository(db.rssFeedDao(), db.rssArticleDao(), context)
     val reminderScheduler: ReminderScheduler     = ReminderScheduler(context)
     val dailyAlertPreferences: DailyAlertPreferences = DailyAlertPreferences(context)
     val dailyAlertScheduler: DailyAlertScheduler     = DailyAlertScheduler(context)
 
-    val timeEntryRepository: TimeEntryRepository = TimeEntryRepositoryImpl(
+    val timeEntryRepository: TimeEntryRepository = TimeEntryRepository(
         dao             = db.timeEntryDao(),
         actionLog       = actionLogRepository,
         syncDao         = syncDao,
         syncthingWriter = syncthingWriter,
     )
 
-    val commentRepository: CommentRepository = CommentRepositoryImpl(
+    val commentRepository: CommentRepository = CommentRepository(
         dao             = db.commentDao(),
         actionLog       = actionLogRepository,
         syncDao         = syncDao,
         syncthingWriter = syncthingWriter,
     )
 
-    val reminderRepository: ReminderRepository = ReminderRepositoryImpl(
+    val reminderRepository: ReminderRepository = ReminderRepository(
         dao             = db.reminderDao(),
         syncDao         = syncDao,
         syncthingWriter = syncthingWriter,
     )
 
-    val attachmentRepository: AttachmentRepository = AttachmentRepositoryImpl(
+    val attachmentRepository: AttachmentRepository = AttachmentRepository(
         dao             = db.attachmentDao(),
         syncDao         = syncDao,
         syncthingWriter = syncthingWriter,

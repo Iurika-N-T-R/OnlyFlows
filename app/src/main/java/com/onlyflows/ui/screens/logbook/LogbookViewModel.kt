@@ -7,9 +7,9 @@ import com.onlyflows.OnlyFlowsApp
 import com.onlyflows.domain.model.ActionLog
 import com.onlyflows.domain.model.Project
 import com.onlyflows.domain.model.Task
-import com.onlyflows.domain.repository.ActionLogRepository
-import com.onlyflows.domain.repository.ProjectRepository
-import com.onlyflows.domain.repository.TaskRepository
+import com.onlyflows.data.repository.ActionLogRepository
+import com.onlyflows.data.repository.ProjectRepository
+import com.onlyflows.data.repository.TaskRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
