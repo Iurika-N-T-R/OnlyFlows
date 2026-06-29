@@ -239,6 +239,15 @@ class LanSyncCoordinator(
         }
     }
 
+    // Called when server receives /apply — also keeps the sender's IP fresh
+    suspend fun applyDeltaFrom(senderIp: String, delta: JSONObject) {
+        // Update IP for whichever paired device sent this push
+        val paired = pairedDeviceDao.getAll()
+        paired.find { it.lastKnownIp == senderIp }
+            ?: paired.firstOrNull()?.also { pairedDeviceDao.updateIp(it.id, senderIp) }
+        applyDelta(delta)
+    }
+
     suspend fun applyDelta(delta: JSONObject) = withContext(Dispatchers.IO) {
         delta.forEachArray("tasks")          { syncDao.upsertTask(taskEntityFromJson(it)) }
         delta.forEachArray("projects")       { syncDao.upsertProject(projectEntityFromJson(it)) }

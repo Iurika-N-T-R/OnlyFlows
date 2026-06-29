@@ -37,6 +37,7 @@ class LanSyncServer(private val port: Int, private val coordinator: LanSyncCoord
     }
 
     private fun handleClient(socket: Socket) = socket.use {
+        val clientIp = socket.inetAddress.hostAddress ?: ""
         val reader = BufferedReader(InputStreamReader(socket.getInputStream()))
         val out    = socket.getOutputStream()
 
@@ -72,11 +73,13 @@ class LanSyncServer(private val port: Int, private val coordinator: LanSyncCoord
                     Triple("200 OK", "application/json", runBlocking { coordinator.buildDelta(since) }.toString())
                 }
                 method == "POST" && path == "/apply" -> {
-                    runBlocking { coordinator.applyDelta(JSONObject(body)) }
+                    runBlocking { coordinator.applyDeltaFrom(clientIp, JSONObject(body)) }
                     Triple("200 OK", "text/plain", "ok")
                 }
                 method == "POST" && path == "/pair"  -> {
-                    val resp = runBlocking { coordinator.handlePairRequest(JSONObject(body)) }
+                    // Inject real client IP — device B sends "" because it doesn't know its own IP
+                    val json = JSONObject(body).put("ip", clientIp)
+                    val resp = runBlocking { coordinator.handlePairRequest(json) }
                     if (resp != null) Triple("200 OK", "application/json", resp.toString())
                     else Triple("403 Forbidden", "text/plain", "Invalid code")
                 }
