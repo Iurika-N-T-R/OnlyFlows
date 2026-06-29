@@ -321,11 +321,13 @@ class LanSyncCoordinator(
     }
 
     private suspend fun syncWithPeer(ip: String, port: Int, peerId: String, since: LocalDateTime) {
+        // Capture T_before BEFORE pulling — tasks created during sync won't be skipped next cycle
+        val syncedAt = LocalDateTime.now()
         val delta = client.getDelta(ip, port, since) ?: return
         applyDelta(delta)
         val ourDelta = buildDelta(since)
         client.postApply(ip, port, ourDelta)
-        syncDao.upsertSyncMeta(SyncMetaEntity(peerId, "", LocalDateTime.now()))
+        syncDao.upsertSyncMeta(SyncMetaEntity(peerId, "", syncedAt))
     }
 
     // Helpers
