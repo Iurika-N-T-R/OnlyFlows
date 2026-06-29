@@ -12,8 +12,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import org.json.JSONArray
 import org.json.JSONObject
+import android.util.Log
 import java.net.NetworkInterface
 import java.time.LocalDateTime
+
+private const val TAG = "LanSync"
 
 class LanSyncCoordinator(
     private val context: Context,
@@ -66,7 +69,11 @@ class LanSyncCoordinator(
             ).also { it.start() }
         }
         // Active subnet sweep — finds devices even when mDNS is blocked by router
-        scope.launch(Dispatchers.IO) { scanSubnet() }
+        scope.launch(Dispatchers.IO) {
+            Log.d(TAG, "rescan: starting subnet sweep")
+            scanSubnet()
+            Log.d(TAG, "rescan: subnet sweep done, peers=${_discoveredPeers.value.size}")
+        }
     }
 
     private fun getLocalIp(): String? {
@@ -82,9 +89,12 @@ class LanSyncCoordinator(
     }
 
     private suspend fun scanSubnet() {
-        val myIp = getLocalIp() ?: return
+        val myIp = getLocalIp()
+        Log.d(TAG, "scanSubnet: myIp=$myIp")
+        if (myIp == null) { Log.w(TAG, "scanSubnet: no local IP found, aborting"); return }
         val myId = prefs.getDeviceId()
-        val prefix = myIp.substringBeforeLast(".")   // e.g. "192.168.1"
+        val prefix = myIp.substringBeforeLast(".")
+        Log.d(TAG, "scanSubnet: scanning $prefix.1-254")
 
         // Probe all 254 addresses in parallel batches of 30, 300ms connect timeout
         (1..254)
@@ -94,7 +104,9 @@ class LanSyncCoordinator(
             .forEach { batch ->
                 batch.map { ip ->
                     scope.async(Dispatchers.IO) {
-                        val info = client.getInfo(ip, PORT, connectTimeoutMs = 300) ?: return@async
+                        val info = client.getInfo(ip, PORT, connectTimeoutMs = 300)
+                        if (info == null) return@async
+                        Log.d(TAG, "scanSubnet: HIT $ip → $info")
                         val peerId = info.optString("deviceId").takeIf { it.isNotBlank() } ?: return@async
                         if (peerId == myId) return@async   // own device
                         val peerName = info.optString("deviceName")
