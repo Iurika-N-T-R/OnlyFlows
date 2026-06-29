@@ -38,11 +38,11 @@ class LanSyncClient {
         }.getOrNull()
     }
 
-    private fun post(url: String, body: String): HttpURLConnection? {
+    private fun post(url: String, body: String, connectTimeoutMs: Int = 2000, readTimeoutMs: Int = 5000): HttpURLConnection? {
         val conn = URL(url).openConnection() as HttpURLConnection
         conn.requestMethod = "POST"
         conn.doOutput = true
-        conn.connectTimeout = 5000; conn.readTimeout = 15000
+        conn.connectTimeout = connectTimeoutMs; conn.readTimeout = readTimeoutMs
         conn.setRequestProperty("Content-Type", "application/json")
         val bytes = body.toByteArray()
         conn.setRequestProperty("Content-Length", bytes.size.toString())

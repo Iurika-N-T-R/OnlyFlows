@@ -137,12 +137,15 @@ class LanSyncCoordinator(
                 onPeerLost   = { },
             ).also { it.start() }
         }
-        // Process mutation queue
+        // Process mutation queue — each peer gets its own fire-and-forget coroutine
+        // so an offline peer never blocks mutations to online peers
         scope.launch {
             for (delta in queue) {
                 val peers = pairedDeviceDao.getAll()
                 peers.forEach { peer ->
-                    runCatching { client.postApply(peer.lastKnownIp, peer.port, delta) }
+                    scope.launch(Dispatchers.IO) {
+                        runCatching { client.postApply(peer.lastKnownIp, peer.port, delta) }
+                    }
                 }
             }
         }
