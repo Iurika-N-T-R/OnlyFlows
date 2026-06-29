@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import org.json.JSONArray
 import org.json.JSONObject
+import java.net.NetworkInterface
 import java.time.LocalDateTime
 
 class LanSyncCoordinator(
@@ -52,6 +53,7 @@ class LanSyncCoordinator(
 
     fun rescan() {
         _discoveredPeers.value = emptyList()
+        // Restart NSD (passive)
         discovery?.stop()
         scope.launch {
             val deviceName = prefs.getDeviceName()
@@ -63,6 +65,48 @@ class LanSyncCoordinator(
                 onPeerLost  = { },
             ).also { it.start() }
         }
+        // Active subnet sweep — finds devices even when mDNS is blocked by router
+        scope.launch(Dispatchers.IO) { scanSubnet() }
+    }
+
+    private fun getLocalIp(): String? {
+        val interfaces = runCatching { NetworkInterface.getNetworkInterfaces() }.getOrNull() ?: return null
+        for (intf in interfaces) {
+            if (!intf.isUp || intf.isLoopback) continue
+            for (addr in intf.inetAddresses) {
+                if (!addr.isLoopbackAddress && addr is java.net.Inet4Address)
+                    return addr.hostAddress
+            }
+        }
+        return null
+    }
+
+    private suspend fun scanSubnet() {
+        val myIp = getLocalIp() ?: return
+        val myId = prefs.getDeviceId()
+        val prefix = myIp.substringBeforeLast(".")   // e.g. "192.168.1"
+
+        // Probe all 254 addresses in parallel batches of 30, 300ms connect timeout
+        (1..254)
+            .map { "$prefix.$it" }
+            .filter { it != myIp }
+            .chunked(30)
+            .forEach { batch ->
+                batch.map { ip ->
+                    scope.async(Dispatchers.IO) {
+                        val info = client.getInfo(ip, PORT, connectTimeoutMs = 300) ?: return@async
+                        val peerId = info.optString("deviceId").takeIf { it.isNotBlank() } ?: return@async
+                        if (peerId == myId) return@async   // own device
+                        val peerName = info.optString("deviceName")
+                        _discoveredPeers.update { current ->
+                            if (current.none { it.first == ip })
+                                current + Triple(ip, PORT, peerName.ifBlank { ip })
+                            else current
+                        }
+                        onPeerDiscovered(ip, PORT)
+                    }
+                }.awaitAll()
+            }
     }
 
     private val queue = Channel<JSONObject>(Channel.UNLIMITED)

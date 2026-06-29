@@ -10,7 +10,8 @@ import java.time.LocalDateTime
 
 class LanSyncClient {
 
-    suspend fun getInfo(ip: String, port: Int): JSONObject? = get("http://$ip:$port/info")
+    suspend fun getInfo(ip: String, port: Int, connectTimeoutMs: Int = 3000): JSONObject? =
+        get("http://$ip:$port/info", connectTimeoutMs)
 
     suspend fun getDelta(ip: String, port: Int, since: LocalDateTime): JSONObject? =
         get("http://$ip:$port/delta?since=${URLEncoder.encode(since.toString(), "UTF-8")}")
@@ -29,10 +30,10 @@ class LanSyncClient {
         }.getOrNull()
     }
 
-    private suspend fun get(url: String): JSONObject? = withContext(Dispatchers.IO) {
+    private suspend fun get(url: String, connectTimeoutMs: Int = 3000): JSONObject? = withContext(Dispatchers.IO) {
         runCatching {
             val conn = URL(url).openConnection() as HttpURLConnection
-            conn.connectTimeout = 3000; conn.readTimeout = 15000
+            conn.connectTimeout = connectTimeoutMs; conn.readTimeout = 3000
             if (conn.responseCode == 200) JSONObject(conn.inputStream.bufferedReader().readText()) else null
         }.getOrNull()
     }
