@@ -44,7 +44,7 @@ fun SettingsScreen(
     onStatisticsClick: () -> Unit = {},
     onAboutClick: () -> Unit = {},
     onLogsClick: () -> Unit = {},
-    onSyncthingClick: () -> Unit = {},
+    onLanSyncClick: () -> Unit = {},
     onTagsClick: () -> Unit = {},
     onRssSettingsClick: () -> Unit = {},
 ) {
@@ -125,8 +125,8 @@ fun SettingsScreen(
             Divider()
             SettingsRow(
                 icon    = Icons.Outlined.SyncAlt,
-                label   = "Synchronisation Syncthing",
-                onClick = onSyncthingClick,
+                label   = "Synchronisation LAN",
+                onClick = onLanSyncClick,
             )
             Divider()
             SettingsRow(

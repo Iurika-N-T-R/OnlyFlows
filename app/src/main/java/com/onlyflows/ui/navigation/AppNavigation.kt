@@ -32,7 +32,7 @@ import com.onlyflows.ui.screens.settings.LocationsSettingsScreen
 import com.onlyflows.ui.screens.settings.NotificationSettingsScreen
 import com.onlyflows.ui.screens.settings.SettingsScreen
 import com.onlyflows.ui.screens.logs.LogsScreen
-import com.onlyflows.ui.screens.settings.SyncthingSettingsScreen
+import com.onlyflows.ui.screens.settings.LanSyncSettingsScreen
 import com.onlyflows.ui.screens.task.TaskDetailScreen
 import com.onlyflows.ui.screens.today.TodayScreen
 import com.onlyflows.ui.screens.upcoming.UpcomingScreen
@@ -226,7 +226,7 @@ fun AppNavigation(
                 onLocationsSettingsClick     = { navController.navigate(Screen.LocationsSettings.route) },
                 onStatisticsClick            = { navController.navigate(Screen.Statistics.route) },
                 onLogsClick                  = { navController.navigate(Screen.Logs.route) },
-                onSyncthingClick             = { navController.navigate(Screen.SyncthingSettings.route) },
+                onLanSyncClick = { navController.navigate(Screen.LanSyncSettings.route) },
                 onTagsClick                  = { navController.navigate(Screen.Tags.route) },
                 onRssSettingsClick           = { navController.navigate(Screen.RssSettings.route) },
             )
@@ -240,8 +240,8 @@ fun AppNavigation(
             LogsScreen(onBack = { navController.popBackStack() })
         }
 
-        composable(Screen.SyncthingSettings.route) {
-            SyncthingSettingsScreen(onBack = { navController.popBackStack() })
+        composable(Screen.LanSyncSettings.route) {
+            LanSyncSettingsScreen(onBack = { navController.popBackStack() })
         }
 
         composable(Screen.Appearance.route) {

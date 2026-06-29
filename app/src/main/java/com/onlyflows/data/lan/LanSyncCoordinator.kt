@@ -7,6 +7,9 @@ import com.onlyflows.data.local.entity.*
 import com.onlyflows.data.syncthing.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.LocalDateTime
@@ -27,7 +30,16 @@ class LanSyncCoordinator(
     private var pendingCode: String? = null
     private var pendingCodeExpiry = 0L
 
-    val isImporting: kotlinx.coroutines.flow.StateFlow<Boolean> = kotlinx.coroutines.flow.MutableStateFlow(false)
+    val isImporting: StateFlow<Boolean> = MutableStateFlow(false)
+
+    // (ip, port, name) — discovered on LAN but not yet paired
+    private val _discoveredPeers = MutableStateFlow<List<Triple<String, Int, String>>>(emptyList())
+    val discoveredPeers: StateFlow<List<Triple<String, Int, String>>> = _discoveredPeers
+
+    val pairingCode: StateFlow<String?> get() = _pairingCode
+    private val _pairingCode = MutableStateFlow<String?>(null)
+    val pairingCodeExpiryMs: StateFlow<Long> get() = _pairingCodeExpiryMs
+    private val _pairingCodeExpiryMs = MutableStateFlow(0L)
 
     fun forceSync() {
         scope.launch {
@@ -84,8 +96,31 @@ class LanSyncCoordinator(
         val code = (100000..999999).random().toString()
         pendingCode = code
         pendingCodeExpiry = System.currentTimeMillis() + CODE_TTL_MS
+        _pairingCode.value = code
+        _pairingCodeExpiryMs.value = pendingCodeExpiry
         return code
     }
+
+    // Called from Device B — pair with a discovered peer using the code shown on Device A
+    suspend fun pairWithPeer(ip: String, port: Int, code: String): Boolean {
+        val myId   = prefs.getDeviceId()
+        val myName = prefs.getDeviceName()
+        val body   = JSONObject()
+            .put("code",       code)
+            .put("deviceId",   myId)
+            .put("deviceName", myName)
+            .put("ip",         "")   // Device A resolves the IP from the TCP connection
+            .put("port",       PORT)
+        val resp = client.postPair(ip, port, body) ?: return false
+        val peerId   = resp.optString("deviceId")
+        val peerName = resp.optString("deviceName")
+        pairedDeviceDao.upsert(PairedDeviceEntity(peerId, peerName, ip, port, LocalDateTime.now()))
+        _discoveredPeers.update { it.filter { p -> p.first != ip } }
+        scope.launch { syncWithPeer(ip, port, peerId, LocalDateTime.MIN) }
+        return true
+    }
+
+    suspend fun unpairDevice(id: String) = pairedDeviceDao.delete(id)
 
     suspend fun handlePairRequest(json: JSONObject): JSONObject? {
         val code = json.optString("code")
@@ -174,12 +209,22 @@ class LanSyncCoordinator(
     }
 
     private suspend fun onPeerDiscovered(ip: String, port: Int) {
-        val info   = client.getInfo(ip, port) ?: return
-        val peerId = info.optString("deviceId")
-        val peer   = pairedDeviceDao.getAll().find { it.id == peerId } ?: return
-        pairedDeviceDao.updateIp(peerId, ip)
-        val since  = syncDao.getSyncMeta(peerId)?.lastSyncedAt ?: LocalDateTime.MIN
-        syncWithPeer(ip, peer.port, peerId, since)
+        val info     = client.getInfo(ip, port) ?: return
+        val peerId   = info.optString("deviceId")
+        val peerName = info.optString("deviceName")
+        if (peerId == prefs.getDeviceId()) return // own device showing up
+
+        val paired = pairedDeviceDao.getAll().find { it.id == peerId }
+        if (paired != null) {
+            pairedDeviceDao.updateIp(peerId, ip)
+            val since = syncDao.getSyncMeta(peerId)?.lastSyncedAt ?: LocalDateTime.MIN
+            syncWithPeer(ip, paired.port, peerId, since)
+        } else {
+            // Track for the pairing UI
+            _discoveredPeers.update { current ->
+                if (current.none { it.first == ip }) current + Triple(ip, port, peerName) else current
+            }
+        }
     }
 
     private suspend fun syncWithPeer(ip: String, port: Int, peerId: String, since: LocalDateTime) {

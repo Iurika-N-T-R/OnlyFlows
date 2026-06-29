@@ -22,7 +22,7 @@ sealed class Screen(val route: String) {
     data object LocationsSettings      : Screen("settings/locations")
     data object Statistics             : Screen("settings/statistics")
     data object Logs                   : Screen("settings/logs")
-    data object SyncthingSettings      : Screen("settings/syncthing")
+    data object LanSyncSettings : Screen("settings/lan-sync")
     data object Tags                   : Screen("settings/tags")
 
     data object DateTracker    : Screen("datetracker")
