@@ -9,6 +9,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import com.onlyflows.MainActivity
 import com.onlyflows.ui.components.sidebar.AppSidebar
+import com.onlyflows.ui.components.sidebar.navigateTab
 import com.onlyflows.ui.navigation.AppNavigation
 import com.onlyflows.ui.navigation.Screen
 import com.onlyflows.ui.overlays.QuickFindPopup
@@ -57,7 +58,7 @@ fun AdaptiveAppLayout(
                 AppSidebar(
                     navController        = navController,
                     onProjectClick       = { navigateToProject(it) },
-                    onSettingsClick      = { navController.navigate(Screen.Settings.route) },
+                    onSettingsClick      = { navigateTab(navController, Screen.Settings.route) },
                     onNewGroup           = {},
                     onAddProjectToFolder = {},
                     onQuickFindClick     = { showQuickFind = true },
@@ -115,7 +116,7 @@ fun AdaptiveAppLayout(
                             },
                             onSettingsClick      = {
                                 coroutineScope.launch { drawerState.close() }
-                                navController.navigate(Screen.Settings.route)
+                                navigateTab(navController, Screen.Settings.route)
                             },
                             onNewGroup           = {},
                             onAddProjectToFolder = {},

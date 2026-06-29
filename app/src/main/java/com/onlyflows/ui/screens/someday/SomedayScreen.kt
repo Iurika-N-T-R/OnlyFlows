@@ -20,6 +20,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.onlyflows.OnlyFlowsApp
 import com.onlyflows.domain.model.TaskGroup
+import com.onlyflows.ui.components.CompletedSectionHeader
 import com.onlyflows.ui.components.EmptyState
 import com.onlyflows.ui.components.QuoteCard
 import com.onlyflows.ui.components.SelectionBar
@@ -92,6 +93,7 @@ fun SomedayScreen(
         (state.activeTagFilter.isEmpty() || task.tagIds.any { it in state.activeTagFilter }) &&
         (state.activePriorityFilter == null || task.priority == state.activePriorityFilter)
     }
+    var completedExpanded by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -165,7 +167,7 @@ fun SomedayScreen(
                 }
             }
 
-            if (!state.isLoading && filteredTasks.isEmpty()) {
+            if (!state.isLoading && filteredTasks.isEmpty() && state.completedTasks.isEmpty()) {
                 item(key = "empty") {
                     Box(
                         contentAlignment = Alignment.Center,
@@ -199,6 +201,36 @@ fun SomedayScreen(
                         color     = MaterialTheme.colorScheme.outlineVariant,
                         thickness = 0.5.dp,
                     )
+                }
+            }
+
+            // ── Completed today ───────────────────────────────────────────────
+            if (state.completedTasks.isNotEmpty()) {
+                item(key = "completed_header") {
+                    CompletedSectionHeader(
+                        count    = state.completedTasks.size,
+                        expanded = completedExpanded,
+                        onToggle = { completedExpanded = !completedExpanded },
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
+                if (completedExpanded) {
+                    items(state.completedTasks, key = { "completed_${it.id}" }) { task ->
+                        TaskItem(
+                            task             = task,
+                            tags             = state.tags,
+                            isSelectionMode  = false,
+                            projectName      = task.projectId?.let { pid -> state.projects.find { it.id == pid }?.title },
+                            onToggleComplete = { viewModel.onEvent(SomedayEvent.ToggleComplete(task.id, task.isCompleted)) },
+                            onEditClick      = { onTaskClick(it) },
+                            modifier         = Modifier.animateItem(),
+                        )
+                        HorizontalDivider(
+                            modifier  = Modifier.padding(start = 54.dp),
+                            color     = MaterialTheme.colorScheme.outlineVariant,
+                            thickness = 0.5.dp,
+                        )
+                    }
                 }
             }
         }

@@ -21,6 +21,7 @@ import kotlinx.coroutines.launch
 
 data class InboxUiState(
     val tasks: List<Task>            = emptyList(),
+    val completedTasks: List<Task>   = emptyList(),
     val tags: List<Tag>              = emptyList(),
     val projects: List<Project>      = emptyList(),
     val selectedTaskIds: Set<String> = emptySet(),
@@ -79,12 +80,17 @@ class InboxViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             combine(
                 taskRepo.observeInbox(),
+                taskRepo.observeInboxCompleted(),
                 tagRepo.observeAll(),
                 projectRepo.observeAllProjectsAndLists(),
-            ) { tasks, tags, projects -> Triple(tasks, tags, projects) }
+            ) { tasks, completed, tags, projects -> listOf(tasks, completed, tags, projects) }
             .distinctUntilChanged()
-            .collect { (tasks, tags, projects) ->
-                _uiState.update { it.copy(tasks = tasks, tags = tags, projects = projects, isLoading = false) }
+            .collect { (tasks, completed, tags, projects) ->
+                @Suppress("UNCHECKED_CAST")
+                _uiState.update { it.copy(
+                    tasks = tasks as List<Task>, completedTasks = completed as List<Task>,
+                    tags = tags as List<Tag>, projects = projects as List<Project>, isLoading = false,
+                ) }
             }
         }
     }

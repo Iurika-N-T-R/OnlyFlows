@@ -74,6 +74,7 @@ fun TaskEntity.toJson(): JSONObject = JSONObject().apply {
     put("createdAt", createdAt.toString())
     put("updatedAt", updatedAt.toString())
     putNullable("deletedAt", deletedAt)
+    putNullable("completedAt", completedAt)
 }
 
 fun taskEntityFromJson(j: JSONObject) = TaskEntity(
@@ -105,6 +106,7 @@ fun taskEntityFromJson(j: JSONObject) = TaskEntity(
     createdAt                = j.getLocalDateTime("createdAt"),
     updatedAt                = j.getLocalDateTime("updatedAt"),
     deletedAt                = j.getLocalDateTimeOrNull("deletedAt"),
+    completedAt              = j.getLocalDateTimeOrNull("completedAt"),
 )
 
 // ── ChecklistItemEntity ───────────────────────────────────────────────────────

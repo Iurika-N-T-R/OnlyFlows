@@ -2,8 +2,6 @@ package com.onlyflows.data.lan
 
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
-import java.io.BufferedReader
-import java.io.InputStreamReader
 import java.net.ServerSocket
 import java.net.Socket
 import java.time.LocalDateTime
@@ -38,10 +36,18 @@ class LanSyncServer(private val port: Int, private val coordinator: LanSyncCoord
 
     private fun handleClient(socket: Socket) = socket.use {
         val clientIp = socket.inetAddress.hostAddress ?: ""
-        val reader = BufferedReader(InputStreamReader(socket.getInputStream()))
-        val out    = socket.getOutputStream()
+        val input = socket.getInputStream()
+        val out   = socket.getOutputStream()
 
-        val requestLine = reader.readLine() ?: return
+        // Read header bytes (ASCII) until CRLF CRLF — body is read separately as raw UTF-8 bytes
+        val header = StringBuilder()
+        while (!header.endsWith("\r\n\r\n")) {
+            val b = input.read()
+            if (b == -1) break
+            header.append(b.toChar())
+        }
+        val lines = header.toString().split("\r\n")
+        val requestLine = lines.firstOrNull() ?: return
         val parts = requestLine.split(" ")
         if (parts.size < 2) return
         val method   = parts[0]
@@ -52,16 +58,19 @@ class LanSyncServer(private val port: Int, private val coordinator: LanSyncCoord
             it.split("=", limit = 2).let { p -> p[0] to java.net.URLDecoder.decode(p[1], "UTF-8") }
         }
 
-        var contentLength = 0
-        var line = reader.readLine()
-        while (!line.isNullOrBlank()) {
-            if (line.lowercase().startsWith("content-length:"))
-                contentLength = line.substringAfter(":").trim().toIntOrNull() ?: 0
-            line = reader.readLine()
-        }
+        val contentLength = lines.find { it.lowercase().startsWith("content-length:") }
+            ?.substringAfter(":")?.trim()?.toIntOrNull() ?: 0
 
+        // Read exactly contentLength BYTES then decode UTF-8 (chars != bytes for accents)
         val body = if (contentLength > 0) {
-            val buf = CharArray(contentLength); reader.read(buf, 0, contentLength); String(buf)
+            val buf = ByteArray(contentLength)
+            var read = 0
+            while (read < contentLength) {
+                val r = input.read(buf, read, contentLength - read)
+                if (r == -1) break
+                read += r
+            }
+            String(buf, 0, read, Charsets.UTF_8)
         } else ""
 
         val (status, mime, body2) = try {
@@ -90,8 +99,8 @@ class LanSyncServer(private val port: Int, private val coordinator: LanSyncCoord
         }
 
         val bytes = body2.toByteArray()
-        val header = "HTTP/1.1 $status\r\nContent-Type: $mime\r\nContent-Length: ${bytes.size}\r\nConnection: close\r\n\r\n"
-        out.write(header.toByteArray())
+        val respHeader = "HTTP/1.1 $status\r\nContent-Type: $mime; charset=utf-8\r\nContent-Length: ${bytes.size}\r\nConnection: close\r\n\r\n"
+        out.write(respHeader.toByteArray())
         out.write(bytes)
         out.flush()
     }

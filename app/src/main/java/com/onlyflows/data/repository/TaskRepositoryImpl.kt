@@ -80,7 +80,8 @@ class TaskRepository(
         taskDao.observeTodayWithItems(java.time.LocalDate.now().toString()).map { list -> list.map { it.toDomain() } }
 
     fun observeTodayCompleted(): Flow<List<Task>> =
-        taskDao.observeTodayCompletedWithItems(java.time.LocalDate.now().toString()).map { list -> list.map { it.toDomain() } }
+        taskDao.observeTodayCompletedWithItems(LocalDate.now().toString(), LocalDate.now().atStartOfDay().toString())
+            .map { list -> list.map { it.toDomain() } }
 
     fun observeTodayAbandoned(): Flow<List<Task>> =
         taskDao.observeTodayAbandonedWithItems(java.time.LocalDate.now().toString()).map { list -> list.map { it.toDomain() } }
@@ -115,6 +116,17 @@ class TaskRepository(
 
     fun observeSomeday(): Flow<List<Task>> =
         taskDao.observeSomedayWithItems().map { list -> list.map { it.toDomain() } }
+
+    private fun startOfDay() = LocalDate.now().atStartOfDay().toString()
+
+    fun observeInboxCompleted(): Flow<List<Task>> =
+        taskDao.observeInboxCompletedWithItems(startOfDay()).map { list -> list.map { it.toDomain() } }
+
+    fun observeAnytimeCompleted(): Flow<List<Task>> =
+        taskDao.observeAnytimeCompletedWithItems(startOfDay()).map { list -> list.map { it.toDomain() } }
+
+    fun observeSomedayCompleted(): Flow<List<Task>> =
+        taskDao.observeSomedayCompletedWithItems(startOfDay()).map { list -> list.map { it.toDomain() } }
 
     suspend fun setScheduledGroup(id: String, group: com.onlyflows.domain.model.TaskGroup?) {
         taskDao.setScheduledGroup(id, group?.name, LocalDateTime.now().toString())
@@ -172,6 +184,7 @@ class TaskRepository(
                 isCompleted          = true,
                 isArchived           = true,
                 recurrenceDoneCount  = entity.recurrenceDoneCount + 1,
+                completedAt          = LocalDateTime.now(),
                 updatedAt            = LocalDateTime.now(),
             )
         )
@@ -289,7 +302,7 @@ class TaskRepository(
         taskDao.observeTrashWithItems().map { list -> list.map { it.toDomain() } }
 
     suspend fun restoreFromTrash(id: String) {
-        taskDao.restoreFromTrash(id)
+        taskDao.restoreFromTrash(id, LocalDateTime.now().toString())
         syncWrite(id)
         val label = taskDao.getById(id)?.title ?: id
         log(ActionType.TASK_RESTORED, id, label)

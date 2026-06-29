@@ -106,6 +106,7 @@ data class Task(
     val createdAt: LocalDateTime = LocalDateTime.now(),
     val updatedAt: LocalDateTime = LocalDateTime.now(),
     val deletedAt: LocalDateTime? = null,
+    val completedAt: LocalDateTime? = null,
 ) : Parcelable
 
 // ── ChecklistItem ────────────────────────────────────────────────────────────

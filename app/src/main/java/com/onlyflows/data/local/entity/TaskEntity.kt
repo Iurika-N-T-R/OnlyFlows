@@ -54,6 +54,7 @@ data class TaskEntity(
     val createdAt: LocalDateTime = LocalDateTime.now(),
     val updatedAt: LocalDateTime = LocalDateTime.now(),
     val deletedAt: LocalDateTime? = null,
+    val completedAt: LocalDateTime? = null,
 )
 
 fun TaskEntity.toDomain(checklistItems: List<com.onlyflows.data.local.entity.ChecklistItemEntity> = emptyList()) = Task(
@@ -86,6 +87,7 @@ fun TaskEntity.toDomain(checklistItems: List<com.onlyflows.data.local.entity.Che
     createdAt               = createdAt,
     updatedAt               = updatedAt,
     deletedAt               = deletedAt,
+    completedAt             = completedAt,
 )
 
 fun Task.toEntity() = TaskEntity(
@@ -117,6 +119,7 @@ fun Task.toEntity() = TaskEntity(
     createdAt                = createdAt,
     updatedAt                = updatedAt,
     deletedAt                = deletedAt,
+    completedAt              = completedAt,
 )
 
 private fun RecurrenceRule.toJson(): String {

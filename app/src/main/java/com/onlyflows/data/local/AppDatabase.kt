@@ -61,7 +61,7 @@ import kotlinx.coroutines.launch
         RssArticleEntity::class,
         PairedDeviceEntity::class,
     ],
-    version = 32,
+    version = 33,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -155,12 +155,18 @@ abstract class AppDatabase : RoomDatabase() {
                         )"""
                     )
                 }
+                val migration32to33 = Migration(32, 33) { db ->
+                    db.execSQL("ALTER TABLE tasks ADD COLUMN completedAt TEXT")
+                    // Backfill: existing completed tasks get updatedAt as completedAt so they
+                    // don't all flood "completed today" sections forever.
+                    db.execSQL("UPDATE tasks SET completedAt = updatedAt WHERE isCompleted = 1")
+                }
                 Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "onlyflows.db",
                 )
-                .addMigrations(migration27to28, migration28to29, migration29to30, migration30to31, migration31to32)
+                .addMigrations(migration27to28, migration28to29, migration29to30, migration30to31, migration31to32, migration32to33)
                 .fallbackToDestructiveMigration()
                 .fallbackToDestructiveMigrationOnDowngrade()
                 .addCallback(SeedCallback())

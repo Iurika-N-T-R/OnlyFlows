@@ -213,7 +213,7 @@ interface TaskDao {
     @Update
     suspend fun update(task: TaskEntity)
 
-    @Query("UPDATE tasks SET isCompleted = :completed, updatedAt = :now WHERE id = :id")
+    @Query("UPDATE tasks SET isCompleted = :completed, completedAt = CASE WHEN :completed THEN :now ELSE NULL END, updatedAt = :now WHERE id = :id")
     suspend fun setCompleted(id: String, completed: Boolean, now: String)
 
     @Query("UPDATE tasks SET isArchived = :archived, updatedAt = :now WHERE id = :id")
@@ -225,11 +225,11 @@ interface TaskDao {
     @Query("UPDATE tasks SET projectId = :projectId, sectionId = :sectionId, updatedAt = :now WHERE id = :id")
     suspend fun moveTask(id: String, projectId: String?, sectionId: String?, now: String)
 
-    @Query("UPDATE tasks SET deletedAt = :now WHERE id = :id")
+    @Query("UPDATE tasks SET deletedAt = :now, updatedAt = :now WHERE id = :id")
     suspend fun softDelete(id: String, now: String)
 
-    @Query("UPDATE tasks SET deletedAt = NULL WHERE id = :id")
-    suspend fun restoreFromTrash(id: String)
+    @Query("UPDATE tasks SET deletedAt = NULL, updatedAt = :now WHERE id = :id")
+    suspend fun restoreFromTrash(id: String, now: String)
 
     @Query("SELECT id FROM tasks WHERE deletedAt IS NOT NULL")
     suspend fun getTrashIds(): List<String>
@@ -302,15 +302,15 @@ interface TaskDao {
     @Transaction
     @Query("""
         SELECT * FROM tasks
-        WHERE isCompleted = 1 AND deletedAt IS NULL
+        WHERE isCompleted = 1 AND deletedAt IS NULL AND completedAt >= :startOfDay
           AND (
             scheduledGroup IN ('TODAY', 'THIS_EVENING')
             OR dueDate = :today
             OR (startDate <= :today AND (dueDate IS NULL OR dueDate >= :today))
           )
-        ORDER BY updatedAt DESC
+        ORDER BY completedAt DESC
     """)
-    fun observeTodayCompletedWithItems(today: String): Flow<List<TaskWithChecklistItems>>
+    fun observeTodayCompletedWithItems(today: String, startOfDay: String): Flow<List<TaskWithChecklistItems>>
 
     @Transaction
     @Query("""
@@ -354,6 +354,27 @@ interface TaskDao {
         ORDER BY sortOrder ASC
     """)
     fun observeSomedayWithItems(): Flow<List<TaskWithChecklistItems>>
+
+    // ── Completed-today sections (mirror the active queries, isCompleted=1 + completed today) ──
+    @Transaction
+    @Query("""SELECT * FROM tasks WHERE projectId IS NULL AND scheduledGroup IS NULL
+        AND isCompleted = 1 AND isArchived = 0 AND deletedAt IS NULL AND completedAt >= :startOfDay
+        ORDER BY completedAt DESC""")
+    fun observeInboxCompletedWithItems(startOfDay: String): Flow<List<TaskWithChecklistItems>>
+
+    @Transaction
+    @Query("""SELECT * FROM tasks WHERE isCompleted = 1 AND isArchived = 0 AND deletedAt IS NULL
+        AND completedAt >= :startOfDay
+        AND (scheduledGroup = 'ANYTIME' OR (projectId IS NOT NULL AND priority != 'NONE' AND scheduledGroup IS NULL))
+        ORDER BY completedAt DESC""")
+    fun observeAnytimeCompletedWithItems(startOfDay: String): Flow<List<TaskWithChecklistItems>>
+
+    @Transaction
+    @Query("""SELECT * FROM tasks WHERE isCompleted = 1 AND isArchived = 0 AND deletedAt IS NULL
+        AND completedAt >= :startOfDay
+        AND (scheduledGroup = 'SOMEDAY' OR (projectId IS NOT NULL AND priority = 'NONE' AND scheduledGroup IS NULL))
+        ORDER BY completedAt DESC""")
+    fun observeSomedayCompletedWithItems(startOfDay: String): Flow<List<TaskWithChecklistItems>>
 
     @Transaction
     @Query("SELECT * FROM tasks WHERE (title LIKE '%' || :query || '%' OR note LIKE '%' || :query || '%') AND deletedAt IS NULL ORDER BY updatedAt DESC LIMIT 50")

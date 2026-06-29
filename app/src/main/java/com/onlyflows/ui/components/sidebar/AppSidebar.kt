@@ -162,18 +162,18 @@ fun AppSidebar(
             item(key = "spacer_top") { Spacer(Modifier.height(4.dp)) }
 
             // Fixed nav items
-            item(key = "nav_inbox")    { NavItem(painterResource(com.onlyflows.R.drawable.ic_nav_inbox),    Color(0xFF1AAAF5), "Inbox",    quietCount = state.inboxCount,   isSelected = route == Screen.Inbox.route)    { navigate(navController, Screen.Inbox.route);    onItemSelected() } }
-            item(key = "nav_today")    { NavItem(painterResource(com.onlyflows.R.drawable.ic_nav_today),    Color(0xFFFED101), "Today",    alertCount = state.overdueCount, quietCount = state.todayCount, isSelected = route == Screen.Today.route) { navigate(navController, Screen.Today.route); onItemSelected() } }
-            item(key = "nav_upcoming") { NavItem(painterResource(com.onlyflows.R.drawable.ic_nav_upcoming), Color(0xFFF82F6B), "Upcoming", isSelected = route == Screen.Upcoming.route)  { navigate(navController, Screen.Upcoming.route); onItemSelected() } }
-            item(key = "nav_anytime")  { NavItem(painterResource(com.onlyflows.R.drawable.ic_nav_anytime),  Color(0xFF39A59A), "Anytime",  isSelected = route == Screen.Anytime.route)   { navigate(navController, Screen.Anytime.route);  onItemSelected() } }
-            item(key = "nav_someday")  { NavItem(painterResource(com.onlyflows.R.drawable.ic_nav_someday),  Color(0xFFCEC17F), "Someday",  isSelected = route == Screen.Someday.route)   { navigate(navController, Screen.Someday.route);  onItemSelected() } }
-            item(key = "nav_logbook")  { NavItem(painterResource(com.onlyflows.R.drawable.ic_nav_logbook),  Color(0xFF4DBE60), "Logbook",  isSelected = route == Screen.Logbook.route)   { navigate(navController, Screen.Logbook.route);  onItemSelected() } }
+            item(key = "nav_inbox")    { NavItem(painterResource(com.onlyflows.R.drawable.ic_nav_inbox),    Color(0xFF1AAAF5), "Inbox",    quietCount = state.inboxCount,   isSelected = route == Screen.Inbox.route)    { navigateTab(navController, Screen.Inbox.route);    onItemSelected() } }
+            item(key = "nav_today")    { NavItem(painterResource(com.onlyflows.R.drawable.ic_nav_today),    Color(0xFFFED101), "Today",    alertCount = state.overdueCount, quietCount = state.todayCount, isSelected = route == Screen.Today.route) { navigateTab(navController, Screen.Today.route); onItemSelected() } }
+            item(key = "nav_upcoming") { NavItem(painterResource(com.onlyflows.R.drawable.ic_nav_upcoming), Color(0xFFF82F6B), "Upcoming", isSelected = route == Screen.Upcoming.route)  { navigateTab(navController, Screen.Upcoming.route); onItemSelected() } }
+            item(key = "nav_anytime")  { NavItem(painterResource(com.onlyflows.R.drawable.ic_nav_anytime),  Color(0xFF39A59A), "Anytime",  isSelected = route == Screen.Anytime.route)   { navigateTab(navController, Screen.Anytime.route);  onItemSelected() } }
+            item(key = "nav_someday")  { NavItem(painterResource(com.onlyflows.R.drawable.ic_nav_someday),  Color(0xFFCEC17F), "Someday",  isSelected = route == Screen.Someday.route)   { navigateTab(navController, Screen.Someday.route);  onItemSelected() } }
+            item(key = "nav_logbook")  { NavItem(painterResource(com.onlyflows.R.drawable.ic_nav_logbook),  Color(0xFF4DBE60), "Logbook",  isSelected = route == Screen.Logbook.route)   { navigateTab(navController, Screen.Logbook.route);  onItemSelected() } }
             val hidden = state.hiddenNavItems
-            if ("nav_projects" !in hidden)    item(key = "nav_projects")    { NavItem(Icons.Outlined.GridView,      Color(0xFF8B5CF6),  "Projects",        isSelected = route == Screen.Projects.route)     { navigate(navController, Screen.Projects.route);     onItemSelected() } }
-            if ("nav_goals" !in hidden)       item(key = "nav_goals")       { NavItem(Icons.Outlined.TrackChanges, Color(0xFFFF9500),  "Goals",            isSelected = route == Screen.Goals.route)        { navigate(navController, Screen.Goals.route);        onItemSelected() } }
-            if ("nav_rss" !in hidden)         item(key = "nav_rss")         { NavItem(Icons.Outlined.RssFeed,      Color(0xFFFF6B35),  "RSS",              isSelected = route == Screen.Rss.route)          { navigate(navController, Screen.Rss.route);          onItemSelected() } }
-            if ("nav_datetracker" !in hidden) item(key = "nav_datetracker") { NavItem(Icons.Outlined.Timer,        Color(0xFFFF6B6B),  "Dates & Comptes",  isSelected = route == Screen.DateTracker.route)  { navigate(navController, Screen.DateTracker.route);  onItemSelected() } }
-            if ("nav_trash" !in hidden)       item(key = "nav_trash")       { NavItem(Icons.Outlined.Delete, MaterialTheme.colorScheme.onSurfaceVariant, "Trash", isSelected = route == Screen.Trash.route) { navigate(navController, Screen.Trash.route);        onItemSelected() } }
+            if ("nav_projects" !in hidden)    item(key = "nav_projects")    { NavItem(Icons.Outlined.GridView,      Color(0xFF8B5CF6),  "Projects",        isSelected = route == Screen.Projects.route)     { navigateTab(navController, Screen.Projects.route);     onItemSelected() } }
+            if ("nav_goals" !in hidden)       item(key = "nav_goals")       { NavItem(Icons.Outlined.TrackChanges, Color(0xFFFF9500),  "Goals",            isSelected = route == Screen.Goals.route)        { navigateTab(navController, Screen.Goals.route);        onItemSelected() } }
+            if ("nav_rss" !in hidden)         item(key = "nav_rss")         { NavItem(Icons.Outlined.RssFeed,      Color(0xFFFF6B35),  "RSS",              isSelected = route == Screen.Rss.route)          { navigateTab(navController, Screen.Rss.route);          onItemSelected() } }
+            if ("nav_datetracker" !in hidden) item(key = "nav_datetracker") { NavItem(Icons.Outlined.Timer,        Color(0xFFFF6B6B),  "Dates & Comptes",  isSelected = route == Screen.DateTracker.route)  { navigateTab(navController, Screen.DateTracker.route);  onItemSelected() } }
+            if ("nav_trash" !in hidden)       item(key = "nav_trash")       { NavItem(Icons.Outlined.Delete, MaterialTheme.colorScheme.onSurfaceVariant, "Trash", isSelected = route == Screen.Trash.route) { navigateTab(navController, Screen.Trash.route);        onItemSelected() } }
 
             // Divider before folders + projects section
             item(key = "nav_divider") {
@@ -1066,7 +1066,7 @@ private fun FolderCreateSheet(
 
 // ── Helper ────────────────────────────────────────────────────────────────────
 
-private fun navigate(navController: NavController, route: String) {
+fun navigateTab(navController: NavController, route: String) {
     android.util.Log.d("OnlyFlowsNav", "navigate→$route stack=${navController.currentBackStack.value.map { it.destination.route }}")
     navController.navigate(route) {
         popUpTo(navController.graph.findStartDestination().id) {
