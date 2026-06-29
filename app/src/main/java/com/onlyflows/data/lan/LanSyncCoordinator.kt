@@ -45,10 +45,9 @@ class LanSyncCoordinator(
     private val _pairingCodeExpiryMs = MutableStateFlow(0L)
 
     fun forceSync() {
-        scope.launch {
+        scope.launch(Dispatchers.IO) {
             pairedDeviceDao.getAll().forEach { peer ->
-                val since = syncDao.getSyncMeta(peer.id)?.lastSyncedAt ?: LocalDateTime.MIN
-                runCatching { syncWithPeer(peer.lastKnownIp, peer.port, peer.id, since) }
+                runCatching { syncWithPeer(peer.lastKnownIp, peer.port) }
             }
         }
     }
@@ -135,13 +134,12 @@ class LanSyncCoordinator(
                 onPeerLost   = { },
             ).also { it.start() }
         }
-        // Poll every 5s — guarantees sync regardless of push reliability
+        // Poll every 3s — full-state sync, no cursor. LWW guard in applyDelta makes it idempotent.
         scope.launch(Dispatchers.IO) {
             while (true) {
-                delay(5_000)
+                delay(3_000)
                 pairedDeviceDao.getAll().forEach { peer ->
-                    val since = syncDao.getSyncMeta(peer.id)?.lastSyncedAt ?: LocalDateTime.MIN
-                    runCatching { syncWithPeer(peer.lastKnownIp, peer.port, peer.id, since) }
+                    runCatching { syncWithPeer(peer.lastKnownIp, peer.port) }
                 }
             }
         }
@@ -200,7 +198,7 @@ class LanSyncCoordinator(
         val peerName = resp.optString("deviceName")
         pairedDeviceDao.upsert(PairedDeviceEntity(peerId, peerName, ip, port, LocalDateTime.now()))
         _discoveredPeers.update { it.filter { p -> p.first != ip } }
-        scope.launch { syncWithPeer(ip, port, peerId, LocalDateTime.MIN) }
+        scope.launch(Dispatchers.IO) { syncWithPeer(ip, port) }
         return true
     }
 
@@ -217,7 +215,7 @@ class LanSyncCoordinator(
         val peerPort = json.optInt("port", PORT)
 
         pairedDeviceDao.upsert(PairedDeviceEntity(peerId, peerName, peerIp, peerPort, LocalDateTime.now()))
-        scope.launch { syncWithPeer(peerIp, peerPort, peerId, LocalDateTime.MIN) }
+        scope.launch(Dispatchers.IO) { syncWithPeer(peerIp, peerPort) }
         return buildInfoJson()
     }
 
@@ -249,9 +247,20 @@ class LanSyncCoordinator(
         }
     }
 
-    // Called when server receives /apply — also keeps the sender's IP fresh
+    // Called from server thread — schedules on scope (Main) so Room Flow observers get notified
+    fun scheduleApplyDelta(senderIp: String, bodyStr: String) {
+        scope.launch {
+            runCatching {
+                val paired = pairedDeviceDao.getAll()
+                paired.find { it.lastKnownIp == senderIp }
+                    ?: paired.firstOrNull()?.also { pairedDeviceDao.updateIp(it.id, senderIp) }
+                applyDelta(JSONObject(bodyStr))
+            }
+        }
+    }
+
+    // Used internally (poll loop already on scope)
     suspend fun applyDeltaFrom(senderIp: String, delta: JSONObject) {
-        // Update IP for whichever paired device sent this push
         val paired = pairedDeviceDao.getAll()
         paired.find { it.lastKnownIp == senderIp }
             ?: paired.firstOrNull()?.also { pairedDeviceDao.updateIp(it.id, senderIp) }
@@ -259,21 +268,8 @@ class LanSyncCoordinator(
     }
 
     suspend fun applyDelta(delta: JSONObject) = withContext(Dispatchers.IO) {
-        delta.forEachArray("tasks")          { syncDao.upsertTask(taskEntityFromJson(it)) }
-        delta.forEachArray("projects")       { syncDao.upsertProject(projectEntityFromJson(it)) }
-        delta.forEachArray("sections")       { syncDao.upsertSection(sectionEntityFromJson(it)) }
-        delta.forEachArray("checklistItems") { syncDao.upsertChecklistItem(checklistItemEntityFromJson(it)) }
-        delta.forEachArray("tags")           { syncDao.upsertTag(tagEntityFromJson(it)) }
-        delta.forEachArray("folders")        { syncDao.upsertFolder(folderEntityFromJson(it)) }
-        delta.forEachArray("notes")          { syncDao.upsertNote(noteEntityFromJson(it)) }
-        delta.forEachArray("comments")       { syncDao.upsertComment(commentEntityFromJson(it)) }
-        delta.forEachArray("reminders")      { syncDao.upsertReminder(reminderEntityFromJson(it)) }
-        delta.forEachArray("timeEntries")    { syncDao.upsertTimeEntry(timeEntryEntityFromJson(it)) }
-        delta.forEachArray("savedLocations") { syncDao.upsertSavedLocation(savedLocationEntityFromJson(it)) }
-        delta.forEachArray("goals")          { syncDao.upsertGoal(goalEntityFromJson(it)) }
-        delta.forEachArray("goalLogs")       { syncDao.upsertGoalLog(goalLogEntityFromJson(it)) }
-        delta.forEachArray("dateTrackers")   { syncDao.upsertDateTracker(dateTrackerEntityFromJson(it)) }
-        delta.forEachArray("tombstones")     { obj ->
+        // Tombstones FIRST so a delete always beats a stale re-create in the same batch
+        delta.forEachArray("tombstones") { obj ->
             val type      = obj.optString("entityType")
             val id        = obj.optString("entityId")
             val deletedAt = runCatching { LocalDateTime.parse(obj.optString("deletedAt")) }.getOrNull() ?: return@forEachArray
@@ -281,6 +277,37 @@ class LanSyncCoordinator(
             applyDelete(type, id)
             syncDao.insertTombstone(DeletedEntityEntity("tomb_$id", type, id, deletedAt))
         }
+        delta.forEachArray("tasks")          { o -> upsertIfNewer(o, "tasks", "updatedAt", syncDao::getTaskUpdatedAt) { syncDao.upsertTask(taskEntityFromJson(o)) } }
+        delta.forEachArray("projects")       { o -> upsertIfNewer(o, "projects", "updatedAt", syncDao::getProjectUpdatedAt) { syncDao.upsertProject(projectEntityFromJson(o)) } }
+        delta.forEachArray("sections")       { o -> upsertIfNewer(o, "sections", "updatedAt", syncDao::getSectionUpdatedAt) { syncDao.upsertSection(sectionEntityFromJson(o)) } }
+        delta.forEachArray("checklistItems") { o -> upsertIfNewer(o, "checklist_items", "updatedAt", syncDao::getChecklistItemUpdatedAt) { syncDao.upsertChecklistItem(checklistItemEntityFromJson(o)) } }
+        delta.forEachArray("tags")           { o -> upsertIfNewer(o, "tags", "updatedAt", syncDao::getTagUpdatedAt) { syncDao.upsertTag(tagEntityFromJson(o)) } }
+        delta.forEachArray("folders")        { o -> upsertIfNewer(o, "folders", "updatedAt", syncDao::getFolderUpdatedAt) { syncDao.upsertFolder(folderEntityFromJson(o)) } }
+        delta.forEachArray("notes")          { o -> upsertIfNewer(o, "notes", "updatedAt", syncDao::getNoteUpdatedAt) { syncDao.upsertNote(noteEntityFromJson(o)) } }
+        delta.forEachArray("comments")       { o -> upsertIfNewer(o, "comments", "updatedAt", syncDao::getCommentUpdatedAt) { syncDao.upsertComment(commentEntityFromJson(o)) } }
+        delta.forEachArray("reminders")      { o -> upsertIfNewer(o, "reminders", "updatedAt", syncDao::getReminderUpdatedAt) { syncDao.upsertReminder(reminderEntityFromJson(o)) } }
+        delta.forEachArray("timeEntries")    { o -> upsertIfNewer(o, "time_entries", "updatedAt", syncDao::getTimeEntryUpdatedAt) { syncDao.upsertTimeEntry(timeEntryEntityFromJson(o)) } }
+        delta.forEachArray("savedLocations") { o -> upsertIfNewer(o, "saved_locations", "updatedAt", syncDao::getSavedLocationUpdatedAt) { syncDao.upsertSavedLocation(savedLocationEntityFromJson(o)) } }
+        delta.forEachArray("goals")          { o -> upsertIfNewer(o, "goals", "updatedAt", syncDao::getGoalUpdatedAt) { syncDao.upsertGoal(goalEntityFromJson(o)) } }
+        delta.forEachArray("goalLogs")       { o -> upsertIfNewer(o, "goal_logs", "loggedAt", syncDao::getGoalLogLoggedAt) { syncDao.upsertGoalLog(goalLogEntityFromJson(o)) } }
+        delta.forEachArray("dateTrackers")   { o -> upsertIfNewer(o, "date_trackers", "updatedAt", syncDao::getDateTrackerCreatedAt) { syncDao.upsertDateTracker(dateTrackerEntityFromJson(o)) } }
+    }
+
+    // Write only if not tombstoned and incoming is strictly newer than local — last-write-wins,
+    // no resurrection, no flicker (steady state does zero writes).
+    private suspend fun upsertIfNewer(
+        json: JSONObject,
+        type: String,
+        tsKey: String,
+        localTs: suspend (String) -> LocalDateTime?,
+        write: suspend () -> Unit,
+    ) {
+        val id = json.optString("id")
+        if (id.isBlank() || syncDao.isTombstoned(id, type)) return
+        val incoming = runCatching { LocalDateTime.parse(json.optString(tsKey)) }.getOrNull()
+        val local = localTs(id)
+        if (incoming != null && local != null && !incoming.isAfter(local)) return
+        write()
     }
 
     private suspend fun applyDelete(type: String, id: String) = when (type) {
@@ -310,8 +337,7 @@ class LanSyncCoordinator(
         val paired = pairedDeviceDao.getAll().find { it.id == peerId }
         if (paired != null) {
             pairedDeviceDao.updateIp(peerId, ip)
-            val since = syncDao.getSyncMeta(peerId)?.lastSyncedAt ?: LocalDateTime.MIN
-            syncWithPeer(ip, paired.port, peerId, since)
+            syncWithPeer(ip, paired.port)
         } else {
             // Track for the pairing UI
             _discoveredPeers.update { current ->
@@ -320,14 +346,11 @@ class LanSyncCoordinator(
         }
     }
 
-    private suspend fun syncWithPeer(ip: String, port: Int, peerId: String, since: LocalDateTime) {
-        // Capture T_before BEFORE pulling — tasks created during sync won't be skipped next cycle
-        val syncedAt = LocalDateTime.now()
-        val delta = client.getDelta(ip, port, since) ?: return
+    // Full-state bidirectional sync. No cursor — LWW guard in applyDelta dedupes/protects.
+    private suspend fun syncWithPeer(ip: String, port: Int) {
+        val delta = client.getDelta(ip, port, LocalDateTime.MIN) ?: return
         applyDelta(delta)
-        val ourDelta = buildDelta(since)
-        client.postApply(ip, port, ourDelta)
-        syncDao.upsertSyncMeta(SyncMetaEntity(peerId, "", syncedAt))
+        client.postApply(ip, port, buildDelta(LocalDateTime.MIN))
     }
 
     // Helpers
