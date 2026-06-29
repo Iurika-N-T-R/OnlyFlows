@@ -135,6 +135,16 @@ class LanSyncCoordinator(
                 onPeerLost   = { },
             ).also { it.start() }
         }
+        // Poll every 5s — guarantees sync regardless of push reliability
+        scope.launch(Dispatchers.IO) {
+            while (true) {
+                delay(5_000)
+                pairedDeviceDao.getAll().forEach { peer ->
+                    val since = syncDao.getSyncMeta(peer.id)?.lastSyncedAt ?: LocalDateTime.MIN
+                    runCatching { syncWithPeer(peer.lastKnownIp, peer.port, peer.id, since) }
+                }
+            }
+        }
     }
 
     fun stop() {
