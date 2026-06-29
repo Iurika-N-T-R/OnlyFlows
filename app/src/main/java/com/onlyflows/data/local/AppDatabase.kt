@@ -59,8 +59,9 @@ import kotlinx.coroutines.launch
         DateTrackerEntity::class,
         RssFeedEntity::class,
         RssArticleEntity::class,
+        PairedDeviceEntity::class,
     ],
-    version = 31,
+    version = 32,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -86,6 +87,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun syncDao(): SyncDao
     abstract fun rssFeedDao(): RssFeedDao
     abstract fun rssArticleDao(): RssArticleDao
+    abstract fun pairedDeviceDao(): PairedDeviceDao
 
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null
@@ -142,12 +144,23 @@ abstract class AppDatabase : RoomDatabase() {
                 val migration30to31 = Migration(30, 31) { db ->
                     db.execSQL("ALTER TABLE reminders ADD COLUMN recurrenceType TEXT NOT NULL DEFAULT 'NONE'")
                 }
+                val migration31to32 = Migration(31, 32) { db ->
+                    db.execSQL(
+                        """CREATE TABLE IF NOT EXISTS paired_devices (
+                            id TEXT NOT NULL PRIMARY KEY,
+                            name TEXT NOT NULL,
+                            lastKnownIp TEXT NOT NULL,
+                            port INTEGER NOT NULL,
+                            pairedAt TEXT NOT NULL
+                        )"""
+                    )
+                }
                 Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "onlyflows.db",
                 )
-                .addMigrations(migration27to28, migration28to29, migration29to30, migration30to31)
+                .addMigrations(migration27to28, migration28to29, migration29to30, migration30to31, migration31to32)
                 .fallbackToDestructiveMigration()
                 .fallbackToDestructiveMigrationOnDowngrade()
                 .addCallback(SeedCallback())

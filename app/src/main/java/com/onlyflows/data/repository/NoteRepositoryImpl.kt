@@ -5,7 +5,7 @@ import com.onlyflows.data.local.dao.SyncDao
 import com.onlyflows.data.local.entity.DeletedEntityEntity
 import com.onlyflows.data.local.entity.toDomain
 import com.onlyflows.data.local.entity.toEntity
-import com.onlyflows.data.syncthing.SyncthingWriter
+import com.onlyflows.data.lan.LanSyncWriter
 import com.onlyflows.domain.model.Note
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -14,7 +14,7 @@ import java.time.LocalDateTime
 class NoteRepository(
     private val noteDao: NoteDao,
     private val syncDao: SyncDao,
-    private val syncthingWriter: SyncthingWriter,
+    private val syncthingWriter: LanSyncWriter,
 ) {
     fun observeByProject(projectId: String): Flow<List<Note>> =
         noteDao.observeByProject(projectId).map { list -> list.map { it.toDomain() } }

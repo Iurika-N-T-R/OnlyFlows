@@ -5,7 +5,7 @@ import com.onlyflows.data.local.dao.TimeEntryDao
 import com.onlyflows.data.local.entity.DeletedEntityEntity
 import com.onlyflows.data.local.entity.toDomain
 import com.onlyflows.data.local.entity.toEntity
-import com.onlyflows.data.syncthing.SyncthingWriter
+import com.onlyflows.data.lan.LanSyncWriter
 import com.onlyflows.domain.model.ActionLog
 import com.onlyflows.domain.model.ActionType
 import com.onlyflows.domain.model.TimeEntry
@@ -18,7 +18,7 @@ class TimeEntryRepository(
     private val dao: TimeEntryDao,
     private val actionLog: ActionLogRepository,
     private val syncDao: SyncDao,
-    private val syncthingWriter: SyncthingWriter,
+    private val syncthingWriter: LanSyncWriter,
 ) {
 
     private suspend fun log(type: ActionType, entryId: String, taskId: String, extra: String? = null) {

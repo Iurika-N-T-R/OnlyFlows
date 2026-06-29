@@ -28,13 +28,10 @@ import com.onlyflows.data.repository.NoteRepository
 import com.onlyflows.data.repository.ProjectRepository
 import com.onlyflows.data.repository.TagRepository
 import com.onlyflows.data.repository.TaskRepository
-import com.onlyflows.data.syncthing.ConflictResolver
-import com.onlyflows.data.syncthing.SyncthingCoordinator
-import com.onlyflows.data.syncthing.SyncthingExporter
-import com.onlyflows.data.syncthing.SyncthingImporter
-import com.onlyflows.data.syncthing.SyncthingPreferences
-import com.onlyflows.data.syncthing.SyncthingStatusMonitor
-import com.onlyflows.data.syncthing.SyncthingWriter
+import com.onlyflows.data.lan.LanSyncClient
+import com.onlyflows.data.lan.LanSyncCoordinator
+import com.onlyflows.data.lan.LanSyncPreferences
+import com.onlyflows.data.lan.LanSyncWriter
 import com.onlyflows.ui.widget.WidgetPrefsRepository
 import com.onlyflows.ui.widget.WidgetStateManager
 
@@ -42,21 +39,18 @@ class AppContainer(context: Context) {
     private val db = AppDatabase.getInstance(context)
     private val syncDao = db.syncDao()
 
-    // ── Syncthing (declared first — repos depend on it) ───────────────────────
-    val syncthingPreferences: SyncthingPreferences   = SyncthingPreferences(context)
-    val syncthingWriter: SyncthingWriter              = SyncthingWriter(context, syncthingPreferences)
-    val syncthingStatusMonitor: SyncthingStatusMonitor = SyncthingStatusMonitor(context, syncthingPreferences)
-    val conflictResolver: ConflictResolver            = ConflictResolver(context, syncDao, syncthingPreferences)
-    val syncthingImporter: SyncthingImporter          = SyncthingImporter(context, syncDao, syncthingPreferences)
-    val syncthingExporter: SyncthingExporter          = SyncthingExporter(syncDao, syncthingWriter)
-    val syncthingCoordinator: SyncthingCoordinator    = SyncthingCoordinator(
-        context          = context,
-        prefs            = syncthingPreferences,
-        monitor          = syncthingStatusMonitor,
-        importer         = syncthingImporter,
-        conflictResolver = conflictResolver,
-        writer           = syncthingWriter,
+    // ── LAN sync ─────────────────────────────────────────────────────────────
+    val lanSyncPreferences: LanSyncPreferences = LanSyncPreferences(context)
+    private val lanSyncClient: LanSyncClient   = LanSyncClient()
+    val lanSyncCoordinator: LanSyncCoordinator = LanSyncCoordinator(
+        context         = context,
+        prefs           = lanSyncPreferences,
+        syncDao         = syncDao,
+        pairedDeviceDao = db.pairedDeviceDao(),
+        client          = lanSyncClient,
+        scope           = kotlinx.coroutines.MainScope(),
     )
+    val lanSyncWriter: LanSyncWriter = LanSyncWriter(lanSyncCoordinator)
 
     // ── Repositories ──────────────────────────────────────────────────────────
     val actionLogRepository: ActionLogRepository        = ActionLogRepository(db.actionLogDao())
@@ -67,7 +61,7 @@ class AppContainer(context: Context) {
         checklistDao    = db.checklistItemDao(),
         actionLog       = actionLogRepository,
         syncDao         = syncDao,
-        syncthingWriter = syncthingWriter,
+        syncthingWriter = lanSyncWriter,
         onTaskMutated   = {},
     )
 
@@ -78,34 +72,34 @@ class AppContainer(context: Context) {
         taskDao         = db.taskDao(),
         actionLog       = actionLogRepository,
         syncDao         = syncDao,
-        syncthingWriter = syncthingWriter,
+        syncthingWriter = lanSyncWriter,
     )
 
-    val goalRepository: GoalRepository       = GoalRepository(db.goalDao(), syncDao, syncthingWriter)
-    val goalLogRepository: GoalLogRepository = GoalLogRepository(db.goalLogDao(), syncDao, syncthingWriter)
+    val goalRepository: GoalRepository       = GoalRepository(db.goalDao(), syncDao, lanSyncWriter)
+    val goalLogRepository: GoalLogRepository = GoalLogRepository(db.goalLogDao(), syncDao, lanSyncWriter)
 
     val folderRepository: FolderRepository = FolderRepository(
         folderDao       = db.folderDao(),
         syncDao         = syncDao,
-        syncthingWriter = syncthingWriter,
+        syncthingWriter = lanSyncWriter,
     )
 
     val tagRepository: TagRepository = TagRepository(
         tagDao          = db.tagDao(),
         syncDao         = syncDao,
-        syncthingWriter = syncthingWriter,
+        syncthingWriter = lanSyncWriter,
     )
 
     val noteRepository: NoteRepository = NoteRepository(
         noteDao         = db.noteDao(),
         syncDao         = syncDao,
-        syncthingWriter = syncthingWriter,
+        syncthingWriter = lanSyncWriter,
     )
 
     val savedLocationRepository: SavedLocationRepository = SavedLocationRepository(
         dao             = db.savedLocationDao(),
         syncDao         = syncDao,
-        syncthingWriter = syncthingWriter,
+        syncthingWriter = lanSyncWriter,
     )
 
     val notificationPreferences: NotificationPreferences = NotificationPreferences(context)
@@ -116,7 +110,7 @@ class AppContainer(context: Context) {
     val backupPreferences: BackupPreferences     = BackupPreferences(context)
     val backupManager: BackupManager             = BackupManager(context)
     val quoteRepository: QuoteRepository         = QuoteRepository(context)
-    val dateTrackerRepository: DateTrackerRepository = DateTrackerRepository(db.dateTrackerDao(), syncDao, syncthingWriter)
+    val dateTrackerRepository: DateTrackerRepository = DateTrackerRepository(db.dateTrackerDao(), syncDao, lanSyncWriter)
     val rssRepository: com.onlyflows.data.repository.RssRepository =
         com.onlyflows.data.repository.RssRepository(db.rssFeedDao(), db.rssArticleDao(), context)
     val reminderScheduler: ReminderScheduler     = ReminderScheduler(context)
@@ -127,26 +121,26 @@ class AppContainer(context: Context) {
         dao             = db.timeEntryDao(),
         actionLog       = actionLogRepository,
         syncDao         = syncDao,
-        syncthingWriter = syncthingWriter,
+        syncthingWriter = lanSyncWriter,
     )
 
     val commentRepository: CommentRepository = CommentRepository(
         dao             = db.commentDao(),
         actionLog       = actionLogRepository,
         syncDao         = syncDao,
-        syncthingWriter = syncthingWriter,
+        syncthingWriter = lanSyncWriter,
     )
 
     val reminderRepository: ReminderRepository = ReminderRepository(
         dao             = db.reminderDao(),
         syncDao         = syncDao,
-        syncthingWriter = syncthingWriter,
+        syncthingWriter = lanSyncWriter,
     )
 
     val attachmentRepository: AttachmentRepository = AttachmentRepository(
         dao             = db.attachmentDao(),
         syncDao         = syncDao,
-        syncthingWriter = syncthingWriter,
+        syncthingWriter = lanSyncWriter,
     )
 
     val widgetPrefsRepository: WidgetPrefsRepository = WidgetPrefsRepository(context)

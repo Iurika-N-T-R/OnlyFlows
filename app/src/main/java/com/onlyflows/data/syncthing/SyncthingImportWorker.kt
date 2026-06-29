@@ -18,23 +18,7 @@ class SyncthingImportWorker(
     params: WorkerParameters,
 ) : CoroutineWorker(appContext, params) {
 
-    override suspend fun doWork(): Result {
-        val container = (applicationContext as OnlyFlowsApp).container
-        val prefs = container.syncthingPreferences
-        val importer = container.syncthingImporter
-        val conflictResolver = container.conflictResolver
-
-        return try {
-            val conflicts = conflictResolver.resolveAll()
-            val importResult = importer.importAll()
-            prefs.setLastScannedAt(System.currentTimeMillis())
-            AppLog.d(TAG, "Periodic import: $importResult, conflicts: $conflicts")
-            Result.success()
-        } catch (e: Exception) {
-            AppLog.e(TAG, "Periodic import failed", e)
-            Result.retry()
-        }
-    }
+    override suspend fun doWork(): Result = Result.success() // ponytail: Syncthing removed, worker is no-op
 
     companion object {
         fun schedule(context: Context) {

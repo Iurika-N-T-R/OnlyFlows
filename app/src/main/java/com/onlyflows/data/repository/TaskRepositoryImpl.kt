@@ -3,7 +3,7 @@ package com.onlyflows.data.repository
 import com.onlyflows.data.local.dao.ChecklistItemDao
 import com.onlyflows.data.local.dao.SyncDao
 import com.onlyflows.data.local.dao.TaskDao
-import com.onlyflows.data.syncthing.SyncthingWriter
+import com.onlyflows.data.lan.LanSyncWriter
 import com.onlyflows.data.local.entity.DeletedEntityEntity
 import com.onlyflows.data.local.entity.TaskWithChecklistItems
 import com.onlyflows.data.local.entity.toDomain
@@ -24,7 +24,7 @@ class TaskRepository(
     private val checklistDao: ChecklistItemDao,
     private val actionLog: ActionLogRepository,
     private val syncDao: SyncDao,
-    private val syncthingWriter: SyncthingWriter,
+    private val syncthingWriter: LanSyncWriter,
     private val onTaskMutated: suspend () -> Unit,
 ) {
 

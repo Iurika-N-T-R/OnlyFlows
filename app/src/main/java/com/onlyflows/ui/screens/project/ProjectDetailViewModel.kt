@@ -129,7 +129,7 @@ class ProjectDetailViewModel(app: Application) : AndroidViewModel(app) {
     private val timeRepo: TimeEntryRepository        = container.timeEntryRepository
     private val commentRepo: CommentRepository       = container.commentRepository
     private val appPrefs                             = container.appPreferences
-    private val coordinator                          = container.syncthingCoordinator
+    private val coordinator                          = container.lanSyncCoordinator
 
     val isImporting = coordinator.isImporting
 

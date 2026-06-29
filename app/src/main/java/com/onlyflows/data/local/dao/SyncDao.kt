@@ -304,4 +304,15 @@ interface SyncDao {
 
     @Query("SELECT * FROM date_trackers")
     suspend fun getAllDateTrackers(): List<com.onlyflows.data.local.entity.DateTrackerEntity>
+
+    // ── Changed-since queries for LAN delta sync ──────────────────────────────
+
+    @Query("SELECT * FROM goals WHERE updatedAt > :since")
+    suspend fun getGoalsChangedSince(since: java.time.LocalDateTime): List<com.onlyflows.data.local.entity.GoalEntity>
+
+    @Query("SELECT * FROM goal_logs WHERE loggedAt > :since")
+    suspend fun getGoalLogsChangedSince(since: java.time.LocalDateTime): List<com.onlyflows.data.local.entity.GoalLogEntity>
+
+    @Query("SELECT * FROM date_trackers WHERE createdAt > :since")
+    suspend fun getDateTrackersChangedSince(since: java.time.LocalDateTime): List<com.onlyflows.data.local.entity.DateTrackerEntity>
 }

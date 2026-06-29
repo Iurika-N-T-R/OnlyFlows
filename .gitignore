@@ -25,3 +25,6 @@ Screenshot/
 *.jks
 *.keystore
 *.p12
+
+# Transfer folder (contains keystore + sensitive setup info)
+_transfer/

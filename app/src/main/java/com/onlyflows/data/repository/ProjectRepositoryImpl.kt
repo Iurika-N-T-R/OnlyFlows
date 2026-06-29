@@ -11,7 +11,7 @@ import com.onlyflows.data.local.entity.DeletedEntityEntity
 import com.onlyflows.data.local.entity.StatusLogEntity
 import com.onlyflows.data.local.entity.toDomain
 import com.onlyflows.data.local.entity.toEntity
-import com.onlyflows.data.syncthing.SyncthingWriter
+import com.onlyflows.data.lan.LanSyncWriter
 import com.onlyflows.domain.model.ActionLog
 import com.onlyflows.domain.model.ActionType
 import com.onlyflows.domain.model.Folder
@@ -34,7 +34,7 @@ class ProjectRepository(
     private val taskDao: TaskDao,
     private val actionLog: ActionLogRepository,
     private val syncDao: SyncDao,
-    private val syncthingWriter: SyncthingWriter,
+    private val syncthingWriter: LanSyncWriter,
 ) {
 
     private suspend fun tombstone(id: String, type: String) {
@@ -203,7 +203,7 @@ class ProjectRepository(
 class FolderRepository(
     private val folderDao: FolderDao,
     private val syncDao: SyncDao,
-    private val syncthingWriter: SyncthingWriter,
+    private val syncthingWriter: LanSyncWriter,
 ) {
 
     fun observeAll(): Flow<List<Folder>> =
@@ -230,7 +230,7 @@ class FolderRepository(
 class TagRepository(
     private val tagDao: TagDao,
     private val syncDao: SyncDao,
-    private val syncthingWriter: SyncthingWriter,
+    private val syncthingWriter: LanSyncWriter,
 ) {
 
     fun observeAll(): Flow<List<Tag>> =
