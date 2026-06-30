@@ -9,42 +9,12 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface TaskDao {
 
-    @Query("SELECT * FROM tasks WHERE deletedAt IS NULL ORDER BY sortOrder ASC")
-    fun observeAll(): Flow<List<TaskEntity>>
-
     // Inbox = no project AND no explicit scheduled group (unprocessed tasks)
     @Query("SELECT * FROM tasks WHERE projectId IS NULL AND scheduledGroup IS NULL AND isCompleted = 0 AND isArchived = 0 AND deletedAt IS NULL ORDER BY sortOrder ASC")
     fun observeInbox(): Flow<List<TaskEntity>>
 
-    @Query("SELECT * FROM tasks WHERE scheduledGroup = :group AND deletedAt IS NULL ORDER BY sortOrder ASC")
-    fun observeByGroup(group: String): Flow<List<TaskEntity>>
-
-    @Query("SELECT * FROM tasks WHERE projectId = :projectId AND isArchived = 0 AND deletedAt IS NULL ORDER BY sortOrder ASC")
-    fun observeByProject(projectId: String): Flow<List<TaskEntity>>
-
-    @Query("SELECT * FROM tasks WHERE projectId = :projectId AND isArchived = 1 AND deletedAt IS NULL ORDER BY updatedAt DESC")
-    fun observeArchivedByProject(projectId: String): Flow<List<TaskEntity>>
-
-    @Query("SELECT * FROM tasks WHERE isArchived = 1 AND deletedAt IS NULL ORDER BY updatedAt DESC")
-    fun observeAllArchived(): Flow<List<TaskEntity>>
-
-    @Query("SELECT * FROM tasks WHERE sectionId = :sectionId AND deletedAt IS NULL ORDER BY sortOrder ASC")
-    fun observeBySection(sectionId: String): Flow<List<TaskEntity>>
-
-    @Query("SELECT * FROM tasks WHERE deletedAt IS NOT NULL ORDER BY deletedAt DESC")
-    fun observeTrash(): Flow<List<TaskEntity>>
-
-    @Query("SELECT * FROM tasks WHERE id = :id AND deletedAt IS NULL")
-    fun observeById(id: String): Flow<TaskEntity?>
-
     @Query("SELECT * FROM tasks WHERE id = :id AND deletedAt IS NULL LIMIT 1")
     suspend fun getById(id: String): TaskEntity?
-
-    @Query("SELECT * FROM tasks WHERE id = :id AND deletedAt IS NULL")
-    fun observeByIdFlow(id: String): Flow<TaskEntity?>
-
-    @Query("SELECT * FROM tasks WHERE dependsOnTaskId = :taskId")
-    fun observeDependents(taskId: String): Flow<List<TaskEntity>>
 
     @Query("UPDATE tasks SET dependsOnTaskId = :dependsOnId, updatedAt = :now WHERE id = :id")
     suspend fun setDependsOn(id: String, dependsOnId: String?, now: String)
@@ -77,15 +47,6 @@ interface TaskDao {
     @Query("UPDATE tasks SET scheduledGroup = :group, updatedAt = :now WHERE id = :id")
     suspend fun setScheduledGroup(id: String, group: String?, now: String)
 
-    @Query("SELECT * FROM tasks WHERE (title LIKE '%' || :query || '%' OR note LIKE '%' || :query || '%') AND deletedAt IS NULL ORDER BY updatedAt DESC LIMIT 50")
-    fun search(query: String): Flow<List<TaskEntity>>
-
-    @Query("SELECT * FROM tasks WHERE (dueDate = :date OR startDate = :date) AND deletedAt IS NULL ORDER BY updatedAt DESC LIMIT 30")
-    fun searchByDate(date: String): Flow<List<TaskEntity>>
-
-    @Query("SELECT * FROM tasks WHERE ((dueDate >= :start AND dueDate <= :end) OR (startDate >= :start AND startDate <= :end)) AND deletedAt IS NULL ORDER BY dueDate ASC, startDate ASC LIMIT 50")
-    fun searchByDateRange(start: String, end: String): Flow<List<TaskEntity>>
-
     @Query("""
         SELECT * FROM tasks
         WHERE isCompleted = 0 AND isArchived = 0 AND deletedAt IS NULL
@@ -97,33 +58,6 @@ interface TaskDao {
         ORDER BY scheduledGroup ASC, sortOrder ASC
     """)
     fun observeToday(today: String): Flow<List<TaskEntity>>
-
-    @Query("""
-        SELECT * FROM tasks
-        WHERE isCompleted = 1 AND deletedAt IS NULL
-          AND (
-            scheduledGroup IN ('TODAY', 'THIS_EVENING')
-            OR dueDate = :today
-            OR (startDate <= :today AND (dueDate IS NULL OR dueDate >= :today))
-          )
-        ORDER BY updatedAt DESC
-    """)
-    fun observeTodayCompleted(today: String): Flow<List<TaskEntity>>
-
-    @Query("""
-        SELECT * FROM tasks
-        WHERE isArchived = 1 AND isCompleted = 0 AND deletedAt IS NULL
-          AND (
-            scheduledGroup IN ('TODAY', 'THIS_EVENING')
-            OR dueDate = :today
-            OR (startDate <= :today AND (dueDate IS NULL OR dueDate >= :today))
-          )
-        ORDER BY updatedAt DESC
-    """)
-    fun observeTodayAbandoned(today: String): Flow<List<TaskEntity>>
-
-    @Query("SELECT * FROM tasks WHERE dueDate < :today AND isCompleted = 0 AND isArchived = 0 AND deletedAt IS NULL ORDER BY dueDate ASC, sortOrder ASC")
-    fun observeOverdueTasks(today: String): Flow<List<TaskEntity>>
 
     @Query("""
         SELECT * FROM tasks
