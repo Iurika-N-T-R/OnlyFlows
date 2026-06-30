@@ -5,6 +5,24 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.58.3] — 2026-06-30 · Widget reconstruit selon les bonnes pratiques Glance officielles
+
+### Corrigé
+
+- **Widget à moitié affiché (root cause)** : `widget_info.xml` n'avait pas d'`android:initialLayout`. Ajout de `@layout/glance_default_loading_layout` (layout de chargement fourni par glance-appwidget) — exigé par la doc, sans lui le widget reste vide jusqu'à un update manuel.
+
+### Modifié
+
+- **Widget reconstruit selon la doc Glance** : `provideGlance` charge les données via `withContext(Dispatchers.IO)` puis `provideContent { GlanceTheme(colors) { … } }`.
+- **GlanceTheme (glance-material3)** remplace les couleurs faites main et les drawables de fond ; réutilise les `ColorScheme` clair/sombre de l'app. Thème : suit le système ou force clair/sombre ; retards via `GlanceTheme.colors.error`.
+- `SizeMode.Exact`, `actionStartActivity`/`actionRunCallback`, fond via `widgetBackground` + `cornerRadius`.
+
+### Supprimé
+
+- Ancien `OnlyFlowsWidget.kt` (réécrit) et 5 drawables de widget inutilisés.
+
+---
+
 ## [0.58.2] — 2026-06-30 · Widget simplifié — quick-add en popup + chooser/réglages en dialog
 
 ### Ajouté

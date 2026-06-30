@@ -1,18 +1,16 @@
 package com.onlyflows.ui.widget
 
 import android.content.Context
-import android.content.res.Configuration
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
-import androidx.glance.ImageProvider
-import androidx.glance.action.actionParametersOf
+import androidx.glance.GlanceTheme
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
+import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.lazy.LazyColumn
@@ -30,103 +28,78 @@ import androidx.glance.layout.height
 import androidx.glance.layout.padding
 import androidx.glance.layout.size
 import androidx.glance.layout.width
+import androidx.glance.material3.ColorProviders
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
-import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
-import com.onlyflows.R
 import com.onlyflows.data.local.AppDatabase
 import com.onlyflows.data.local.entity.ProjectEntity
 import com.onlyflows.data.local.entity.SectionEntity
 import com.onlyflows.data.local.entity.TaskEntity
+import com.onlyflows.ui.theme.DarkColorScheme
+import com.onlyflows.ui.theme.LightColorScheme
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
+/**
+ * Home-screen widget (Jetpack Glance, official pattern):
+ *  - provideGlance loads data off the main thread, then provideContent renders.
+ *  - GlanceTheme drives colors (system / forced light / dark via the theme pref).
+ *  - Pill → filter/settings dialog · + → quick-add dialog · row tap → complete task.
+ */
 class OnlyFlowsWidget : GlanceAppWidget() {
 
+    override val sizeMode = SizeMode.Exact
+
+    // Forced light/dark when the user overrides; otherwise follow the system.
+    private fun colors(theme: String) = when (theme) {
+        "LIGHT" -> ColorProviders(light = LightColorScheme, dark = LightColorScheme)
+        "DARK"  -> ColorProviders(light = DarkColorScheme,  dark = DarkColorScheme)
+        else    -> ColorProviders(light = LightColorScheme, dark = DarkColorScheme)
+    }
+
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        // Safe defaults shown if data load fails
-        var tasks       = emptyList<TaskEntity>()
-        var projectMap  = emptyMap<String, ProjectEntity>()
-        var sectionMap  = emptyMap<String, SectionEntity>()
-        var prefs       = WidgetPrefs()
-        var scopeLabel  = "All"
+        var tasks      = emptyList<TaskEntity>()
+        var projectMap = emptyMap<String, ProjectEntity>()
+        var sectionMap = emptyMap<String, SectionEntity>()
+        var prefs      = WidgetPrefs()
+        var scopeLabel = "All"
 
-        try {
-            val db        = AppDatabase.getInstance(context)
-            val prefsRepo = WidgetPrefsRepository(context)
-            prefs         = prefsRepo.prefs.first()
+        withContext(Dispatchers.IO) {
+            try {
+                val db = AppDatabase.getInstance(context)
+                prefs  = WidgetPrefsRepository(context).prefs.first()
 
-            val rawTasks    = widgetTasksFlow(db.taskDao(), prefs).first()
-            val allProjects = db.projectDao().observeActiveProjectsAndLists().first()
-            val allSections = db.sectionDao().getAll()
+                tasks = widgetTasksFlow(db.taskDao(), prefs).first()
+                    .sortedWith(compareBy(nullsLast()) { it.dueDate })
+                projectMap = db.projectDao().observeActiveProjectsAndLists().first().associateBy { it.id }
+                sectionMap = db.sectionDao().getAll().associateBy { it.id }
 
-            projectMap = allProjects.associate { it.id to it }
-            sectionMap = allSections.associate { it.id to it }
-
-            // Overdue first, then by due date — sensible default, no sort UI to fiddle with.
-            tasks = rawTasks.sortedWith(compareBy(nullsLast()) { it.dueDate })
-
-            scopeLabel = when (prefs.scopeType) {
-                "TODAY"    -> "Today"
-                "ANYTIME"  -> "Anytime"
-                "INBOX"    -> "Inbox"
-                "UPCOMING" -> "Upcoming"
-                "SOMEDAY"  -> "Someday"
-                "PROJECT"  -> projectMap[prefs.scopeId]?.title ?: "All"
-                "SECTION"  -> sectionMap[prefs.scopeId]?.title ?: "All"
-                else       -> "All"
-            }
-        } catch (_: Exception) { /* show empty widget rather than crashing */ }
-
-        val isDark = when (prefs.theme) {
-            "LIGHT" -> false
-            "DARK"  -> true
-            else    -> context.isNightMode()   // FOLLOW
+                scopeLabel = when (prefs.scopeType) {
+                    "TODAY" -> "Today"; "ANYTIME" -> "Anytime"; "INBOX" -> "Inbox"
+                    "UPCOMING" -> "Upcoming"; "SOMEDAY" -> "Someday"
+                    "PROJECT" -> projectMap[prefs.scopeId]?.title ?: "All"
+                    "SECTION" -> sectionMap[prefs.scopeId]?.title ?: "All"
+                    else -> "All"
+                }
+            } catch (_: Exception) { /* render empty rather than crash */ }
         }
 
+        val themeColors = colors(prefs.theme)
         provideContent {
-            WidgetContent(
-                tasks         = tasks,
-                projectMap    = projectMap,
-                sectionMap    = sectionMap,
-                prefs         = prefs,
-                scopeLabel    = scopeLabel,
-                isDark        = isDark,
-            )
+            GlanceTheme(colors = themeColors) {
+                WidgetContent(tasks, projectMap, sectionMap, prefs, scopeLabel)
+            }
         }
     }
 }
 
-// ── Color scheme ──────────────────────────────────────────────────────────────
-
-private data class WColors(
-    val bg: Color,
-    val onBg: Color,
-    val onSurface: Color,
-    val accent: Color,
-    val divider: Color,
-)
-
-private fun lightColors() = WColors(
-    bg        = Color(0xFFFFFFFF),
-    onBg      = Color(0xFF1A1A1A),
-    onSurface = Color(0xFF6B7280),
-    accent    = Color(0xFF4A90D9),
-    divider   = Color(0xFFE5E7EB),
-)
-
-private fun darkColors() = WColors(
-    bg        = Color(0xFF161B22),
-    onBg      = Color(0xFFF0F4F8),
-    onSurface = Color(0xFF8B9BB4),
-    accent    = Color(0xFF4A90D9),
-    divider   = Color(0xFF2A3448),
-)
-
-// ── Root ──────────────────────────────────────────────────────────────────────
+// ── Content ─────────────────────────────────────────────────────────────────
 
 @Composable
 private fun WidgetContent(
@@ -135,129 +108,75 @@ private fun WidgetContent(
     sectionMap: Map<String, SectionEntity>,
     prefs: WidgetPrefs,
     scopeLabel: String,
-    isDark: Boolean,
 ) {
-    val c     = if (isDark) darkColors() else lightColors()
-    val bgRes = if (isDark) R.drawable.widget_bg_dark else R.drawable.widget_bg_light
-
-    Box(
+    Column(
         modifier = GlanceModifier
             .fillMaxSize()
-            .background(ImageProvider(bgRes))
-            .cornerRadius(24.dp)
+            .background(GlanceTheme.colors.widgetBackground)
+            .cornerRadius(20.dp)
             .padding(12.dp),
-        contentAlignment = Alignment.TopStart,
     ) {
-        Column(modifier = GlanceModifier.fillMaxSize()) {
-
-            // ── Header: scope pill (tap → filter/settings chooser) + [+] add task ──
-            Row(
-                modifier = GlanceModifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                // defaultWeight() MUST be called inline inside Row lambda (RowScope extension)
-                Box(
-                    modifier = GlanceModifier
-                        .clickable(actionStartActivity<WidgetConfigActivity>())
-                        .defaultWeight()
-                        .background(ImageProvider(R.drawable.widget_chip_selected_bg))
-                        .cornerRadius(50.dp)
-                        .padding(horizontal = 10.dp, vertical = 5.dp),
-                    contentAlignment = Alignment.CenterStart,
-                ) {
-                    Text(
-                        text     = "$scopeLabel  ▾",
-                        maxLines = 1,
-                        style    = TextStyle(
-                            color      = ColorProvider(Color(0xFFFFFFFF)),
-                            fontSize   = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                        ),
-                    )
-                }
-                Spacer(GlanceModifier.width(6.dp))
-                Box(
-                    modifier = GlanceModifier
-                        .clickable(actionStartActivity<QuickAddActivity>())
-                        .size(28.dp)
-                        .background(ImageProvider(R.drawable.widget_btn_circle))
-                        .cornerRadius(50.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text  = "+",
-                        style = TextStyle(
-                            color      = ColorProvider(Color(0xFFFFFFFF)),
-                            fontSize   = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            textAlign  = TextAlign.Center,
-                        ),
-                    )
-                }
-            }
-
-            Spacer(GlanceModifier.height(8.dp))
-
-            // ── Divider ───────────────────────────────────────────────────
+        // Header: filter pill (→ chooser) + add button (→ quick-add)
+        Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = GlanceModifier
-                    .fillMaxWidth()
-                    .height(1.dp)
-                    .background(ColorProvider(c.divider)),
-            ) {}
+                    .clickable(actionStartActivity<WidgetConfigActivity>())
+                    .defaultWeight()
+                    .background(GlanceTheme.colors.primary)
+                    .cornerRadius(50.dp)
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                contentAlignment = Alignment.CenterStart,
+            ) {
+                Text(
+                    text  = "$scopeLabel  ▾",
+                    style = TextStyle(color = GlanceTheme.colors.onPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold),
+                )
+            }
+            Spacer(GlanceModifier.width(6.dp))
+            Box(
+                modifier = GlanceModifier
+                    .clickable(actionStartActivity<QuickAddActivity>())
+                    .size(30.dp)
+                    .background(GlanceTheme.colors.primary)
+                    .cornerRadius(50.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("+", style = TextStyle(color = GlanceTheme.colors.onPrimary, fontSize = 19.sp, fontWeight = FontWeight.Bold))
+            }
+        }
 
-            Spacer(GlanceModifier.height(4.dp))
+        Spacer(GlanceModifier.height(8.dp))
+        Box(GlanceModifier.fillMaxWidth().height(1.dp).background(GlanceTheme.colors.outline)) {}
+        Spacer(GlanceModifier.height(4.dp))
 
-            // ── Task list ─────────────────────────────────────────────────
-            if (tasks.isEmpty()) {
-                Box(
-                    modifier = GlanceModifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text  = "No tasks",
-                        style = TextStyle(
-                            color    = ColorProvider(c.onSurface),
-                            fontSize = 13.sp,
-                        ),
-                    )
-                }
-            } else {
-                LazyColumn(modifier = GlanceModifier.fillMaxSize()) {
-                    if (prefs.groupByPriority) {
-                        // High → Medium → Low → None, header per non-empty group
-                        listOf("HIGH" to "High", "MEDIUM" to "Medium", "LOW" to "Low", "NONE" to "None").forEach { (key, label) ->
-                            val group = tasks.filter { it.priority == key }
-                            if (group.isNotEmpty()) {
-                                item(itemId = ("h_$key").hashCode().toLong()) { PriorityHeader(label, key, c) }
-                                items(group, itemId = { it.id.hashCode().toLong() }) { task ->
-                                    TaskRow(task, projectMap, sectionMap, c, prefs.showDetails)
-                                }
-                            }
-                        }
-                    } else {
-                        items(tasks, itemId = { it.id.hashCode().toLong() }) { task ->
-                            TaskRow(task, projectMap, sectionMap, c, prefs.showDetails)
+        if (tasks.isEmpty()) {
+            Box(GlanceModifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("No tasks", style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 13.sp))
+            }
+        } else {
+            LazyColumn(modifier = GlanceModifier.fillMaxSize()) {
+                if (prefs.groupByPriority) {
+                    listOf("HIGH" to "High", "MEDIUM" to "Medium", "LOW" to "Low", "NONE" to "None").forEach { (key, label) ->
+                        val group = tasks.filter { it.priority == key }
+                        if (group.isNotEmpty()) {
+                            item(itemId = "h_$key".hashCode().toLong()) { PriorityHeader(label) }
+                            items(group, itemId = { it.id.hashCode().toLong() }) { TaskRow(it, projectMap, sectionMap, prefs.showDetails) }
                         }
                     }
+                } else {
+                    items(tasks, itemId = { it.id.hashCode().toLong() }) { TaskRow(it, projectMap, sectionMap, prefs.showDetails) }
                 }
             }
         }
     }
 }
 
-// ── Task row ──────────────────────────────────────────────────────────────────
-
 @Composable
-private fun PriorityHeader(label: String, key: String, c: WColors) {
+private fun PriorityHeader(label: String) {
     Text(
         text     = label,
         modifier = GlanceModifier.padding(top = 4.dp, bottom = 1.dp),
-        style    = TextStyle(
-            color      = ColorProvider(priorityColor(key) ?: c.onSurface),
-            fontSize   = 9.sp,
-            fontWeight = FontWeight.Bold,
-        ),
+        style    = TextStyle(color = GlanceTheme.colors.primary, fontSize = 9.sp, fontWeight = FontWeight.Bold),
     )
 }
 
@@ -266,119 +185,73 @@ private fun TaskRow(
     task: TaskEntity,
     projectMap: Map<String, ProjectEntity>,
     sectionMap: Map<String, SectionEntity>,
-    c: WColors,
     showDetails: Boolean,
 ) {
-    val contextLabel = when {
+    val overdue = isOverdue(task)
+    val context = when {
         task.sectionId != null -> sectionMap[task.sectionId]?.title
         task.projectId != null -> projectMap[task.projectId]?.title
         else                   -> null
     }
-    val contextColor = task.projectId
-        ?.let { projectMap[it]?.colorHex }
-        ?.let { parseHexColor(it) }
-        ?: c.accent
-
-    val overdue    = isOverdue(task)
-    val titleColor = if (overdue) overdueRed else c.onBg
-    val dateText   = buildDateText(task)
-    val pColor     = priorityColor(task.priority)
-    val hasMetaRow = showDetails && (dateText != null || pColor != null || contextLabel != null)
+    val dateText = buildDateText(task)
+    val meta     = listOfNotNull(context, dateText).joinToString(" · ")
 
     Column(
         modifier = GlanceModifier
-            .clickable(
-                actionRunCallback<ToggleTaskCallback>(
-                    actionParametersOf(keyTaskId to task.id)
-                )
-            )
+            .clickable(actionRunCallback<ToggleTaskCallback>(
+                androidx.glance.action.actionParametersOf(keyTaskId to task.id)
+            ))
             .fillMaxWidth()
             .padding(vertical = 3.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = GlanceModifier
-                    .size(13.dp)
-                    .background(ColorProvider(Color(0x334A90D9)))
-                    .cornerRadius(50.dp),
-            ) {}
-            Spacer(GlanceModifier.width(5.dp))
+            Box(GlanceModifier.size(13.dp).cornerRadius(50.dp).background(GlanceTheme.colors.primary)) {}
+            Spacer(GlanceModifier.width(6.dp))
             Text(
                 text     = task.title,
                 maxLines = 1,
                 style    = TextStyle(
-                    color      = ColorProvider(titleColor),
+                    color      = if (overdue) GlanceTheme.colors.error else GlanceTheme.colors.onSurface,
                     fontSize   = 12.sp,
                     fontWeight = FontWeight.Bold,
                 ),
             )
         }
-
-        if (hasMetaRow) {
+        if (showDetails && (meta.isNotEmpty() || priorityColor(task.priority) != null)) {
             Spacer(GlanceModifier.height(1.dp))
-            Row(
-                modifier          = GlanceModifier.padding(start = 18.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                val metaParts = buildList {
-                    if (contextLabel != null) add(contextLabel)
-                    if (dateText != null)     add(dateText)
-                }.joinToString(" · ")
-
-                if (metaParts.isNotEmpty()) {
-                    Text(
-                        text     = metaParts,
-                        maxLines = 1,
-                        style    = TextStyle(
-                            color    = ColorProvider(contextColor),
-                            fontSize = 9.sp,
-                        ),
-                    )
+            Row(modifier = GlanceModifier.padding(start = 19.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (meta.isNotEmpty()) {
+                    Text(meta, maxLines = 1, style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 9.sp))
                 }
-                if (pColor != null) {
+                priorityColor(task.priority)?.let { pc ->
                     Spacer(GlanceModifier.width(4.dp))
-                    Box(
-                        modifier = GlanceModifier
-                            .size(6.dp)
-                            .background(ColorProvider(pColor))
-                            .cornerRadius(50.dp),
-                    ) {}
+                    Box(GlanceModifier.size(6.dp).cornerRadius(50.dp).background(ColorProvider(pc))) {}
                 }
             }
         }
     }
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-private val overdueRed = Color(0xFFE04444)
-
-private fun isOverdue(task: TaskEntity): Boolean {
-    val due = task.dueDate ?: return false
-    return !task.isCompleted && due.isBefore(java.time.LocalDate.now())
-}
+// ── Helpers ─────────────────────────────────────────────────────────────────
 
 private val dateFormatter = DateTimeFormatter.ofPattern("d MMM", Locale.getDefault())
 private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm", Locale.getDefault())
 
 private fun buildDateText(task: TaskEntity): String? {
-    val date     = task.dueDate ?: return null
-    val datePart = date.format(dateFormatter)
-    val timePart = task.dueTime?.format(timeFormatter)
-    return if (timePart != null) "$datePart · $timePart" else datePart
+    val date = task.dueDate ?: return null
+    val d    = date.format(dateFormatter)
+    val t    = task.dueTime?.format(timeFormatter)
+    return if (t != null) "$d · $t" else d
 }
 
-private fun priorityColor(priority: String): Color? = when (priority) {
-    "HIGH"   -> Color(0xFFE04444)
-    "MEDIUM" -> Color(0xFFF59E0B)
-    "LOW"    -> Color(0xFF4A90D9)
+private fun isOverdue(task: TaskEntity): Boolean {
+    val due = task.dueDate ?: return false
+    return !task.isCompleted && due.isBefore(LocalDate.now())
+}
+
+private fun priorityColor(priority: String): androidx.compose.ui.graphics.Color? = when (priority) {
+    "HIGH"   -> androidx.compose.ui.graphics.Color(0xFFE04444)
+    "MEDIUM" -> androidx.compose.ui.graphics.Color(0xFFF59E0B)
+    "LOW"    -> androidx.compose.ui.graphics.Color(0xFF4A90D9)
     else     -> null
 }
-
-private fun parseHexColor(hex: String): Color? =
-    runCatching {
-        Color(android.graphics.Color.parseColor(if (hex.startsWith("#")) hex else "#$hex"))
-    }.getOrNull()
-
-fun Context.isNightMode(): Boolean =
-    (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
