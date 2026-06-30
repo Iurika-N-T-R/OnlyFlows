@@ -20,7 +20,9 @@ class LanSyncWriter(private val coordinator: LanSyncCoordinator) {
     fun writeGoal(entity: GoalEntity)               = coordinator.enqueue("goals", entity.toJson())
     fun writeGoalLog(entity: GoalLogEntity)         = coordinator.enqueue("goalLogs", entity.toJson())
     fun writeDateTracker(entity: DateTrackerEntity) = coordinator.enqueue("dateTrackers", entity.toJson())
-    fun writeAttachmentMeta(entity: AttachmentEntity) = coordinator.enqueue("attachments", entity.toJson())
+    fun writeAttachmentMeta(entity: AttachmentEntity)  = coordinator.enqueue("attachments", entity.toJson())
+    fun writeChecklistSection(entity: ChecklistSectionEntity)         = coordinator.enqueue("checklistSections", entity.toJson())
+    fun writeChecklistItemReminder(entity: ChecklistItemReminderEntity) = coordinator.enqueue("checklistItemReminders", entity.toJson())
 
     fun writeTombstone(entityType: String, entityId: String, deletedAt: LocalDateTime) =
         coordinator.enqueueTombstone(entityType, entityId, deletedAt)

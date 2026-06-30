@@ -49,6 +49,21 @@ class BootReceiver : BroadcastReceiver() {
                     }
                 }
 
+                // Reschedule checklist item reminders
+                val checklistReminderRepo = container.checklistItemReminderRepository
+                checklistReminderRepo.getFutureReminders().forEach { reminder ->
+                    val item = taskRepo.getChecklistItemById(reminder.checklistItemId)
+                    if (item != null) {
+                        scheduler.scheduleChecklistReminder(
+                            reminderId = reminder.id,
+                            itemId     = reminder.checklistItemId,
+                            taskId     = item.taskId,
+                            title      = item.title,
+                            at         = reminder.scheduledAt,
+                        )
+                    }
+                }
+
                 // Reschedule daily alerts
                 val alertPrefs     = container.dailyAlertPreferences
                 val alertScheduler = DailyAlertScheduler(context)

@@ -52,6 +52,10 @@
             android:exported="false" />
 
         <receiver
+            android:name=".data.notifications.ChecklistItemReminderReceiver"
+            android:exported="false" />
+
+        <receiver
             android:name=".data.notifications.BootReceiver"
             android:exported="true">
             <intent-filter>

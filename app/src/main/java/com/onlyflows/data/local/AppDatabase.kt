@@ -55,8 +55,10 @@ import com.onlyflows.data.local.entity.AttachmentEntity
         RssFeedEntity::class,
         RssArticleEntity::class,
         PairedDeviceEntity::class,
+        ChecklistSectionEntity::class,
+        ChecklistItemReminderEntity::class,
     ],
-    version = 33,
+    version = 35,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -83,6 +85,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun rssFeedDao(): RssFeedDao
     abstract fun rssArticleDao(): RssArticleDao
     abstract fun pairedDeviceDao(): PairedDeviceDao
+    abstract fun checklistSectionDao(): ChecklistSectionDao
+    abstract fun checklistItemReminderDao(): ChecklistItemReminderDao
 
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null
@@ -156,12 +160,40 @@ abstract class AppDatabase : RoomDatabase() {
                     // don't all flood "completed today" sections forever.
                     db.execSQL("UPDATE tasks SET completedAt = updatedAt WHERE isCompleted = 1")
                 }
+                val migration33to34 = Migration(33, 34) { db ->
+                    db.execSQL("ALTER TABLE tasks ADD COLUMN difficulty TEXT NOT NULL DEFAULT 'NONE'")
+                    db.execSQL("ALTER TABLE tasks ADD COLUMN impact TEXT NOT NULL DEFAULT 'NONE'")
+                }
+                val migration34to35 = Migration(34, 35) { db ->
+                    db.execSQL(
+                        """CREATE TABLE IF NOT EXISTS checklist_sections (
+                            id TEXT NOT NULL PRIMARY KEY,
+                            taskId TEXT NOT NULL,
+                            title TEXT NOT NULL,
+                            sortOrder INTEGER NOT NULL,
+                            updatedAt TEXT NOT NULL,
+                            FOREIGN KEY(taskId) REFERENCES tasks(id) ON DELETE CASCADE
+                        )"""
+                    )
+                    db.execSQL("CREATE INDEX IF NOT EXISTS index_checklist_sections_taskId ON checklist_sections(taskId)")
+                    db.execSQL("ALTER TABLE checklist_items ADD COLUMN sectionId TEXT")
+                    db.execSQL(
+                        """CREATE TABLE IF NOT EXISTS checklist_item_reminders (
+                            id TEXT NOT NULL PRIMARY KEY,
+                            checklistItemId TEXT NOT NULL,
+                            scheduledAt TEXT NOT NULL,
+                            updatedAt TEXT NOT NULL,
+                            FOREIGN KEY(checklistItemId) REFERENCES checklist_items(id) ON DELETE CASCADE
+                        )"""
+                    )
+                    db.execSQL("CREATE INDEX IF NOT EXISTS index_checklist_item_reminders_checklistItemId ON checklist_item_reminders(checklistItemId)")
+                }
                 Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "onlyflows.db",
                 )
-                .addMigrations(migration27to28, migration28to29, migration29to30, migration30to31, migration31to32, migration32to33)
+                .addMigrations(migration27to28, migration28to29, migration29to30, migration30to31, migration31to32, migration32to33, migration33to34, migration34to35)
                 .fallbackToDestructiveMigration()
                 .fallbackToDestructiveMigrationOnDowngrade()
                 .build()

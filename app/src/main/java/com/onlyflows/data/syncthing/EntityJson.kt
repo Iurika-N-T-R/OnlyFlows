@@ -63,6 +63,8 @@ fun TaskEntity.toJson(): JSONObject = JSONObject().apply {
     put("tagIds", tagIds.toJsonArray())
     put("goalIds", goalIds.toJsonArray())
     put("priority", priority)
+    put("difficulty", difficulty)
+    put("impact", impact)
     putNullable("startDate", startDate)
     putNullable("recurrenceJson", recurrenceJson)
     put("sortOrder", sortOrder)
@@ -95,6 +97,8 @@ fun taskEntityFromJson(j: JSONObject) = TaskEntity(
     tagIds                   = j.getStringList("tagIds"),
     goalIds                  = j.getStringList("goalIds"),
     priority                 = j.optString("priority", "NONE"),
+    difficulty               = j.optString("difficulty", "NONE"),
+    impact                   = j.optString("impact", "NONE"),
     startDate                = j.getLocalDateOrNull("startDate"),
     recurrenceJson           = if (j.isNull("recurrenceJson")) null else j.optString("recurrenceJson"),
     sortOrder                = j.optInt("sortOrder", 0),
@@ -119,6 +123,7 @@ fun ChecklistItemEntity.toJson(): JSONObject = JSONObject().apply {
     put("sortOrder", sortOrder)
     putNullable("dueDate", dueDate)
     putNullable("startDate", startDate)
+    putNullable("sectionId", sectionId)
     put("updatedAt", updatedAt.toString())
 }
 
@@ -130,6 +135,7 @@ fun checklistItemEntityFromJson(j: JSONObject) = ChecklistItemEntity(
     sortOrder   = j.optInt("sortOrder", 0),
     dueDate     = j.getLocalDateOrNull("dueDate"),
     startDate   = j.getLocalDateOrNull("startDate"),
+    sectionId   = if (j.isNull("sectionId")) null else j.optString("sectionId"),
     updatedAt   = j.getLocalDateTime("updatedAt"),
 )
 
@@ -442,4 +448,38 @@ fun dateTrackerEntityFromJson(j: JSONObject) = com.onlyflows.data.local.entity.D
     sortOrder  = j.optInt("sortOrder", 0),
     createdAt  = j.getLocalDateTime("createdAt"),
     deletedAt  = j.getLocalDateTimeOrNull("deletedAt"),
+)
+
+// ── ChecklistSectionEntity ────────────────────────────────────────────────────
+
+fun com.onlyflows.data.local.entity.ChecklistSectionEntity.toJson(): JSONObject = JSONObject().apply {
+    put("id", id)
+    put("taskId", taskId)
+    put("title", title)
+    put("sortOrder", sortOrder)
+    put("updatedAt", updatedAt.toString())
+}
+
+fun checklistSectionEntityFromJson(j: JSONObject) = com.onlyflows.data.local.entity.ChecklistSectionEntity(
+    id        = j.getString("id"),
+    taskId    = j.getString("taskId"),
+    title     = j.optString("title", ""),
+    sortOrder = j.optInt("sortOrder", 0),
+    updatedAt = runCatching { java.time.LocalDateTime.parse(j.getString("updatedAt")) }.getOrDefault(java.time.LocalDateTime.now()),
+)
+
+// ── ChecklistItemReminderEntity ───────────────────────────────────────────────
+
+fun com.onlyflows.data.local.entity.ChecklistItemReminderEntity.toJson(): JSONObject = JSONObject().apply {
+    put("id", id)
+    put("checklistItemId", checklistItemId)
+    put("scheduledAt", scheduledAt.toString())
+    put("updatedAt", updatedAt.toString())
+}
+
+fun checklistItemReminderEntityFromJson(j: JSONObject) = com.onlyflows.data.local.entity.ChecklistItemReminderEntity(
+    id              = j.getString("id"),
+    checklistItemId = j.getString("checklistItemId"),
+    scheduledAt     = runCatching { java.time.LocalDateTime.parse(j.getString("scheduledAt")) }.getOrDefault(java.time.LocalDateTime.now()),
+    updatedAt       = runCatching { java.time.LocalDateTime.parse(j.getString("updatedAt")) }.getOrDefault(java.time.LocalDateTime.now()),
 )

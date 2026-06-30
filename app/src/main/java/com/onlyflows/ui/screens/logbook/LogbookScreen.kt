@@ -19,12 +19,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.onlyflows.OnlyFlowsApp
 import com.onlyflows.domain.model.ActionLog
-import com.onlyflows.ui.components.QuoteCard
 import com.onlyflows.domain.model.ActionType
 import com.onlyflows.domain.model.Project
 import com.onlyflows.domain.model.Task
@@ -41,8 +38,6 @@ fun LogbookScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-    val context = LocalContext.current
-    val quoteRepo = remember { (context.applicationContext as OnlyFlowsApp).container.quoteRepository }
 
     Scaffold(
         topBar = {
@@ -84,12 +79,6 @@ fun LogbookScreen(
                 .fillMaxSize()
                 .padding(top = padding.calculateTopPadding()),
         ) {
-            if (quoteRepo.sessionQuote != null) {
-                QuoteCard(
-                    quote     = quoteRepo.sessionQuote!!,
-                    modifier  = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                )
-            }
             TabRow(
                 selectedTabIndex = state.selectedTab,
                 containerColor   = MaterialTheme.colorScheme.background,

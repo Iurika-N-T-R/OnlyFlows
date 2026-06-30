@@ -73,6 +73,8 @@ data class ActionLog(
 
 enum class TaskGroup { TODAY, THIS_EVENING, SOMEDAY, ANYTIME }
 enum class TaskPriority { NONE, LOW, MEDIUM, HIGH }
+enum class TaskDifficulty { NONE, EASY, MEDIUM, HARD }
+enum class TaskImpact { NONE, LOW, HIGH }
 
 @Immutable
 @Parcelize
@@ -94,6 +96,8 @@ data class Task(
     val tagIds: List<String> = emptyList(),
     val goalIds: List<String> = emptyList(),
     val priority: TaskPriority = TaskPriority.NONE,
+    val difficulty: TaskDifficulty = TaskDifficulty.NONE,
+    val impact: TaskImpact = TaskImpact.NONE,
     val startDate: LocalDate? = null,
     @IgnoredOnParcel val recurrence: RecurrenceRule? = null,
     val sortOrder: Int = 0,
@@ -121,6 +125,30 @@ data class ChecklistItem(
     val sortOrder: Int = 0,
     val dueDate: LocalDate? = null,
     val startDate: LocalDate? = null,
+    val sectionId: String? = null,
+    @IgnoredOnParcel val updatedAt: LocalDateTime = LocalDateTime.now(),
+) : Parcelable
+
+// ── ChecklistSection (groups items within one task's checklist) ──────────────
+
+@Immutable
+@Parcelize
+data class ChecklistSection(
+    val id: String,
+    val taskId: String,
+    val title: String,
+    val sortOrder: Int = 0,
+    @IgnoredOnParcel val updatedAt: LocalDateTime = LocalDateTime.now(),
+) : Parcelable
+
+// ── ChecklistItemReminder (one-shot reminder on a single checklist item) ─────
+
+@Immutable
+@Parcelize
+data class ChecklistItemReminder(
+    val id: String,
+    val checklistItemId: String,
+    val scheduledAt: LocalDateTime,
     @IgnoredOnParcel val updatedAt: LocalDateTime = LocalDateTime.now(),
 ) : Parcelable
 

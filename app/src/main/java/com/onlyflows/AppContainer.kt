@@ -55,12 +55,13 @@ class AppContainer(context: Context) {
     val geofenceManager: GeofenceManager                = GeofenceManager(context)
 
     val taskRepository: TaskRepository = TaskRepository(
-        taskDao         = db.taskDao(),
-        checklistDao    = db.checklistItemDao(),
-        actionLog       = actionLogRepository,
-        syncDao         = syncDao,
-        syncthingWriter = lanSyncWriter,
-        onTaskMutated   = { com.onlyflows.ui.widget.WidgetUpdater.updateAll(context) },
+        taskDao             = db.taskDao(),
+        checklistDao        = db.checklistItemDao(),
+        checklistSectionDao = db.checklistSectionDao(),
+        actionLog           = actionLogRepository,
+        syncDao             = syncDao,
+        syncthingWriter     = lanSyncWriter,
+        onTaskMutated       = { com.onlyflows.ui.widget.WidgetUpdater.updateAll(context) },
     )
 
     val projectRepository: ProjectRepository = ProjectRepository(
@@ -134,6 +135,9 @@ class AppContainer(context: Context) {
         syncDao         = syncDao,
         syncthingWriter = lanSyncWriter,
     )
+
+    val checklistItemReminderRepository: com.onlyflows.data.repository.ChecklistItemReminderRepository =
+        com.onlyflows.data.repository.ChecklistItemReminderRepository(db.checklistItemReminderDao(), syncDao, lanSyncWriter)
 
     val attachmentRepository: AttachmentRepository = AttachmentRepository(
         dao             = db.attachmentDao(),

@@ -13,6 +13,8 @@ import com.onlyflows.domain.model.Tag
 import com.onlyflows.domain.model.Task
 import com.onlyflows.domain.model.TaskGroup
 import com.onlyflows.domain.model.TaskPriority
+import com.onlyflows.domain.model.TaskDifficulty
+import com.onlyflows.domain.model.TaskImpact
 import com.onlyflows.domain.model.Attachment
 import com.onlyflows.domain.model.Comment
 import com.onlyflows.domain.model.Reminder
@@ -60,6 +62,8 @@ data class TaskDetailUiState(
     val showTagsPicker: Boolean       = false,
     val showWhenPicker: Boolean       = false,
     val showPriorityPicker: Boolean   = false,
+    val showDifficultyPicker: Boolean = false,
+    val showImpactPicker: Boolean     = false,
     val showStartDatePicker: Boolean  = false,
     val showRecurrencePicker: Boolean = false,
     val showReminderPicker: Boolean           = false,
@@ -75,11 +79,14 @@ data class TaskDetailUiState(
     val showGoalPicker: Boolean               = false,
     val showAddGoal: Boolean                  = false,
     val allGoals: List<Goal>                  = emptyList(),
+    val checklistSections: List<com.onlyflows.domain.model.ChecklistSection> = emptyList(),
+    val checklistItemReminders: List<com.onlyflows.domain.model.ChecklistItemReminder> = emptyList(),
 )
 
 sealed interface TaskDetailEvent {
     data class ToggleChecklistItem(val itemId: String, val current: Boolean) : TaskDetailEvent
-    data class AddChecklistItem(val title: String)                           : TaskDetailEvent
+    data class AddChecklistItem(val title: String, val sectionId: String? = null) : TaskDetailEvent
+    data class ReorderChecklistItems(val items: List<ChecklistItem>)            : TaskDetailEvent
     data class UpdateTitle(val title: String)                                : TaskDetailEvent
     data class UpdateNote(val note: String)                                  : TaskDetailEvent
     data class SetDueDate(val date: LocalDate?, val dueTime: LocalTime? = null, val endTime: LocalTime? = null) : TaskDetailEvent
@@ -98,6 +105,12 @@ sealed interface TaskDetailEvent {
     data class SetPriority(val priority: TaskPriority)                       : TaskDetailEvent
     data object ShowPriorityPicker                                           : TaskDetailEvent
     data object HidePriorityPicker                                           : TaskDetailEvent
+    data class SetDifficulty(val difficulty: TaskDifficulty)                 : TaskDetailEvent
+    data object ShowDifficultyPicker                                         : TaskDetailEvent
+    data object HideDifficultyPicker                                        : TaskDetailEvent
+    data class SetImpact(val impact: TaskImpact)                             : TaskDetailEvent
+    data object ShowImpactPicker                                             : TaskDetailEvent
+    data object HideImpactPicker                                            : TaskDetailEvent
     data object Delete                                                       : TaskDetailEvent
     data class SetStartDate(val date: LocalDate?)                            : TaskDetailEvent
     data class SetRecurrence(val rule: RecurrenceRule?)                      : TaskDetailEvent
@@ -159,6 +172,12 @@ sealed interface TaskDetailEvent {
         val deadline: java.time.LocalDate?,
         val tags: List<String>,
     ) : TaskDetailEvent
+
+    data class AddChecklistSection(val title: String)                            : TaskDetailEvent
+    data class RenameChecklistSection(val sectionId: String, val title: String)   : TaskDetailEvent
+    data class DeleteChecklistSection(val sectionId: String)                      : TaskDetailEvent
+    data class SetChecklistItemSection(val itemId: String, val sectionId: String?) : TaskDetailEvent
+    data class SetChecklistItemReminder(val itemId: String, val at: LocalDateTime?) : TaskDetailEvent
 }
 
 class TaskDetailViewModel(app: Application) : AndroidViewModel(app) {
@@ -175,6 +194,7 @@ class TaskDetailViewModel(app: Application) : AndroidViewModel(app) {
     private val locationRepo                                          = container.savedLocationRepository
     private val geofenceManager                                       = container.geofenceManager
     private val goalRepo: GoalRepository                              = container.goalRepository
+    private val checklistReminderRepo: com.onlyflows.data.repository.ChecklistItemReminderRepository = container.checklistItemReminderRepository
 
     private val _uiState    = MutableStateFlow(TaskDetailUiState())
     val uiState: StateFlow<TaskDetailUiState> = _uiState.asStateFlow()
@@ -238,6 +258,8 @@ class TaskDetailViewModel(app: Application) : AndroidViewModel(app) {
                         showTagsPicker       = _uiState.value.showTagsPicker,
                         showWhenPicker       = _uiState.value.showWhenPicker,
                         showPriorityPicker   = _uiState.value.showPriorityPicker,
+                        showDifficultyPicker = _uiState.value.showDifficultyPicker,
+                        showImpactPicker     = _uiState.value.showImpactPicker,
                         showStartDatePicker  = _uiState.value.showStartDatePicker,
                         showRecurrencePicker = _uiState.value.showRecurrencePicker,
                         showReminderPicker   = _uiState.value.showReminderPicker,
@@ -253,16 +275,14 @@ class TaskDetailViewModel(app: Application) : AndroidViewModel(app) {
                         attachments    = current.attachments,
                         allGoals       = current.allGoals,
                         projects       = current.projects,
-                        showGoalPicker = current.showGoalPicker,
-                        showAddGoal    = current.showAddGoal,
+                        showGoalPicker            = current.showGoalPicker,
+                        showAddGoal               = current.showAddGoal,
+                        checklistSections         = current.checklistSections,
+                        checklistItemReminders    = current.checklistItemReminders,
                     )
                 }
             }
         }
-    }
-
-    fun loadComments(taskId: String) {
-        // Comments are now observed inside loadTask's combine for atomic state updates.
     }
 
     fun loadReminders(taskId: String) {
@@ -297,6 +317,28 @@ class TaskDetailViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun loadChecklistSections(taskId: String) {
+        viewModelScope.launch {
+            taskRepo.observeChecklistSections(taskId).collect { sections ->
+                _uiState.update { it.copy(checklistSections = sections) }
+            }
+        }
+    }
+
+    fun loadChecklistItemReminders(taskId: String) {
+        viewModelScope.launch {
+            combine(
+                taskRepo.observeById(taskId).filterNotNull(),
+                checklistReminderRepo.observeAll(),
+            ) { task, reminders ->
+                val itemIds = task.checklistItems.map { it.id }.toSet()
+                reminders.filter { it.checklistItemId in itemIds }
+            }.collect { filtered ->
+                _uiState.update { it.copy(checklistItemReminders = filtered) }
+            }
+        }
+    }
+
     fun loadTimer(taskId: String) {
         viewModelScope.launch {
             timeRepo.observeByTask(taskId).collect { entries ->
@@ -325,9 +367,55 @@ class TaskDetailViewModel(app: Application) : AndroidViewModel(app) {
                     id        = "ci_${System.currentTimeMillis()}",
                     taskId    = task.id,
                     title     = event.title,
-                    sortOrder = task.checklistItems.size,
+                    sortOrder = task.checklistItems.count { it.sectionId == event.sectionId },
+                    sectionId = event.sectionId,
                 )
                 taskRepo.addChecklistItem(item)
+            }
+            is TaskDetailEvent.ReorderChecklistItems -> viewModelScope.launch {
+                taskRepo.reorderChecklistItems(event.items)
+            }
+            is TaskDetailEvent.AddChecklistSection -> viewModelScope.launch {
+                if (event.title.isBlank()) return@launch
+                taskRepo.addChecklistSection(
+                    com.onlyflows.domain.model.ChecklistSection(
+                        id        = "cs_${System.currentTimeMillis()}",
+                        taskId    = task.id,
+                        title     = event.title,
+                        sortOrder = _uiState.value.checklistSections.size,
+                    )
+                )
+            }
+            is TaskDetailEvent.RenameChecklistSection -> viewModelScope.launch {
+                val section = _uiState.value.checklistSections.find { it.id == event.sectionId } ?: return@launch
+                taskRepo.renameChecklistSection(section.copy(title = event.title, updatedAt = LocalDateTime.now()))
+            }
+            is TaskDetailEvent.DeleteChecklistSection -> viewModelScope.launch {
+                taskRepo.deleteChecklistSection(event.sectionId)
+            }
+            is TaskDetailEvent.SetChecklistItemSection -> viewModelScope.launch {
+                taskRepo.setChecklistItemSection(event.itemId, event.sectionId)
+            }
+            is TaskDetailEvent.SetChecklistItemReminder -> viewModelScope.launch {
+                val item = taskRepo.getChecklistItemById(event.itemId) ?: return@launch
+                if (event.at == null) {
+                    checklistReminderRepo.clear(event.itemId)
+                    scheduler.cancelChecklistReminder("cir_${event.itemId}")
+                } else {
+                    val reminder = com.onlyflows.domain.model.ChecklistItemReminder(
+                        id              = "cir_${event.itemId}",
+                        checklistItemId = event.itemId,
+                        scheduledAt     = event.at,
+                    )
+                    checklistReminderRepo.set(reminder)
+                    scheduler.scheduleChecklistReminder(
+                        reminderId = reminder.id,
+                        itemId     = item.id,
+                        taskId     = item.taskId,
+                        title      = item.title,
+                        at         = event.at,
+                    )
+                }
             }
             is TaskDetailEvent.UpdateTitle -> viewModelScope.launch {
                 AppLog.d("TaskDetailVM", "UpdateTitle: \"${task.title}\" → \"${event.title}\" id=${task.id}")
@@ -437,6 +525,18 @@ class TaskDetailViewModel(app: Application) : AndroidViewModel(app) {
             }
             TaskDetailEvent.ShowPriorityPicker -> _uiState.update { it.copy(showPriorityPicker = true) }
             TaskDetailEvent.HidePriorityPicker -> _uiState.update { it.copy(showPriorityPicker = false) }
+            is TaskDetailEvent.SetDifficulty -> viewModelScope.launch {
+                taskRepo.update(task.copy(difficulty = event.difficulty, updatedAt = LocalDateTime.now()))
+                _uiState.update { it.copy(showDifficultyPicker = false) }
+            }
+            TaskDetailEvent.ShowDifficultyPicker -> _uiState.update { it.copy(showDifficultyPicker = true) }
+            TaskDetailEvent.HideDifficultyPicker -> _uiState.update { it.copy(showDifficultyPicker = false) }
+            is TaskDetailEvent.SetImpact -> viewModelScope.launch {
+                taskRepo.update(task.copy(impact = event.impact, updatedAt = LocalDateTime.now()))
+                _uiState.update { it.copy(showImpactPicker = false) }
+            }
+            TaskDetailEvent.ShowImpactPicker -> _uiState.update { it.copy(showImpactPicker = true) }
+            TaskDetailEvent.HideImpactPicker -> _uiState.update { it.copy(showImpactPicker = false) }
             is TaskDetailEvent.SetStartDate -> {
                 AppLog.d("TaskDetailVM", "SetStartDate: \"${task.title}\" ${task.startDate} → ${event.date}")
                 viewModelScope.launch {

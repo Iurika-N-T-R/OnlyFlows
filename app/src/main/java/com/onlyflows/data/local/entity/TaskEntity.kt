@@ -9,6 +9,8 @@ import com.onlyflows.domain.model.RecurrenceType
 import com.onlyflows.domain.model.Task
 import com.onlyflows.domain.model.TaskGroup
 import com.onlyflows.domain.model.TaskPriority
+import com.onlyflows.domain.model.TaskDifficulty
+import com.onlyflows.domain.model.TaskImpact
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -43,6 +45,8 @@ data class TaskEntity(
     val tagIds: List<String> = emptyList(),
     val goalIds: List<String> = emptyList(),
     val priority: String = "NONE",
+    val difficulty: String = "NONE",
+    val impact: String = "NONE",
     val startDate: LocalDate? = null,
     val recurrenceJson: String? = null,
     val sortOrder: Int = 0,
@@ -75,6 +79,8 @@ fun TaskEntity.toDomain(checklistItems: List<com.onlyflows.data.local.entity.Che
     tagIds         = tagIds,
     goalIds        = goalIds,
     priority       = runCatching { TaskPriority.valueOf(priority) }.getOrDefault(TaskPriority.NONE),
+    difficulty     = runCatching { TaskDifficulty.valueOf(difficulty) }.getOrDefault(TaskDifficulty.NONE),
+    impact         = runCatching { TaskImpact.valueOf(impact) }.getOrDefault(TaskImpact.NONE),
     startDate      = startDate,
     recurrence              = recurrenceJson?.let { parseRecurrenceJson(it) },
     sortOrder               = sortOrder,
@@ -108,6 +114,8 @@ fun Task.toEntity() = TaskEntity(
     tagIds         = tagIds,
     goalIds        = goalIds,
     priority       = priority.name,
+    difficulty     = difficulty.name,
+    impact         = impact.name,
     startDate      = startDate,
     recurrenceJson           = recurrence?.toJson(),
     sortOrder                = sortOrder,

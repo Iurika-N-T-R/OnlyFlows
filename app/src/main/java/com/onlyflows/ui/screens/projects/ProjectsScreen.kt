@@ -24,12 +24,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.onlyflows.OnlyFlowsApp
 import com.onlyflows.domain.model.ProjectStatus
-import com.onlyflows.ui.components.QuoteCard
 import com.onlyflows.domain.model.ProjectType
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
@@ -49,8 +46,6 @@ fun ProjectsScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var viewMode by remember { mutableStateOf(ProjectsViewMode.BOARD) }
-    val context = LocalContext.current
-    val quoteRepo = remember { (context.applicationContext as OnlyFlowsApp).container.quoteRepository }
 
     Scaffold(
         topBar = {
@@ -98,13 +93,6 @@ fun ProjectsScreen(
                     CircularProgressIndicator()
                 }
                 return@Column
-            }
-
-            if (quoteRepo.sessionQuote != null) {
-                QuoteCard(
-                    quote    = quoteRepo.sessionQuote!!,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                )
             }
 
             when (viewMode) {

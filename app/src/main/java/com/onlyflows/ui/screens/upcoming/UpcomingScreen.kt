@@ -4,6 +4,7 @@ import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,6 +16,7 @@ import androidx.compose.material.icons.outlined.CalendarViewWeek
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.Today
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -29,11 +31,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.onlyflows.OnlyFlowsApp
 import com.onlyflows.domain.model.AgendaEvent
-import com.onlyflows.ui.components.QuoteCard
 import com.onlyflows.ui.components.TaskItem
-import androidx.compose.ui.platform.LocalContext
 import java.time.LocalDate
 import kotlinx.coroutines.launch
 import sh.calvin.reorderable.ReorderableItem
@@ -49,8 +48,6 @@ fun UpcomingScreen(
     val state          by viewModel.uiState.collectAsStateWithLifecycle()
     val listState       = rememberLazyListState()
     val scope           = rememberCoroutineScope()
-    val context        = LocalContext.current
-    val quoteRepo      = remember { (context.applicationContext as OnlyFlowsApp).container.quoteRepository }
     val scrollBehavior  = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     var showViewMenu    by remember { mutableStateOf(false) }
 
@@ -245,15 +242,6 @@ fun UpcomingScreen(
             ),
             modifier = Modifier.fillMaxSize(),
         ) {
-            // ── Quote card ──
-            if (quoteRepo.sessionQuote != null) {
-                item(key = "quote_card") {
-                    QuoteCard(
-                        quote     = quoteRepo.sessionQuote!!,
-                    )
-                }
-            }
-
             // ── Calendar permission banner ──
             if (!state.hasCalendarPermission) {
                 item(key = "calendar_permission") {
@@ -277,6 +265,7 @@ fun UpcomingScreen(
                             is UpcomingItem.DayHeader   -> "day_header"
                             is UpcomingItem.TaskRow     -> "task_row"
                             is UpcomingItem.AgendaRow   -> "agenda_row"
+                            is UpcomingItem.ChecklistReminderRow -> "checklist_reminder_row"
                             is UpcomingItem.EmptyDay    -> "empty_day"
                             is UpcomingItem.DaySpacer   -> "spacer"
                         }
@@ -322,6 +311,31 @@ fun UpcomingScreen(
                                         onEditClick = { onTaskClick(it) },
                                         modifier = Modifier.longPressDraggableHandle(),
                                     )
+                                }
+                            }
+                            HorizontalDivider(
+                                modifier  = Modifier.padding(start = 54.dp),
+                                color     = MaterialTheme.colorScheme.outlineVariant,
+                                thickness = 0.5.dp,
+                            )
+                        }
+                        is UpcomingItem.ChecklistReminderRow -> {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onTaskClick(item.taskId) }
+                                    .padding(horizontal = 20.dp, vertical = 10.dp),
+                            ) {
+                                Icon(
+                                    Icons.Outlined.NotificationsNone, null,
+                                    tint     = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                                Spacer(Modifier.width(14.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(item.itemTitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                                    Text("(${item.taskTitle})", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                             HorizontalDivider(

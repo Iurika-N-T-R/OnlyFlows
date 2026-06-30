@@ -38,6 +38,13 @@ sealed interface UpcomingItem {
     data class DayHeader(val date: LocalDate, val label: String)                : UpcomingItem
     data class TaskRow(val task: Task, val date: LocalDate)                     : UpcomingItem
     data class AgendaRow(val event: AgendaEvent, val date: LocalDate)           : UpcomingItem
+    data class ChecklistReminderRow(
+        val reminder: com.onlyflows.domain.model.ChecklistItemReminder,
+        val itemTitle: String,
+        val taskTitle: String,
+        val taskId: String,
+        val date: LocalDate,
+    ) : UpcomingItem
     data class EmptyDay(val date: LocalDate)                                    : UpcomingItem
     data class DaySpacer(val key: String)                                       : UpcomingItem
 }
@@ -49,6 +56,7 @@ val UpcomingItem.lazyKey: String get() = when (this) {
     is UpcomingItem.DayHeader   -> "day_${this.date}"
     is UpcomingItem.TaskRow     -> "task_${this.task.id}"
     is UpcomingItem.AgendaRow   -> "agenda_${this.event.id}_${this.date}"
+    is UpcomingItem.ChecklistReminderRow -> "checklist_reminder_${this.reminder.id}"
     is UpcomingItem.EmptyDay    -> "empty_${this.date}"
     is UpcomingItem.DaySpacer   -> this.key
 }
@@ -80,6 +88,7 @@ class UpcomingViewModel(app: Application) : AndroidViewModel(app) {
     private val tagRepo        = container.tagRepository
     private val calendarRepo: CalendarRepository   = container.calendarRepository
     private val calendarPrefs: CalendarPreferences = container.calendarPreferences
+    private val checklistReminderRepo = container.checklistItemReminderRepository
 
     private val _uiState = MutableStateFlow(UpcomingUiState())
     val uiState: StateFlow<UpcomingUiState> = _uiState.asStateFlow()
@@ -94,15 +103,31 @@ class UpcomingViewModel(app: Application) : AndroidViewModel(app) {
 
     private var allTasks: List<Task>                          = emptyList()
     private var allTags:  List<Tag>                           = emptyList()
+    private var checklistItemsById: Map<String, com.onlyflows.domain.model.ChecklistItem> = emptyMap()
+    private var taskTitlesById: Map<String, String> = emptyMap()
+    private var checklistReminders: List<com.onlyflows.domain.model.ChecklistItemReminder> = emptyList()
     private var calendarEventsByDate: Map<LocalDate, List<AgendaEvent>> = emptyMap()
 
     init {
         viewModelScope.launch {
-            combine(taskRepo.observeUpcoming(), tagRepo.observeAll()) { tasks, tags ->
-                Pair(tasks, tags)
-            }.collect { (tasks, tags) ->
-                allTasks = tasks
-                allTags  = tags
+            combine(
+                taskRepo.observeUpcoming(),
+                tagRepo.observeAll(),
+                taskRepo.observeAll(),
+                checklistReminderRepo.observeAll(),
+            ) { tasks, tags, fullTasks, reminders ->
+                object {
+                    val tasks = tasks
+                    val tags = tags
+                    val fullTasks = fullTasks
+                    val reminders = reminders
+                }
+            }.collect { snapshot ->
+                allTasks = snapshot.tasks
+                allTags  = snapshot.tags
+                checklistItemsById = snapshot.fullTasks.flatMap { it.checklistItems }.associateBy { it.id }
+                taskTitlesById     = snapshot.fullTasks.associate { it.id to it.title }
+                checklistReminders = snapshot.reminders
                 recompute()
             }
         }
@@ -151,6 +176,19 @@ class UpcomingViewModel(app: Application) : AndroidViewModel(app) {
         val mode       = _uiState.value.viewMode
         val today      = LocalDate.now()
         val tasksByDate = allTasks.groupBy { it.dueDate }
+        val checklistReminderRowsByDate = checklistReminders
+            .mapNotNull { reminder ->
+                val item = checklistItemsById[reminder.checklistItemId] ?: return@mapNotNull null
+                val taskTitle = taskTitlesById[item.taskId] ?: return@mapNotNull null
+                UpcomingItem.ChecklistReminderRow(
+                    reminder  = reminder,
+                    itemTitle = item.title,
+                    taskTitle = taskTitle,
+                    taskId    = item.taskId,
+                    date      = reminder.scheduledAt.toLocalDate(),
+                )
+            }
+            .groupBy { it.date }
 
         val items      = mutableListOf<UpcomingItem>()
         var todayIndex = 0
@@ -198,10 +236,12 @@ class UpcomingViewModel(app: Application) : AndroidViewModel(app) {
 
             // ── Tasks or empty placeholder ────────────────────────────────────
             val dayTasks = tasksByDate[cursor] ?: emptyList()
-            if (dayTasks.isEmpty() && dayEvents.isEmpty()) {
+            val dayChecklistReminders = checklistReminderRowsByDate[cursor] ?: emptyList()
+            if (dayTasks.isEmpty() && dayEvents.isEmpty() && dayChecklistReminders.isEmpty()) {
                 items += UpcomingItem.EmptyDay(cursor)
             } else {
                 dayTasks.forEach { task -> items += UpcomingItem.TaskRow(task, cursor) }
+                items += dayChecklistReminders
             }
 
             items += UpcomingItem.DaySpacer("spacer_$cursor")

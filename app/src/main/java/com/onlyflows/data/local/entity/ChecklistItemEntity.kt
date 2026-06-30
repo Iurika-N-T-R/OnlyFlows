@@ -26,6 +26,7 @@ data class ChecklistItemEntity(
     val sortOrder: Int = 0,
     val dueDate: LocalDate? = null,
     val startDate: LocalDate? = null,
+    val sectionId: String? = null,
     val updatedAt: LocalDateTime = LocalDateTime.now(),
 )
 
@@ -37,6 +38,7 @@ fun ChecklistItemEntity.toDomain() = ChecklistItem(
     sortOrder   = sortOrder,
     dueDate     = dueDate,
     startDate   = startDate,
+    sectionId   = sectionId,
     updatedAt   = updatedAt,
 )
 
@@ -48,5 +50,6 @@ fun ChecklistItem.toEntity() = ChecklistItemEntity(
     sortOrder   = sortOrder,
     dueDate     = dueDate,
     startDate   = startDate,
+    sectionId   = sectionId,
     updatedAt   = updatedAt,
 )

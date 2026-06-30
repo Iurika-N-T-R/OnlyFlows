@@ -18,15 +18,12 @@ import androidx.compose.ui.unit.dp
 import com.onlyflows.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.onlyflows.OnlyFlowsApp
 import com.onlyflows.domain.model.TaskGroup
 import com.onlyflows.ui.components.CompletedSectionHeader
 import com.onlyflows.ui.components.EmptyState
-import com.onlyflows.ui.components.QuoteCard
 import com.onlyflows.ui.components.SelectionBar
 import com.onlyflows.ui.components.TaskItem
 import com.onlyflows.ui.components.TaskFilterBar
-import androidx.compose.ui.platform.LocalContext
 import com.onlyflows.ui.overlays.BulkMoreSheet
 import com.onlyflows.ui.overlays.SmartMoveSheet
 
@@ -38,8 +35,6 @@ fun AnytimeScreen(
     viewModel: AnytimeViewModel    = viewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    val context        = LocalContext.current
-    val quoteRepo      = remember { (context.applicationContext as OnlyFlowsApp).container.quoteRepository }
     val scrollBehavior  = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val isSelectionMode = state.selectedTaskIds.isNotEmpty()
 
@@ -150,13 +145,6 @@ fun AnytimeScreen(
             ),
             modifier = Modifier.fillMaxSize(),
         ) {
-            if (quoteRepo.sessionQuote != null) {
-                item(key = "quote_card") {
-                    QuoteCard(
-                        quote     = quoteRepo.sessionQuote!!,
-                    )
-                }
-            }
             if (!isSelectionMode && state.tags.isNotEmpty()) {
                 item(key = "filter_bar") {
                     TaskFilterBar(

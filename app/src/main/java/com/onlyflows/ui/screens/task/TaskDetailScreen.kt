@@ -8,6 +8,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -19,8 +25,11 @@ import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.foundation.layout.heightIn
 import com.onlyflows.domain.model.TaskPriority
+import com.onlyflows.domain.model.TaskDifficulty
+import com.onlyflows.domain.model.TaskImpact
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -74,7 +83,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun TaskDetailScreen(
     taskId: String,
@@ -87,18 +96,17 @@ fun TaskDetailScreen(
     LaunchedEffect(taskId) {
         viewModel.loadTask(taskId)
         viewModel.loadTimer(taskId)
-        viewModel.loadComments(taskId)
         viewModel.loadReminders(taskId)
         viewModel.loadAttachments(taskId)
         viewModel.loadProjects()
         viewModel.loadGoals()
+        viewModel.loadChecklistSections(taskId)
+        viewModel.loadChecklistItemReminders(taskId)
     }
 
     val state       by viewModel.uiState.collectAsStateWithLifecycle()
     val timerState  by viewModel.timerState.collectAsStateWithLifecycle()
     val task  = state.task ?: return
-    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
-    var showCommentsSheet by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.convertedProjectId) {
         val projId = state.convertedProjectId ?: return@LaunchedEffect
@@ -137,10 +145,21 @@ fun TaskDetailScreen(
         ))
     }
 
+    val currentProject = state.projects.find { it.id == task.projectId }
+    val currentSection = currentProject?.sections?.find { it.id == task.sectionId }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {},
+                title = {
+                    Text(
+                        text = (state.projectName ?: "Inbox") + (currentSection?.let { " · ${it.title}" } ?: ""),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -151,6 +170,30 @@ fun TaskDetailScreen(
                     }
                 },
                 actions = {
+                    // Terminé pill
+                    Surface(
+                        color = if (task.isCompleted) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                                else MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(20.dp),
+                        modifier = Modifier
+                            .padding(end = 4.dp)
+                            .clickable { viewModel.onEvent(TaskDetailEvent.ToggleComplete) },
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        ) {
+                            if (task.isCompleted) {
+                                Icon(Icons.Outlined.Check, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(14.dp))
+                                Spacer(Modifier.width(4.dp))
+                            }
+                            Text(
+                                text  = if (task.isCompleted) "Terminé" else "Marquer terminé",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if (task.isCompleted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
                     // More options
                     Box {
                         IconButton(onClick = { showMoreMenu = true }) {
@@ -190,15 +233,18 @@ fun TaskDetailScreen(
                                     )
                                 },
                             )
+                            DropdownMenuItem(
+                                text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
+                                onClick = {
+                                    showMoreMenu = false
+                                    viewModel.onEvent(TaskDetailEvent.Delete)
+                                    onDeleted()
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Outlined.DeleteOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                                },
+                            )
                         }
-                    }
-                    // Done / collapse
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.Outlined.ExpandCircleDown,
-                            contentDescription = "Done",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -206,453 +252,562 @@ fun TaskDetailScreen(
                 ),
             )
         },
-        // Bottom toolbar
-        bottomBar = {
-            Surface(
-                color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 2.dp,
-                modifier = Modifier.imePadding(),
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .navigationBarsPadding()
-                        .padding(horizontal = 8.dp, vertical = 6.dp),
-                ) {
-                    // Delete
-                    IconButton(onClick = { viewModel.onEvent(TaskDetailEvent.Delete); onDeleted() }) {
-                        Icon(
-                            Icons.Outlined.DeleteOutline,
-                            contentDescription = "Delete",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-
-                    Spacer(Modifier.weight(1f))
-
-                    // Star / flag
-                    IconButton(onClick = { viewModel.onEvent(TaskDetailEvent.ToggleStar) }) {
-                        Icon(
-                            imageVector = if (task.isStarred) Icons.Outlined.Star else Icons.Outlined.StarBorder,
-                            contentDescription = "Star",
-                            tint = if (task.isStarred) FlowGold else MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    // Priority
-                    val flagTint = when (task.priority) {
-                        TaskPriority.HIGH   -> Color(0xFFDC3545)
-                        TaskPriority.MEDIUM -> Color(0xFFFF8800)
-                        TaskPriority.LOW    -> Color(0xFF4A90D9)
-                        TaskPriority.NONE   -> MaterialTheme.colorScheme.onSurfaceVariant
-                    }
-                    IconButton(onClick = { viewModel.onEvent(TaskDetailEvent.ShowPriorityPicker) }) {
-                        Icon(
-                            if (task.priority != TaskPriority.NONE) Icons.Filled.Flag else Icons.Outlined.Flag,
-                            contentDescription = "Priority",
-                            tint = flagTint,
-                        )
-                    }
-                    // Goal
-                    IconButton(onClick = { viewModel.onEvent(TaskDetailEvent.ShowGoalPicker) }) {
-                        Icon(
-                            Icons.Outlined.TrackChanges,
-                            contentDescription = "Goal",
-                            tint = if (task.goalIds.isNotEmpty()) MaterialTheme.colorScheme.primary
-                                   else MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    // Date
-                    IconButton(onClick = { viewModel.onEvent(TaskDetailEvent.ShowDatePicker) }) {
-                        Icon(
-                            Icons.Outlined.CalendarToday,
-                            contentDescription = "Deadline",
-                            tint = if (task.dueDate != null) MaterialTheme.colorScheme.primary
-                                   else MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    // Reminder bell
-                    IconButton(onClick = { viewModel.onEvent(TaskDetailEvent.ShowReminderPicker) }) {
-                        Icon(
-                            Icons.Outlined.NotificationsNone,
-                            contentDescription = "Reminder",
-                            tint = if (state.reminders.isNotEmpty()) MaterialTheme.colorScheme.primary
-                                   else MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    // Recurrence
-                    IconButton(onClick = { viewModel.onEvent(TaskDetailEvent.ShowRecurrencePicker) }) {
-                        Icon(
-                            Icons.Outlined.Repeat,
-                            contentDescription = "Recurrence",
-                            tint = if (task.recurrence != null) MaterialTheme.colorScheme.primary
-                                   else MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    // When
-                    IconButton(onClick = { viewModel.onEvent(TaskDetailEvent.ShowWhenPicker) }) {
-                        Icon(
-                            Icons.Outlined.WbSunny,
-                            contentDescription = "Schedule",
-                            tint = if (task.scheduledGroup != null) MaterialTheme.colorScheme.primary
-                                   else MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-            }
-        },
         containerColor = MaterialTheme.colorScheme.surfaceVariant,
     ) { padding ->
 
-        LazyColumn(
-            state = listState,
-            contentPadding = PaddingValues(
-                top    = padding.calculateTopPadding() + 4.dp,
-                bottom = padding.calculateBottomPadding() + 24.dp,
-            ),
-            modifier = Modifier.fillMaxSize().imePadding(),
-        ) {
+        Column(modifier = Modifier.fillMaxSize().padding(top = padding.calculateTopPadding())) {
 
-            // ── Checkbox + Title (no card) ────────────────────────────────────
-            item(key = "title") {
-                Row(
-                    verticalAlignment = Alignment.Top,
+            // ── Checkbox + Title + Star (no card) ───────────────────────────
+            Row(
+                verticalAlignment = Alignment.Top,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
+            ) {
+                // Checkbox
+                val shape = RoundedCornerShape(5.dp)
+                Box(
+                    contentAlignment = Alignment.Center,
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 12.dp),
-                ) {
-                    // Checkbox
-                    val shape = RoundedCornerShape(5.dp)
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .padding(top = 3.dp)
-                            .size(24.dp)
-                            .clip(shape)
-                            .then(
-                                if (task.isCompleted)
-                                    Modifier.background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f))
-                                else
-                                    Modifier.border(1.5.dp, MaterialTheme.colorScheme.outline, shape)
-                            )
-                            .clickable { viewModel.onEvent(TaskDetailEvent.ToggleComplete) },
-                    ) {
-                        if (task.isCompleted) {
-                            Icon(
-                                Icons.Outlined.Check, null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(14.dp),
-                            )
-                        }
-                    }
-
-                    Spacer(Modifier.width(14.dp))
-
-                    // Editable title
-                    var titleText by remember(task.id) { mutableStateOf(task.title) }
-                    BasicTextField(
-                        value = titleText,
-                        onValueChange = {
-                            titleText = it
-                            viewModel.onEvent(TaskDetailEvent.UpdateTitle(it))
-                        },
-                        textStyle = MaterialTheme.typography.titleLarge.copy(
-                            color      = if (task.isCompleted)
-                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                        .padding(top = 3.dp)
+                        .size(24.dp)
+                        .clip(shape)
+                        .then(
+                            if (task.isCompleted)
+                                Modifier.background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f))
                             else
-                                MaterialTheme.colorScheme.onSurface,
-                            fontWeight = FontWeight.SemiBold,
-                            lineHeight = 28.sp,
-                            textDecoration = if (task.isCompleted) TextDecoration.LineThrough else null,
-                        ),
-                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                        modifier    = Modifier.weight(1f),
-                    )
+                                Modifier.border(1.5.dp, MaterialTheme.colorScheme.outline, shape)
+                        )
+                        .clickable { viewModel.onEvent(TaskDetailEvent.ToggleComplete) },
+                ) {
+                    if (task.isCompleted) {
+                        Icon(
+                            Icons.Outlined.Check, null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(14.dp),
+                        )
+                    }
                 }
-            }
 
-            // ── Notes + Checklist card ───────────────────────────────────────
-            item(key = "notes_card") {
-                SectionCard {
-                var noteText by remember(task.id) { mutableStateOf(task.note) }
+                Spacer(Modifier.width(14.dp))
 
+                // Editable title
+                var titleText by remember(task.id) { mutableStateOf(task.title) }
                 BasicTextField(
-                    value = noteText,
+                    value = titleText,
                     onValueChange = {
-                        noteText = it
-                        viewModel.onEvent(TaskDetailEvent.UpdateNote(it))
+                        titleText = it
+                        viewModel.onEvent(TaskDetailEvent.UpdateTitle(it))
                     },
-                    textStyle = MaterialTheme.typography.bodyMedium.copy(
-                        color      = MaterialTheme.colorScheme.onSurfaceVariant,
-                        lineHeight = 22.sp,
+                    textStyle = MaterialTheme.typography.titleLarge.copy(
+                        color      = if (task.isCompleted)
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                        else
+                            MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.SemiBold,
+                        lineHeight = 28.sp,
+                        textDecoration = if (task.isCompleted) TextDecoration.LineThrough else null,
                     ),
                     cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                    decorationBox = { inner ->
-                        if (noteText.isEmpty()) {
-                            Text(
-                                "Notes",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                            )
-                        }
-                        inner()
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 12.dp),
+                    modifier    = Modifier.weight(1f),
                 )
 
-                // Checklist inside the notes card
-                if (task.checklistItems.isNotEmpty()) {
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
-                    task.checklistItems.forEach { item ->
-                        ChecklistDetailRow(
-                            item        = item,
-                            onToggle    = { viewModel.onEvent(TaskDetailEvent.ToggleChecklistItem(item.id, item.isCompleted)) },
-                            onDateClick = { viewModel.onEvent(TaskDetailEvent.ShowChecklistDatePicker(item.id)) },
-                        )
-                        HorizontalDivider(modifier = Modifier.padding(start = 54.dp, end = 16.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
-                    }
-                }
-
-                // New item row
-                var newItem by remember { mutableStateOf("") }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                IconButton(
+                    onClick  = { viewModel.onEvent(TaskDetailEvent.ToggleStar) },
+                    modifier = Modifier.size(28.dp),
                 ) {
-                    Box(modifier = Modifier.size(18.dp).clip(CircleShape).border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), CircleShape))
-                    Spacer(Modifier.width(14.dp))
-                    BasicTextField(
-                        value         = newItem,
-                        onValueChange = { newItem = it },
-                        textStyle     = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
-                        cursorBrush   = SolidColor(MaterialTheme.colorScheme.primary),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                        keyboardActions = KeyboardActions(onDone = {
-                            if (newItem.isNotBlank()) {
-                                viewModel.onEvent(TaskDetailEvent.AddChecklistItem(newItem))
-                                newItem = ""
+                    Icon(
+                        imageVector = if (task.isStarred) Icons.Outlined.Star else Icons.Outlined.StarBorder,
+                        contentDescription = "Star",
+                        tint = if (task.isStarred) FlowGold else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            val pagerState = rememberPagerState(initialPage = 0) { 3 }
+            val pagerScope = rememberCoroutineScope()
+
+            TabRow(selectedTabIndex = pagerState.currentPage) {
+                Tab(
+                    selected = pagerState.currentPage == 0,
+                    onClick  = { pagerScope.launch { pagerState.animateScrollToPage(0) } },
+                    text     = { Text("Détail") },
+                )
+                Tab(
+                    selected = pagerState.currentPage == 1,
+                    onClick  = { pagerScope.launch { pagerState.animateScrollToPage(1) } },
+                    text     = { Text("Sous-tâches" + if (task.checklistItems.isNotEmpty()) " (${task.checklistItems.count { it.isCompleted }}/${task.checklistItems.size})" else "") },
+                )
+                Tab(
+                    selected = pagerState.currentPage == 2,
+                    onClick  = { pagerScope.launch { pagerState.animateScrollToPage(2) } },
+                    text     = { Text("Commentaires" + if (state.comments.isNotEmpty()) " (${state.comments.size})" else "") },
+                )
+            }
+
+            HorizontalPager(
+                state    = pagerState,
+                modifier = Modifier.fillMaxSize(),
+            ) { page ->
+            when (page) {
+
+                0 -> LazyColumn(
+                    contentPadding = PaddingValues(
+                        top    = 4.dp,
+                        bottom = padding.calculateBottomPadding() + 24.dp,
+                    ),
+                    modifier = Modifier.fillMaxSize().imePadding(),
+                ) {
+                    // ── Group 1 · Core Details (What & Why) — Notes, Goal, Tags, Attachments ──
+                    item(key = "core_details_card") {
+                        SectionCard {
+                            var noteText by remember(task.id) { mutableStateOf(task.note) }
+                            BasicTextField(
+                                value = noteText,
+                                onValueChange = {
+                                    noteText = it
+                                    viewModel.onEvent(TaskDetailEvent.UpdateNote(it))
+                                },
+                                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                    color      = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    lineHeight = 22.sp,
+                                ),
+                                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                                decorationBox = { inner ->
+                                    if (noteText.isEmpty()) {
+                                        Text(
+                                            "Notes",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                                        )
+                                    }
+                                    inner()
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 12.dp),
+                            )
+                            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+                            // Goal
+                            val goalValue = when {
+                                task.goalIds.isEmpty() -> null
+                                task.goalIds.size == 1 -> state.allGoals.find { it.id == task.goalIds[0] }?.let { "${it.emoji} ${it.title}" }
+                                else -> "${task.goalIds.size} goals"
                             }
-                        }),
-                        decorationBox = { inner ->
-                            if (newItem.isEmpty()) Text("New item", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f))
-                            inner()
-                        },
-                        singleLine = true,
-                        modifier   = Modifier.weight(1f),
-                    )
-                }
-                } // end SectionCard notes
-            }
-
-            // ── Goal card ─────────────────────────────────────────────────────
-            item(key = "goal_card") {
-                SectionCard {
-                    val goalValue = when {
-                        task.goalIds.isEmpty() -> null
-                        task.goalIds.size == 1 -> state.allGoals.find { it.id == task.goalIds[0] }?.let { "${it.emoji} ${it.title}" }
-                        else -> "${task.goalIds.size} goals"
+                            MetaRow(
+                                icon    = Icons.Outlined.TrackChanges,
+                                label   = "Goal",
+                                value   = goalValue,
+                                onClick = { viewModel.onEvent(TaskDetailEvent.ShowGoalPicker) },
+                            )
+                            val linkedGoals = state.allGoals.filter { it.id in task.goalIds }
+                            if (linkedGoals.isNotEmpty()) {
+                                linkedGoals.forEach { goal -> GoalPreviewCard(goal = goal) }
+                            }
+                            HorizontalDivider(modifier = Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+                            // Tags
+                            val taskTags = state.tags.filter { it.id in task.tagIds }
+                            MetaRow(icon = Icons.Outlined.Label, label = "Tags", value = null, onClick = { viewModel.onEvent(TaskDetailEvent.ShowTagsPicker) }, trailing = if (taskTags.isNotEmpty()) { { TagsRow(taskTags) } } else null)
+                            HorizontalDivider(modifier = Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+                            // Pièces jointes
+                            AttachmentsMetaSection(
+                                attachments = state.attachments,
+                                onAdd       = { filePicker.launch(arrayOf("*/*")) },
+                                onDelete    = { viewModel.onEvent(TaskDetailEvent.DeleteAttachment(it)) },
+                                onOpen      = { att ->
+                                    val uri = Uri.parse(att.uri)
+                                    val intent = Intent(Intent.ACTION_VIEW).apply { setDataAndType(uri, att.mimeType); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+                                    runCatching { context.startActivity(intent) }
+                                },
+                            )
+                        }
                     }
-                    MetaRow(
-                        icon    = Icons.Outlined.TrackChanges,
-                        label   = "Goal",
-                        value   = goalValue,
-                        onClick = { viewModel.onEvent(TaskDetailEvent.ShowGoalPicker) },
-                    )
-                    val linkedGoals = state.allGoals.filter { it.id in task.goalIds }
-                    if (linkedGoals.isNotEmpty()) {
-                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
-                        linkedGoals.forEach { goal -> GoalPreviewCard(goal = goal) }
+
+                    // ── Group 2 · Triage & Strategy (Value & Effort) — Impact, Difficulty, Priority ──
+                    item(key = "strategy_card") {
+                        SectionCard {
+                            MetaSubheader("TRIAGE & STRATEGY")
+                            StrategyMetaRow(Icons.Outlined.Bolt, "Impact", task.impact, impactLabel, impactColor) { viewModel.onEvent(TaskDetailEvent.ShowImpactPicker) }
+                            HorizontalDivider(modifier = Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+                            StrategyMetaRow(Icons.Outlined.FitnessCenter, "Difficulty", task.difficulty, difficultyLabel, difficultyColor) { viewModel.onEvent(TaskDetailEvent.ShowDifficultyPicker) }
+                            HorizontalDivider(modifier = Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+                            StrategyMetaRow(Icons.Outlined.Flag, "Priority", task.priority, priorityLabel, priorityColor) { viewModel.onEvent(TaskDetailEvent.ShowPriorityPicker) }
+                        }
                     }
-                }
-            }
 
-            // ── Time Tracking card ────────────────────────────────────────────
-            item(key = "time_card") {
-                SectionCard {
-                    TimerRow(
-                        timerState = timerState,
-                        onStart    = { viewModel.onEvent(TaskDetailEvent.StartTimer) },
-                        onPause    = { viewModel.onEvent(TaskDetailEvent.PauseTimer) },
-                        onStop     = { viewModel.onEvent(TaskDetailEvent.StopTimer) },
-                    )
-                }
-            }
+                    // ── Group 3 · Timeline & Flow (When) — When, Deadline, Repeat, Reminder, Depends on ──
+                    item(key = "timeline_card") {
+                        val use24h  = com.onlyflows.ui.theme.LocalUse24hFormat.current
+                        val timePat = if (use24h) "HH:mm" else "hh:mm a"
+                        SectionCard {
+                            MetaSubheader("TIMELINE")
+                            val whenValue = when (task.scheduledGroup) { TaskGroup.TODAY -> "Today"; TaskGroup.THIS_EVENING -> "This Evening"; TaskGroup.SOMEDAY -> "Someday"; TaskGroup.ANYTIME -> "Anytime"; null -> "–" }
+                            MetaRow(icon = Icons.Outlined.WbSunny, label = "When", value = whenValue, valueColor = if (task.scheduledGroup == null) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f) else null, onClick = { viewModel.onEvent(TaskDetailEvent.ShowWhenPicker) })
+                            HorizontalDivider(modifier = Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+                            // Start Date
+                            if (task.startDate != null) {
+                                MetaRow(icon = Icons.Outlined.PlayArrow, label = "Start Date", value = task.startDate.format(DateTimeFormatter.ofPattern("EEE, d MMM")), onClick = { viewModel.onEvent(TaskDetailEvent.ShowStartDatePicker) })
+                                HorizontalDivider(modifier = Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+                            }
+                            // Deadline
+                            MetaRow(
+                                icon = Icons.Outlined.CalendarToday, label = "Deadline",
+                                value = task.dueDate?.let { date ->
+                                    val days = ChronoUnit.DAYS.between(LocalDate.now(), date).toInt()
+                                    val formatted = date.format(DateTimeFormatter.ofPattern("EEE, d MMM"))
+                                    val tp = task.dueTime?.let { t -> val tf = t.format(DateTimeFormatter.ofPattern(timePat)); task.endTime?.let { e -> " · $tf → ${e.format(DateTimeFormatter.ofPattern(timePat))}" } ?: " · $tf" } ?: ""
+                                    when { days < 0 -> "$formatted$tp · Overdue"; days == 0 -> "$formatted$tp · Today"; else -> "$formatted$tp" }
+                                },
+                                valueColor = task.dueDate?.let { date -> if (ChronoUnit.DAYS.between(LocalDate.now(), date).toInt() < 0) MaterialTheme.colorScheme.error else null },
+                                onClick = { viewModel.onEvent(TaskDetailEvent.ShowDatePicker) },
+                                trailing = if (task.dueDate != null) { { IconButton(onClick = { viewModel.onEvent(TaskDetailEvent.SetDueDate(null)) }, modifier = Modifier.size(32.dp)) { Icon(Icons.Outlined.Close, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp)) } } } else null,
+                            )
+                            HorizontalDivider(modifier = Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+                            // Repeat
+                            MetaRow(icon = Icons.Outlined.Repeat, label = "Repeat", value = task.recurrence?.toLabel() ?: "Never", valueColor = if (task.recurrence == null) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f) else null, onClick = { viewModel.onEvent(TaskDetailEvent.ShowRecurrencePicker) })
+                            if (task.recurrence != null) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(start = 52.dp, end = 20.dp, bottom = 8.dp)) {
+                                    Surface(color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f), shape = RoundedCornerShape(6.dp)) { Text("${task.recurrenceDoneCount}× done", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)) }
+                                    Surface(color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f), shape = RoundedCornerShape(6.dp)) { Text("${task.recurrenceAbandonedCount}× abandoned", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)) }
+                                }
+                            }
+                            HorizontalDivider(modifier = Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+                            // Reminder
+                            RemindersMetaSection(reminders = state.reminders, onAdd = { viewModel.onEvent(TaskDetailEvent.ShowReminderPicker) }, onDelete = { viewModel.onEvent(TaskDetailEvent.DeleteReminder(it)) })
+                            HorizontalDivider(modifier = Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+                            // Depends on
+                            MetaRow(
+                                icon = Icons.Outlined.Lock, label = "Depends on",
+                                value = state.blockingTask?.title ?: "–",
+                                valueColor = if (state.blockingTask?.isCompleted == false) MaterialTheme.colorScheme.error
+                                             else if (state.blockingTask == null) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f) else null,
+                                onClick = { viewModel.onEvent(TaskDetailEvent.ShowDependencyPicker) },
+                            )
+                            // Dependents read-only
+                            if (state.dependingTasks.isNotEmpty()) {
+                                HorizontalDivider(modifier = Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp)) {
+                                    Icon(Icons.Outlined.AccountTree, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(14.dp))
+                                    Column {
+                                        Text("Interdépendant de", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Spacer(Modifier.height(4.dp))
+                                        state.dependingTasks.forEach { dep ->
+                                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 2.dp)) {
+                                                Icon(Icons.Outlined.SubdirectoryArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), modifier = Modifier.size(14.dp))
+                                                Spacer(Modifier.width(6.dp))
+                                                Text(dep.title, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
 
-            // ── Metadata card (Project → Pièces jointes) ─────────────────────
-            item(key = "meta_card") {
-                val use24h  = com.onlyflows.ui.theme.LocalUse24hFormat.current
-                val timePat = if (use24h) "HH:mm" else "hh:mm a"
-                SectionCard {
-                    // List — always shown so a task can be moved into / out of any list (incl. from Inbox)
-                    MetaRow(
-                        icon    = Icons.Outlined.FolderOpen,
-                        label   = "List",
-                        value   = state.projectName ?: "Inbox",
-                        valueColor = if (state.projectName == null) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f) else null,
-                        onClick = { viewModel.onEvent(TaskDetailEvent.ShowSmartMove) },
-                    )
-                    HorizontalDivider(modifier = Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
-                    // Section picker (only when the task is in a project that has sections)
-                    if (state.projectName != null) {
-                        val currentProject = state.projects.find { it.id == task.projectId }
-                        val projectSections = currentProject?.sections?.sortedBy { it.sortOrder } ?: emptyList()
-                        if (projectSections.isNotEmpty()) {
-                            var showSectionMenu by remember { mutableStateOf(false) }
-                            val currentSection = projectSections.find { it.id == task.sectionId }
-                            Box {
-                                MetaRow(
-                                    icon    = Icons.Outlined.List,
-                                    label   = "Section",
-                                    value   = currentSection?.title ?: "No section",
-                                    onClick = { showSectionMenu = true },
-                                )
-                                DropdownMenu(expanded = showSectionMenu, onDismissRequest = { showSectionMenu = false }) {
-                                    DropdownMenuItem(text = { Text("No section") }, onClick = { viewModel.onEvent(TaskDetailEvent.SetSection(null)); showSectionMenu = false })
-                                    projectSections.forEach { section ->
-                                        DropdownMenuItem(text = { Text(section.title) }, onClick = { viewModel.onEvent(TaskDetailEvent.SetSection(section.id)); showSectionMenu = false })
+                    // ── Group 4 · Workflow & Tracking (Where & Status) — List, Section, Time tracking ──
+                    item(key = "workflow_card") {
+                        SectionCard {
+                            MetaSubheader("WORKFLOW")
+                            // List — always shown so a task can be moved into / out of any list (incl. from Inbox)
+                            MetaRow(
+                                icon    = Icons.Outlined.FolderOpen,
+                                label   = "List",
+                                value   = state.projectName ?: "Inbox",
+                                valueColor = if (state.projectName == null) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f) else null,
+                                onClick = { viewModel.onEvent(TaskDetailEvent.ShowSmartMove) },
+                            )
+                            // Section picker (only when the task is in a project that has sections)
+                            if (state.projectName != null) {
+                                val projectSections = currentProject?.sections?.sortedBy { it.sortOrder } ?: emptyList()
+                                if (projectSections.isNotEmpty()) {
+                                    HorizontalDivider(modifier = Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+                                    var showSectionMenu by remember { mutableStateOf(false) }
+                                    Box {
+                                        MetaRow(
+                                            icon    = Icons.Outlined.List,
+                                            label   = "Section",
+                                            value   = currentSection?.title ?: "No section",
+                                            onClick = { showSectionMenu = true },
+                                        )
+                                        DropdownMenu(expanded = showSectionMenu, onDismissRequest = { showSectionMenu = false }) {
+                                            DropdownMenuItem(text = { Text("No section") }, onClick = { viewModel.onEvent(TaskDetailEvent.SetSection(null)); showSectionMenu = false })
+                                            projectSections.forEach { section ->
+                                                DropdownMenuItem(text = { Text(section.title) }, onClick = { viewModel.onEvent(TaskDetailEvent.SetSection(section.id)); showSectionMenu = false })
+                                            }
+                                        }
                                     }
                                 }
                             }
                             HorizontalDivider(modifier = Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+                            TimerRow(
+                                timerState = timerState,
+                                onStart    = { viewModel.onEvent(TaskDetailEvent.StartTimer) },
+                                onPause    = { viewModel.onEvent(TaskDetailEvent.PauseTimer) },
+                                onStop     = { viewModel.onEvent(TaskDetailEvent.StopTimer) },
+                            )
                         }
                     }
-                    // Priority
-                    val priorityLabel = when (task.priority) { TaskPriority.HIGH -> "High"; TaskPriority.MEDIUM -> "Medium"; TaskPriority.LOW -> "Low"; TaskPriority.NONE -> null }
-                    val priorityColor = when (task.priority) { TaskPriority.HIGH -> Color(0xFFDC3545); TaskPriority.MEDIUM -> Color(0xFFFF8800); TaskPriority.LOW -> Color(0xFF4A90D9); TaskPriority.NONE -> null }
-                    MetaRow(
-                        icon    = Icons.Outlined.Flag, label = "Priority", value = null,
-                        onClick = { viewModel.onEvent(TaskDetailEvent.ShowPriorityPicker) },
-                        trailing = if (priorityLabel != null && priorityColor != null) { {
-                            Surface(color = priorityColor.copy(alpha = 0.15f), shape = RoundedCornerShape(20.dp)) {
-                                Text(priorityLabel, style = MaterialTheme.typography.labelMedium, color = priorityColor, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
+
+                    item(key = "spacer_bottom") { Spacer(Modifier.height(8.dp)) }
+                }
+
+                1 -> {
+                    val checklistListState = rememberLazyListState()
+                    val itemsBySection = task.checklistItems.groupBy { it.sectionId }
+                    val sortedSections = state.checklistSections.sortedBy { it.sortOrder }
+                    val remindersByItem = state.checklistItemReminders.associateBy { it.checklistItemId }
+
+                    fun rowKey(row: Any): String = when (row) {
+                        is ChecklistItem -> "citem_${row.id}"
+                        is com.onlyflows.domain.model.ChecklistSection -> "chead_${row.id}"
+                        else -> error("unreachable")
+                    }
+
+                    val flatRows = remember(task.checklistItems, state.checklistSections) {
+                        buildList<Any> {
+                            itemsBySection[null].orEmpty().forEach { add(it) }
+                            sortedSections.forEach { section ->
+                                add(section)
+                                itemsBySection[section.id].orEmpty().forEach { add(it) }
                             }
-                        } } else null,
-                    )
-                    HorizontalDivider(modifier = Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
-                    // Depends on
-                    MetaRow(
-                        icon = Icons.Outlined.Lock, label = "Depends on",
-                        value = state.blockingTask?.title ?: "–",
-                        valueColor = if (state.blockingTask?.isCompleted == false) MaterialTheme.colorScheme.error
-                                     else if (state.blockingTask == null) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f) else null,
-                        onClick = { viewModel.onEvent(TaskDetailEvent.ShowDependencyPicker) },
-                    )
-                    HorizontalDivider(modifier = Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
-                    // Dependents read-only
-                    if (state.dependingTasks.isNotEmpty()) {
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp)) {
-                            Icon(Icons.Outlined.AccountTree, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(14.dp))
-                            Column {
-                                Text("Interdépendant de", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Spacer(Modifier.height(4.dp))
-                                state.dependingTasks.forEach { dep ->
-                                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 2.dp)) {
-                                        Icon(Icons.Outlined.SubdirectoryArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), modifier = Modifier.size(14.dp))
-                                        Spacer(Modifier.width(6.dp))
-                                        Text(dep.title, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                        }
+                    }
+                    var localRows by remember(flatRows) { mutableStateOf(flatRows) }
+
+                    val reorderState = rememberReorderableLazyListState(lazyListState = checklistListState) { from, to ->
+                        val fromKey = from.key as? String ?: return@rememberReorderableLazyListState
+                        val toKey   = to.key   as? String ?: return@rememberReorderableLazyListState
+                        if (!fromKey.startsWith("citem_")) return@rememberReorderableLazyListState
+                        val fromIdx = localRows.indexOfFirst { rowKey(it) == fromKey }
+                        val toIdx   = localRows.indexOfFirst { rowKey(it) == toKey }
+                        if (fromIdx == -1 || toIdx == -1) return@rememberReorderableLazyListState
+                        localRows = localRows.toMutableList().apply { add(toIdx, removeAt(fromIdx)) }
+                    }
+
+                    LaunchedEffect(reorderState) {
+                        snapshotFlow { reorderState.isAnyItemDragging }.collect { dragging ->
+                            if (dragging) return@collect
+                            var currentSectionId: String? = null
+                            var counter = 0
+                            val changed = mutableListOf<ChecklistItem>()
+                            localRows.forEach { row ->
+                                when (row) {
+                                    is com.onlyflows.domain.model.ChecklistSection -> { currentSectionId = row.id; counter = 0 }
+                                    is ChecklistItem -> {
+                                        val updated = row.copy(sectionId = currentSectionId, sortOrder = counter)
+                                        if (updated.sectionId != row.sectionId || updated.sortOrder != row.sortOrder) changed += updated
+                                        counter++
+                                    }
+                                }
+                            }
+                            if (changed.isNotEmpty()) viewModel.onEvent(TaskDetailEvent.ReorderChecklistItems(changed))
+                        }
+                    }
+
+                    LazyColumn(
+                        state = checklistListState,
+                        contentPadding = PaddingValues(
+                            top    = 4.dp,
+                            bottom = padding.calculateBottomPadding() + 24.dp,
+                        ),
+                        modifier = Modifier.fillMaxSize().imePadding(),
+                    ) {
+                        localRows.forEachIndexed { idx, row ->
+                            when (row) {
+                                is com.onlyflows.domain.model.ChecklistSection -> {
+                                    item(key = rowKey(row)) {
+                                        var showSectionMenu by remember { mutableStateOf(false) }
+                                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 16.dp, bottom = 4.dp)) {
+                                            Text(row.title, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f), fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                                            Box {
+                                                IconButton(onClick = { showSectionMenu = true }, modifier = Modifier.size(28.dp)) {
+                                                    Icon(Icons.Outlined.MoreVert, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                                                }
+                                                DropdownMenu(expanded = showSectionMenu, onDismissRequest = { showSectionMenu = false }) {
+                                                    DropdownMenuItem(text = { Text("Supprimer la section") }, onClick = { showSectionMenu = false; viewModel.onEvent(TaskDetailEvent.DeleteChecklistSection(row.id)) })
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                is ChecklistItem -> {
+                                    item(key = rowKey(row)) {
+                                        ReorderableItem(reorderState, key = rowKey(row)) { _ ->
+                                            Surface(color = MaterialTheme.colorScheme.surface) {
+                                                ChecklistDetailRow(
+                                                    item        = row,
+                                                    hasReminder = remindersByItem.containsKey(row.id),
+                                                    onToggle    = { viewModel.onEvent(TaskDetailEvent.ToggleChecklistItem(row.id, row.isCompleted)) },
+                                                    onDateClick = { viewModel.onEvent(TaskDetailEvent.ShowChecklistDatePicker(row.id)) },
+                                                    dragHandleModifier = Modifier.draggableHandle(),
+                                                )
+                                            }
+                                        }
+                                    }
+                                    val nextIsHeaderOrEnd = idx == localRows.lastIndex || localRows[idx + 1] is com.onlyflows.domain.model.ChecklistSection
+                                    if (!nextIsHeaderOrEnd) {
+                                        item(key = "div_${rowKey(row)}") {
+                                            HorizontalDivider(modifier = Modifier.padding(start = 54.dp, end = 16.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+                                        }
+                                    }
+                                }
+                            }
+                            val isEndOfGroup = idx == localRows.lastIndex || localRows[idx + 1] is com.onlyflows.domain.model.ChecklistSection
+                            if (isEndOfGroup) {
+                                val sectionIdForAdd = (row as? com.onlyflows.domain.model.ChecklistSection)?.id
+                                    ?: (row as? ChecklistItem)?.sectionId
+                                item(key = "addrow_${sectionIdForAdd ?: "ungrouped"}_$idx") {
+                                    ChecklistAddItemRow(
+                                        onAdd = { title -> viewModel.onEvent(TaskDetailEvent.AddChecklistItem(title, sectionIdForAdd)) },
+                                    )
+                                }
+                            }
+                        }
+
+                        if (localRows.isEmpty()) {
+                            item(key = "addrow_ungrouped_empty") {
+                                ChecklistAddItemRow(onAdd = { title -> viewModel.onEvent(TaskDetailEvent.AddChecklistItem(title, null)) })
+                            }
+                        }
+
+                        item(key = "checklist_add_section") {
+                            var newSection by remember { mutableStateOf("") }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp),
+                            ) {
+                                Icon(Icons.Outlined.Add, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(14.dp))
+                                BasicTextField(
+                                    value         = newSection,
+                                    onValueChange = { newSection = it },
+                                    textStyle     = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
+                                    cursorBrush   = SolidColor(MaterialTheme.colorScheme.primary),
+                                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                                    keyboardActions = KeyboardActions(onDone = {
+                                        if (newSection.isNotBlank()) {
+                                            viewModel.onEvent(TaskDetailEvent.AddChecklistSection(newSection))
+                                            newSection = ""
+                                        }
+                                    }),
+                                    decorationBox = { inner ->
+                                        if (newSection.isEmpty()) Text("Ajouter une section", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f))
+                                        inner()
+                                    },
+                                    singleLine = true,
+                                    modifier   = Modifier.weight(1f),
+                                )
+                            }
+                        }
+
+                        item(key = "spacer_bottom") { Spacer(Modifier.height(8.dp)) }
+                    }
+                }
+
+                else -> {
+                    // ── Commentaires tab — message-style layout, input pinned at the bottom ──
+                    var draft     by remember { mutableStateOf("") }
+                    var editingId by remember { mutableStateOf<String?>(null) }
+                    var editDraft by remember { mutableStateOf("") }
+
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        LazyColumn(
+                            reverseLayout  = true,
+                            contentPadding = PaddingValues(top = 8.dp, bottom = 8.dp),
+                            modifier       = Modifier.weight(1f).fillMaxWidth(),
+                        ) {
+                            if (state.comments.isEmpty()) {
+                                item(key = "empty") {
+                                    Text(
+                                        "Aucun commentaire",
+                                        style    = MaterialTheme.typography.bodyMedium,
+                                        color    = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+                                    )
+                                }
+                            } else {
+                                items(state.comments, key = { it.id }) { comment ->
+                                    if (editingId == comment.id) {
+                                        com.onlyflows.ui.components.CommentEditRow(
+                                            initial   = editDraft,
+                                            onConfirm = { content -> viewModel.onEvent(TaskDetailEvent.EditComment(comment.id, content)); editingId = null },
+                                            onCancel  = { editingId = null },
+                                        )
+                                    } else {
+                                        com.onlyflows.ui.components.CommentRow(
+                                            comment  = comment,
+                                            onEdit   = { editingId = comment.id; editDraft = comment.content },
+                                            onDelete = { viewModel.onEvent(TaskDetailEvent.DeleteComment(comment.id)) },
+                                        )
                                     }
                                 }
                             }
                         }
-                        HorizontalDivider(modifier = Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+                        com.onlyflows.ui.components.CommentInput(
+                            draft    = draft,
+                            onChange = { draft = it },
+                            onSend   = { viewModel.onEvent(TaskDetailEvent.AddComment(draft)); draft = "" },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .imePadding()
+                                .padding(vertical = 10.dp, horizontal = 4.dp)
+                                .padding(bottom = padding.calculateBottomPadding()),
+                        )
                     }
-                    // When
-                    val whenValue = when (task.scheduledGroup) { TaskGroup.TODAY -> "Today"; TaskGroup.THIS_EVENING -> "This Evening"; TaskGroup.SOMEDAY -> "Someday"; TaskGroup.ANYTIME -> "Anytime"; null -> "–" }
-                    MetaRow(icon = Icons.Outlined.WbSunny, label = "When", value = whenValue, valueColor = if (task.scheduledGroup == null) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f) else null, onClick = { viewModel.onEvent(TaskDetailEvent.ShowWhenPicker) })
-                    HorizontalDivider(modifier = Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
-                    // Start Date
-                    if (task.startDate != null) {
-                        MetaRow(icon = Icons.Outlined.PlayArrow, label = "Start Date", value = task.startDate.format(DateTimeFormatter.ofPattern("EEE, d MMM")), onClick = { viewModel.onEvent(TaskDetailEvent.ShowStartDatePicker) })
-                        HorizontalDivider(modifier = Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
-                    }
-                    // Deadline
-                    MetaRow(
-                        icon = Icons.Outlined.CalendarToday, label = "Deadline",
-                        value = task.dueDate?.let { date ->
-                            val days = ChronoUnit.DAYS.between(LocalDate.now(), date).toInt()
-                            val formatted = date.format(DateTimeFormatter.ofPattern("EEE, d MMM"))
-                            val tp = task.dueTime?.let { t -> val tf = t.format(DateTimeFormatter.ofPattern(timePat)); task.endTime?.let { e -> " · $tf → ${e.format(DateTimeFormatter.ofPattern(timePat))}" } ?: " · $tf" } ?: ""
-                            when { days < 0 -> "$formatted$tp · Overdue"; days == 0 -> "$formatted$tp · Today"; else -> "$formatted$tp" }
-                        },
-                        valueColor = task.dueDate?.let { date -> if (ChronoUnit.DAYS.between(LocalDate.now(), date).toInt() < 0) MaterialTheme.colorScheme.error else null },
-                        onClick = { viewModel.onEvent(TaskDetailEvent.ShowDatePicker) },
-                        trailing = if (task.dueDate != null) { { IconButton(onClick = { viewModel.onEvent(TaskDetailEvent.SetDueDate(null)) }, modifier = Modifier.size(32.dp)) { Icon(Icons.Outlined.Close, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp)) } } } else null,
-                    )
-                    HorizontalDivider(modifier = Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
-                    // Repeat
-                    MetaRow(icon = Icons.Outlined.Repeat, label = "Repeat", value = task.recurrence?.toLabel() ?: "Never", valueColor = if (task.recurrence == null) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f) else null, onClick = { viewModel.onEvent(TaskDetailEvent.ShowRecurrencePicker) })
-                    if (task.recurrence != null) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(start = 52.dp, end = 20.dp, bottom = 8.dp)) {
-                            Surface(color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f), shape = RoundedCornerShape(6.dp)) { Text("${task.recurrenceDoneCount}× done", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)) }
-                            Surface(color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f), shape = RoundedCornerShape(6.dp)) { Text("${task.recurrenceAbandonedCount}× abandoned", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)) }
-                        }
-                    }
-                    HorizontalDivider(modifier = Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
-                    // Reminder
-                    RemindersMetaSection(reminders = state.reminders, onAdd = { viewModel.onEvent(TaskDetailEvent.ShowReminderPicker) }, onDelete = { viewModel.onEvent(TaskDetailEvent.DeleteReminder(it)) })
-                    HorizontalDivider(modifier = Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
-                    // Tags
-                    val taskTags = state.tags.filter { it.id in task.tagIds }
-                    MetaRow(icon = Icons.Outlined.Label, label = "Tags", value = null, onClick = { viewModel.onEvent(TaskDetailEvent.ShowTagsPicker) }, trailing = if (taskTags.isNotEmpty()) { { TagsRow(taskTags) } } else null)
-                    HorizontalDivider(modifier = Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
-                    // Pièces jointes
-                    AttachmentsMetaSection(
-                        attachments = state.attachments,
-                        onAdd       = { filePicker.launch(arrayOf("*/*")) },
-                        onDelete    = { viewModel.onEvent(TaskDetailEvent.DeleteAttachment(it)) },
-                        onOpen      = { att ->
-                            val uri = Uri.parse(att.uri)
-                            val intent = Intent(Intent.ACTION_VIEW).apply { setDataAndType(uri, att.mimeType); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }
-                            runCatching { context.startActivity(intent) }
-                        },
-                    )
                 }
             }
-
-            // ── Comments card ─────────────────────────────────────────────────
-            item(key = "comments_card") {
-                SectionCard {
-                    Text(
-                        text     = "COMMENTS",
-                        style    = MaterialTheme.typography.labelSmall,
-                        color    = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 4.dp),
-                    )
-                    com.onlyflows.ui.components.CommentsSection(
-                        comments    = state.comments,
-                        onAdd       = { viewModel.onEvent(TaskDetailEvent.AddComment(it)) },
-                        onEdit      = { id, content -> viewModel.onEvent(TaskDetailEvent.EditComment(id, content)) },
-                        onDelete    = { viewModel.onEvent(TaskDetailEvent.DeleteComment(it)) },
-                        onOpenSheet = { showCommentsSheet = true },
-                    )
-                }
             }
-
-            item(key = "spacer_bottom") { Spacer(Modifier.height(8.dp)) }
         }
     }
 
     // ── Overlays ─────────────────────────────────────────────────────────────
 
-    if (showCommentsSheet) {
-        com.onlyflows.ui.overlays.CommentsBottomSheet(
-            comments  = state.comments,
-            onAdd     = { viewModel.onEvent(TaskDetailEvent.AddComment(it)) },
-            onEdit    = { id, content -> viewModel.onEvent(TaskDetailEvent.EditComment(id, content)) },
-            onDelete  = { viewModel.onEvent(TaskDetailEvent.DeleteComment(it)) },
-            onDismiss = { showCommentsSheet = false },
+    if (state.showPriorityPicker) {
+        EnumPickerSheet(
+            title    = "Priority",
+            options  = listOf(
+                Triple(TaskPriority.HIGH,   "High",   Color(0xFFDC3545)),
+                Triple(TaskPriority.MEDIUM, "Medium", Color(0xFFFF8800)),
+                Triple(TaskPriority.LOW,    "Low",    Color(0xFF4A90D9)),
+                Triple(TaskPriority.NONE,   "None",   MaterialTheme.colorScheme.onSurfaceVariant),
+            ),
+            current   = task.priority,
+            icon      = Icons.Outlined.Flag,
+            onSelect  = { viewModel.onEvent(TaskDetailEvent.SetPriority(it)) },
+            onDismiss = { viewModel.onEvent(TaskDetailEvent.HidePriorityPicker) },
         )
     }
 
-    if (state.showPriorityPicker) {
-        PriorityPickerSheet(
-            current   = task.priority,
-            onSelect  = { viewModel.onEvent(TaskDetailEvent.SetPriority(it)) },
-            onDismiss = { viewModel.onEvent(TaskDetailEvent.HidePriorityPicker) },
+    if (state.showDifficultyPicker) {
+        EnumPickerSheet(
+            title    = "Difficulty",
+            options  = listOf(
+                Triple(TaskDifficulty.HARD,   "Hard",   Color(0xFFDC3545)),
+                Triple(TaskDifficulty.MEDIUM, "Medium", Color(0xFFFF8800)),
+                Triple(TaskDifficulty.EASY,   "Easy",   Color(0xFF4A90D9)),
+                Triple(TaskDifficulty.NONE,   "None",   MaterialTheme.colorScheme.onSurfaceVariant),
+            ),
+            current   = task.difficulty,
+            icon      = Icons.Outlined.FitnessCenter,
+            onSelect  = { viewModel.onEvent(TaskDetailEvent.SetDifficulty(it)) },
+            onDismiss = { viewModel.onEvent(TaskDetailEvent.HideDifficultyPicker) },
+        )
+    }
+
+    if (state.showImpactPicker) {
+        EnumPickerSheet(
+            title    = "Impact",
+            options  = listOf(
+                Triple(TaskImpact.HIGH, "High", Color(0xFFDC3545)),
+                Triple(TaskImpact.LOW,  "Low",  Color(0xFF4A90D9)),
+                Triple(TaskImpact.NONE, "None", MaterialTheme.colorScheme.onSurfaceVariant),
+            ),
+            current   = task.impact,
+            icon      = Icons.Outlined.Bolt,
+            onSelect  = { viewModel.onEvent(TaskDetailEvent.SetImpact(it)) },
+            onDismiss = { viewModel.onEvent(TaskDetailEvent.HideImpactPicker) },
         )
     }
 
@@ -720,10 +875,14 @@ fun TaskDetailScreen(
         val checklistItem = task.checklistItems.find { it.id == itemId }
         if (checklistItem != null) {
             ChecklistItemDateSheet(
-                item      = checklistItem,
+                item            = checklistItem,
+                sections        = state.checklistSections,
+                currentReminder = state.checklistItemReminders.find { it.checklistItemId == itemId }?.scheduledAt,
                 onConfirm = { start, due ->
                     viewModel.onEvent(TaskDetailEvent.SetChecklistItemDates(itemId, start, due))
                 },
+                onSetReminder = { at -> viewModel.onEvent(TaskDetailEvent.SetChecklistItemReminder(itemId, at)) },
+                onSetSection  = { sectionId -> viewModel.onEvent(TaskDetailEvent.SetChecklistItemSection(itemId, sectionId)) },
                 onDismiss = { viewModel.onEvent(TaskDetailEvent.HideChecklistDatePicker) },
             )
         }
@@ -977,6 +1136,50 @@ private fun formatFileSize(bytes: Long): String = when {
     else                       -> String.format("%.1f Go", bytes / (1024.0 * 1024.0 * 1024.0))
 }
 
+// ── Section subheader (Timeline / Workflow) ────────────────────────────────────
+
+@Composable
+private fun MetaSubheader(text: String) {
+    Text(
+        text       = text,
+        style      = MaterialTheme.typography.labelSmall,
+        color      = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+        fontWeight = FontWeight.SemiBold,
+        modifier   = Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 4.dp),
+    )
+}
+
+@Composable
+private fun PillBadge(label: String, color: Color) {
+    Surface(color = color.copy(alpha = 0.15f), shape = RoundedCornerShape(20.dp)) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = color, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
+    }
+}
+
+private val priorityLabel: (TaskPriority) -> String = { when (it) { TaskPriority.HIGH -> "High"; TaskPriority.MEDIUM -> "Medium"; TaskPriority.LOW -> "Low"; TaskPriority.NONE -> "–" } }
+private val priorityColor: (TaskPriority, Color) -> Color = { p, dim -> when (p) { TaskPriority.HIGH -> Color(0xFFDC3545); TaskPriority.MEDIUM -> Color(0xFFFF8800); TaskPriority.LOW -> Color(0xFF4A90D9); TaskPriority.NONE -> dim } }
+private val difficultyLabel: (TaskDifficulty) -> String = { when (it) { TaskDifficulty.HARD -> "Hard"; TaskDifficulty.MEDIUM -> "Medium"; TaskDifficulty.EASY -> "Easy"; TaskDifficulty.NONE -> "–" } }
+private val difficultyColor: (TaskDifficulty, Color) -> Color = { d, dim -> when (d) { TaskDifficulty.HARD -> Color(0xFFDC3545); TaskDifficulty.MEDIUM -> Color(0xFFFF8800); TaskDifficulty.EASY -> Color(0xFF4A90D9); TaskDifficulty.NONE -> dim } }
+private val impactLabel: (TaskImpact) -> String = { when (it) { TaskImpact.HIGH -> "High"; TaskImpact.LOW -> "Low"; TaskImpact.NONE -> "–" } }
+private val impactColor: (TaskImpact, Color) -> Color = { i, dim -> when (i) { TaskImpact.HIGH -> Color(0xFFDC3545); TaskImpact.LOW -> Color(0xFF4A90D9); TaskImpact.NONE -> dim } }
+
+@Composable
+private fun <T> StrategyMetaRow(
+    icon: ImageVector,
+    label: String,
+    value: T,
+    labelOf: (T) -> String,
+    colorOf: (T, Color) -> Color,
+    onClick: () -> Unit,
+) {
+    val dim = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
+    MetaRow(
+        icon = icon, label = label, value = null,
+        onClick = onClick,
+        trailing = { PillBadge(labelOf(value), colorOf(value, dim)) },
+    )
+}
+
 // ── Metadata row ──────────────────────────────────────────────────────────────
 
 @Composable
@@ -1042,6 +1245,36 @@ private fun TagsRow(tags: List<Tag>) {
     }
 }
 
+// ── Inline "add item" row, scoped to a section (or null = ungrouped) ──────────
+
+@Composable
+private fun ChecklistAddItemRow(onAdd: (String) -> Unit) {
+    var text by remember { mutableStateOf("") }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
+    ) {
+        Box(modifier = Modifier.size(18.dp).clip(CircleShape).border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), CircleShape))
+        Spacer(Modifier.width(14.dp))
+        BasicTextField(
+            value         = text,
+            onValueChange = { text = it },
+            textStyle     = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
+            cursorBrush   = SolidColor(MaterialTheme.colorScheme.primary),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = {
+                if (text.isNotBlank()) { onAdd(text); text = "" }
+            }),
+            decorationBox = { inner ->
+                if (text.isEmpty()) Text("New item", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f))
+                inner()
+            },
+            singleLine = true,
+            modifier   = Modifier.weight(1f),
+        )
+    }
+}
+
 // ── Checklist row (full interactive) ──────────────────────────────────────────
 
 @Composable
@@ -1049,13 +1282,15 @@ private fun ChecklistDetailRow(
     item: ChecklistItem,
     onToggle: () -> Unit,
     onDateClick: () -> Unit = {},
+    hasReminder: Boolean = false,
+    dragHandleModifier: Modifier = Modifier,
     modifier: Modifier = Modifier,
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .fillMaxWidth()
-            .clickable { onToggle() }
+            .clickable { onDateClick() }
             .padding(horizontal = 20.dp, vertical = 11.dp),
     ) {
         Box(
@@ -1063,6 +1298,7 @@ private fun ChecklistDetailRow(
             modifier = Modifier
                 .size(18.dp)
                 .clip(CircleShape)
+                .clickable { onToggle() }
                 .then(
                     if (item.isCompleted)
                         Modifier.background(ChecklistCircleFill)
@@ -1115,10 +1351,17 @@ private fun ChecklistDetailRow(
                 )
             }
         }
+        if (hasReminder) {
+            Icon(
+                Icons.Outlined.NotificationsNone, null,
+                tint     = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(start = 4.dp).size(14.dp),
+            )
+        }
         Icon(
             Icons.Outlined.DragHandle, null,
             tint     = MaterialTheme.colorScheme.outlineVariant,
-            modifier = Modifier.size(16.dp),
+            modifier = dragHandleModifier.size(16.dp),
         )
     }
 }
@@ -1129,15 +1372,22 @@ private fun ChecklistDetailRow(
 @Composable
 private fun ChecklistItemDateSheet(
     item: ChecklistItem,
+    sections: List<com.onlyflows.domain.model.ChecklistSection> = emptyList(),
+    currentReminder: LocalDateTime? = null,
     onConfirm: (startDate: LocalDate?, dueDate: LocalDate?) -> Unit,
+    onSetReminder: (LocalDateTime?) -> Unit = {},
+    onSetSection: (String?) -> Unit = {},
     onDismiss: () -> Unit,
 ) {
     var startDate by remember(item.id) { mutableStateOf(item.startDate) }
     var dueDate   by remember(item.id) { mutableStateOf(item.dueDate) }
-    var showStartPicker by remember { mutableStateOf(false) }
-    var showDuePicker   by remember { mutableStateOf(false) }
+    var showStartPicker    by remember { mutableStateOf(false) }
+    var showDuePicker      by remember { mutableStateOf(false) }
+    var showReminderPicker by remember { mutableStateOf(false) }
+    var showSectionMenu    by remember { mutableStateOf(false) }
 
     val fmt = DateTimeFormatter.ofPattern("d MMM yyyy")
+    val reminderFmt = DateTimeFormatter.ofPattern("d MMM yyyy · HH:mm")
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -1195,6 +1445,54 @@ private fun ChecklistItemDateSheet(
             }
             HorizontalDivider()
 
+            // Reminder row
+            Row(
+                verticalAlignment     = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showReminderPicker = true }
+                    .padding(vertical = 12.dp),
+            ) {
+                Text("Rappel", style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    text  = currentReminder?.format(reminderFmt) ?: "Aucun",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (currentReminder != null) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            HorizontalDivider()
+
+            // Section row (only if the task has sections)
+            if (sections.isNotEmpty()) {
+                Box {
+                    Row(
+                        verticalAlignment     = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showSectionMenu = true }
+                            .padding(vertical = 12.dp),
+                    ) {
+                        Text("Section", style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            text  = sections.find { it.id == item.sectionId }?.title ?: "Aucune",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (item.sectionId != null) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    DropdownMenu(expanded = showSectionMenu, onDismissRequest = { showSectionMenu = false }) {
+                        DropdownMenuItem(text = { Text("Aucune") }, onClick = { showSectionMenu = false; onSetSection(null) })
+                        sections.forEach { section ->
+                            DropdownMenuItem(text = { Text(section.title) }, onClick = { showSectionMenu = false; onSetSection(section.id) })
+                        }
+                    }
+                }
+                HorizontalDivider()
+            }
+
             Spacer(Modifier.height(16.dp))
             Row(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -1224,6 +1522,18 @@ private fun ChecklistItemDateSheet(
             initialDate    = dueDate,
             onDateSelected = { showDuePicker = false; dueDate = it },
             onDismiss      = { showDuePicker = false },
+        )
+    }
+    if (showReminderPicker) {
+        DatePickerModal(
+            initialDate    = currentReminder?.toLocalDate() ?: LocalDate.now(),
+            initialDueTime = currentReminder?.toLocalTime(),
+            showTimeOption = true,
+            onResult       = { date, time, _ ->
+                showReminderPicker = false
+                if (date != null) onSetReminder(LocalDateTime.of(date, time ?: java.time.LocalTime.of(9, 0)))
+            },
+            onDismiss      = { showReminderPicker = false },
         )
     }
 }
@@ -1361,36 +1671,33 @@ private fun DependencyPickerSheet(
     }
 }
 
-// ── Priority picker sheet ─────────────────────────────────────────────────────
+// ── Generic enum picker sheet (Priority / Difficulty / Impact) ────────────────
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PriorityPickerSheet(
-    current: TaskPriority,
-    onSelect: (TaskPriority) -> Unit,
+private fun <T> EnumPickerSheet(
+    title: String,
+    options: List<Triple<T, String, Color>>,
+    current: T,
+    icon: ImageVector,
+    onSelect: (T) -> Unit,
     onDismiss: () -> Unit,
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surface) {
         Column(
             modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = 16.dp)
         ) {
-            Text("Priority", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp))
+            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp))
 
-            listOf(
-                TaskPriority.HIGH   to Triple("High",   Color(0xFFDC3545), Icons.Filled.Flag),
-                TaskPriority.MEDIUM to Triple("Medium", Color(0xFFFF8800), Icons.Filled.Flag),
-                TaskPriority.LOW    to Triple("Low",    Color(0xFF4A90D9), Icons.Filled.Flag),
-                TaskPriority.NONE   to Triple("None",   MaterialTheme.colorScheme.onSurfaceVariant, Icons.Outlined.Flag),
-            ).forEach { (priority, triple) ->
-                val (label, color, icon) = triple
+            options.forEach { (value, label, color) ->
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth().clickable { onSelect(priority); onDismiss() }.padding(horizontal = 20.dp, vertical = 14.dp),
+                    modifier = Modifier.fillMaxWidth().clickable { onSelect(value); onDismiss() }.padding(horizontal = 20.dp, vertical = 14.dp),
                 ) {
                     Icon(icon, null, tint = color, modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(16.dp))
                     Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-                    if (current == priority) Icon(Icons.Outlined.Check, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                    if (current == value) Icon(Icons.Outlined.Check, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                 }
             }
         }

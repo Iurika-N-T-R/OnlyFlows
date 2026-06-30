@@ -1,6 +1,7 @@
 package com.onlyflows.data.repository
 
 import com.onlyflows.data.local.dao.ChecklistItemDao
+import com.onlyflows.data.local.dao.ChecklistSectionDao
 import com.onlyflows.data.local.dao.SyncDao
 import com.onlyflows.data.local.dao.TaskDao
 import com.onlyflows.data.lan.LanSyncWriter
@@ -11,6 +12,7 @@ import com.onlyflows.data.local.entity.toEntity
 import com.onlyflows.domain.model.ActionLog
 import com.onlyflows.domain.model.ActionType
 import com.onlyflows.domain.model.ChecklistItem
+import com.onlyflows.domain.model.ChecklistSection
 import com.onlyflows.domain.model.Task
 import com.onlyflows.domain.nextDueDate
 import java.time.LocalDate
@@ -22,6 +24,7 @@ import java.time.LocalDateTime
 class TaskRepository(
     private val taskDao: TaskDao,
     private val checklistDao: ChecklistItemDao,
+    private val checklistSectionDao: ChecklistSectionDao,
     private val actionLog: ActionLogRepository,
     private val syncDao: SyncDao,
     private val syncthingWriter: LanSyncWriter,
@@ -333,6 +336,48 @@ class TaskRepository(
     suspend fun updateChecklistItem(item: ChecklistItem) {
         checklistDao.update(item.toEntity())
         syncthingWriter.writeChecklistItem(item.toEntity())
+    }
+
+    suspend fun getChecklistItemById(id: String): ChecklistItem? =
+        checklistDao.getById(id)?.toDomain()
+
+    suspend fun reorderChecklistItems(items: List<ChecklistItem>) {
+        items.forEach { item ->
+            val entity = item.toEntity()
+            checklistDao.update(entity)
+            syncthingWriter.writeChecklistItem(entity)
+        }
+    }
+
+    fun observeChecklistSections(taskId: String): Flow<List<ChecklistSection>> =
+        checklistSectionDao.observeByTask(taskId).map { it.map { e -> e.toDomain() } }
+
+    suspend fun addChecklistSection(section: ChecklistSection) {
+        val entity = section.toEntity()
+        checklistSectionDao.insert(entity)
+        syncthingWriter.writeChecklistSection(entity)
+    }
+
+    suspend fun renameChecklistSection(section: ChecklistSection) {
+        val entity = section.toEntity()
+        checklistSectionDao.update(entity)
+        syncthingWriter.writeChecklistSection(entity)
+    }
+
+    suspend fun deleteChecklistSection(id: String) {
+        val now = LocalDateTime.now()
+        syncDao.insertTombstone(DeletedEntityEntity("tomb_$id", "checklist_sections", id, now))
+        syncthingWriter.writeTombstone("checklist_sections", id, now)
+        checklistSectionDao.unassignItems(id)
+        checklistSectionDao.delete(id)
+    }
+
+    suspend fun setChecklistItemSection(itemId: String, sectionId: String?) {
+        checklistDao.getById(itemId)?.let { entity ->
+            val updated = entity.copy(sectionId = sectionId)
+            checklistDao.update(updated)
+            syncthingWriter.writeChecklistItem(updated)
+        }
     }
 
     suspend fun reorderTasks(idsInOrder: List<String>) {

@@ -35,21 +35,26 @@ class ReminderScheduler(private val context: Context) {
         }
 
         val intent = buildIntent(reminderId, taskId, title, note, triggerMs, recurrenceType)
+        setAlarm(triggerMs, intent, title)
+    }
+
+    /** Shared exact-alarm-with-fallback logic used by both [schedule] and [scheduleChecklistReminder]. */
+    private fun setAlarm(triggerMs: Long, pending: PendingIntent, title: String) {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 if (alarmManager.canScheduleExactAlarms()) {
-                    alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMs, intent)
-                    Log.d(TAG, "Exact alarm set for '$title' at $at (reminderId=$reminderId recurrence=$recurrenceType)")
+                    alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMs, pending)
+                    Log.d(TAG, "Exact alarm set for '$title'")
                 } else {
-                    alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMs, intent)
-                    Log.w(TAG, "Inexact alarm (no exact-alarm permission) for '$title' at $at")
+                    alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMs, pending)
+                    Log.w(TAG, "Inexact alarm (no exact-alarm permission) for '$title'")
                 }
             } else {
-                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMs, intent)
-                Log.d(TAG, "Exact alarm set for '$title' at $at (API ${Build.VERSION.SDK_INT})")
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMs, pending)
+                Log.d(TAG, "Exact alarm set for '$title' (API ${Build.VERSION.SDK_INT})")
             }
         } catch (e: SecurityException) {
-            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMs, intent)
+            alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMs, pending)
             Log.e(TAG, "SecurityException scheduling alarm for '$title', used inexact fallback", e)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to schedule alarm for '$title'", e)
@@ -61,6 +66,39 @@ class ReminderScheduler(private val context: Context) {
         val intent = buildCancelIntent(abs(reminderId.hashCode()))
         alarmManager.cancel(intent)
         Log.d(TAG, "Alarm cancelled for reminderId=$reminderId")
+    }
+
+    /** Schedule a one-shot reminder for a single checklist item (no recurrence, no "Terminer" task action). */
+    fun scheduleChecklistReminder(reminderId: String, itemId: String, taskId: String, title: String, at: LocalDateTime) {
+        val triggerMs = at.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        if (triggerMs <= System.currentTimeMillis()) {
+            Log.w(TAG, "Checklist reminder for '$title' is in the past — skipped (at=$at)")
+            return
+        }
+        val intent = android.content.Intent(context, ChecklistItemReminderReceiver::class.java).apply {
+            action = ChecklistItemReminderReceiver.ACTION_SHOW
+            putExtra(ChecklistItemReminderReceiver.EXTRA_REMINDER_ID, reminderId)
+            putExtra(ChecklistItemReminderReceiver.EXTRA_ITEM_ID, itemId)
+            putExtra(ChecklistItemReminderReceiver.EXTRA_TASK_ID, taskId)
+            putExtra(ChecklistItemReminderReceiver.EXTRA_TITLE, title)
+        }
+        val pending = PendingIntent.getBroadcast(
+            context, abs(reminderId.hashCode()), intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        setAlarm(triggerMs, pending, title)
+    }
+
+    fun cancelChecklistReminder(reminderId: String) {
+        val intent = android.content.Intent(context, ChecklistItemReminderReceiver::class.java).apply {
+            action = ChecklistItemReminderReceiver.ACTION_SHOW
+        }
+        val pending = PendingIntent.getBroadcast(
+            context, abs(reminderId.hashCode()), intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        alarmManager.cancel(pending)
+        Log.d(TAG, "Checklist reminder cancelled for reminderId=$reminderId")
     }
 
     /** Legacy cancel keyed by taskId (pre-v31 alarms). */

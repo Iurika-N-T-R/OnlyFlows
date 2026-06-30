@@ -12,18 +12,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.onlyflows.OnlyFlowsApp
 import com.onlyflows.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.onlyflows.ui.components.CompletedSectionHeader
 import com.onlyflows.ui.components.EmptyState
 import com.onlyflows.ui.components.FlowFab
-import com.onlyflows.ui.components.QuoteCard
 import com.onlyflows.ui.components.SelectionBar
 import com.onlyflows.ui.components.TaskItem
 import com.onlyflows.ui.overlays.AddTaskSheet
@@ -38,8 +35,6 @@ fun InboxScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val scrollBehavior    = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-    val context        = LocalContext.current
-    val quoteRepo      = remember { (context.applicationContext as OnlyFlowsApp).container.quoteRepository }
     val isSelectionMode   = state.selectedTaskIds.isNotEmpty()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -158,13 +153,6 @@ fun InboxScreen(
                 ),
                 modifier = Modifier.fillMaxSize(),
             ) {
-                if (quoteRepo.sessionQuote != null) {
-                    item(key = "quote_card") {
-                        QuoteCard(
-                            quote     = quoteRepo.sessionQuote!!,
-                        )
-                    }
-                }
                 items(visibleTasks, key = { it.id }) { task ->
                     TaskItem(
                         task             = task,
