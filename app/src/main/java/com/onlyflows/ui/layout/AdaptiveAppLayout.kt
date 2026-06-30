@@ -4,16 +4,20 @@ import android.view.KeyEvent as AndroidKeyEvent
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import com.onlyflows.MainActivity
+import com.onlyflows.OnlyFlowsApp
 import com.onlyflows.ui.components.sidebar.AppSidebar
 import com.onlyflows.ui.components.sidebar.navigateTab
 import com.onlyflows.ui.navigation.AppNavigation
 import com.onlyflows.ui.navigation.Screen
 import com.onlyflows.ui.overlays.QuickFindPopup
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 
 @Composable
 fun AdaptiveAppLayout(
@@ -22,6 +26,26 @@ fun AdaptiveAppLayout(
     modifier: Modifier = Modifier,
 ) {
     var showQuickFind by remember { mutableStateOf(false) }
+
+    // 2d — in-app overdue banner (once per session)
+    val context = LocalContext.current
+    val taskRepo = remember { (context.applicationContext as OnlyFlowsApp).container.taskRepository }
+    val overdueCount by taskRepo.observeOverdueCount().collectAsStateWithLifecycle(initialValue = 0)
+    val snackbarHostState = remember { SnackbarHostState() }
+    var bannerShown by remember { mutableStateOf(false) }
+    LaunchedEffect(overdueCount) {
+        if (overdueCount > 0 && !bannerShown) {
+            bannerShown = true
+            val result = snackbarHostState.showSnackbar(
+                message     = "$overdueCount task${if (overdueCount != 1) "s" else ""} overdue",
+                actionLabel = "View",
+                duration    = SnackbarDuration.Long,
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                navController.navigate(Screen.Upcoming.route)
+            }
+        }
+    }
 
     // Tablet-only: currently selected detail pane
     var detailPane by remember { mutableStateOf<DetailPane>(DetailPane.None) }
@@ -48,6 +72,10 @@ fun AdaptiveAppLayout(
 
     // Root Box — QuickFind overlay is placed LAST so it renders on top of everything
     Box(modifier = modifier) {
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier  = Modifier.align(Alignment.BottomCenter),
+        )
         if (isTablet) {
             Row(modifier = Modifier.fillMaxSize()) {
                 // Column 1 — sidebar (fixed width)

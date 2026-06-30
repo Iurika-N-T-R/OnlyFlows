@@ -26,15 +26,17 @@ import com.onlyflows.data.notifications.DailyAlertScheduler
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.lazy.LazyRow
 
 private val DAY_LABELS = listOf(
-    DayOfWeek.MONDAY    to "L",
-    DayOfWeek.TUESDAY   to "M",
-    DayOfWeek.WEDNESDAY to "M",
-    DayOfWeek.THURSDAY  to "J",
-    DayOfWeek.FRIDAY    to "V",
-    DayOfWeek.SATURDAY  to "S",
-    DayOfWeek.SUNDAY    to "D",
+    DayOfWeek.MONDAY    to "Mo",
+    DayOfWeek.TUESDAY   to "Tu",
+    DayOfWeek.WEDNESDAY to "We",
+    DayOfWeek.THURSDAY  to "Th",
+    DayOfWeek.FRIDAY    to "Fr",
+    DayOfWeek.SATURDAY  to "Sa",
+    DayOfWeek.SUNDAY    to "Su",
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -51,6 +53,9 @@ fun NotificationSettingsScreen(
     val soundEnabled     by prefs.soundEnabled.collectAsStateWithLifecycle(initialValue = true)
     val vibrationEnabled by prefs.vibrationEnabled.collectAsStateWithLifecycle(initialValue = true)
     val bypassDnd        by prefs.bypassDnd.collectAsStateWithLifecycle(initialValue = false)
+    val imminenceLead    by prefs.imminenceLeadMinutes.collectAsStateWithLifecycle(initialValue = 30)
+    val weeklyEnabled    by prefs.weeklyRecapEnabled.collectAsStateWithLifecycle(initialValue = false)
+    val weeklyTime       by prefs.weeklyRecapTime.collectAsStateWithLifecycle(initialValue = "20:00")
 
     val alertEnabled by alertPrefs.enabled.collectAsStateWithLifecycle(initialValue = false)
     val alertTimes   by alertPrefs.times.collectAsStateWithLifecycle(initialValue = emptySet())
@@ -61,7 +66,9 @@ fun NotificationSettingsScreen(
     val notifsEnabled = nm.areNotificationsEnabled()
 
     var showTimePicker by remember { mutableStateOf(false) }
+    var showWeeklyTimePicker by remember { mutableStateOf(false) }
     val timePickerState = rememberTimePickerState(initialHour = 8, initialMinute = 0, is24Hour = true)
+    val weeklyTimePickerState = rememberTimePickerState(initialHour = 20, initialMinute = 0, is24Hour = true)
 
     fun rescheduleAll(enabled: Boolean, times: Set<String>, days: Set<String>) {
         DailyAlertScheduler(context).scheduleAll(enabled, times, days)
@@ -72,14 +79,14 @@ fun NotificationSettingsScreen(
             TopAppBar(
                 title = {
                     Text(
-                        "Sons & notifications",
+                        "Sounds & notifications",
                         style      = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.SemiBold,
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Retour")
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -130,13 +137,13 @@ fun NotificationSettingsScreen(
                         Spacer(Modifier.width(10.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                "Notifications désactivées",
+                                "Notifications disabled",
                                 style  = MaterialTheme.typography.bodyMedium,
                                 color  = MaterialTheme.colorScheme.onErrorContainer,
                                 fontWeight = FontWeight.SemiBold,
                             )
                             Text(
-                                "Appuyez pour activer dans les paramètres système",
+                                "Tap to enable in system settings",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onErrorContainer,
                             )
@@ -150,12 +157,12 @@ fun NotificationSettingsScreen(
                 }
             }
 
-            NotifGroupLabel("Alertes")
+            NotifGroupLabel("Alerts")
 
             NotifToggleRow(
                 icon    = Icons.Outlined.VolumeUp,
-                label   = "Son",
-                subtitle = "Jouer un son lors des rappels",
+                label   = "Sound",
+                subtitle = "Play a sound for reminders",
                 checked = soundEnabled,
                 onCheckedChange = { scope.launch { prefs.setSoundEnabled(it) } },
             )
@@ -164,7 +171,7 @@ fun NotificationSettingsScreen(
             NotifToggleRow(
                 icon    = Icons.Outlined.Vibration,
                 label   = "Vibration",
-                subtitle = "Vibrer lors des rappels",
+                subtitle = "Vibrate for reminders",
                 checked = vibrationEnabled,
                 onCheckedChange = { scope.launch { prefs.setVibrationEnabled(it) } },
             )
@@ -172,20 +179,20 @@ fun NotificationSettingsScreen(
 
             NotifToggleRow(
                 icon    = Icons.Outlined.DoNotDisturbOff,
-                label   = "Contourner Ne pas déranger",
-                subtitle = "Les rappels sonnent même en mode silencieux",
+                label   = "Bypass Do Not Disturb",
+                subtitle = "Reminders ring even in silent mode",
                 checked = bypassDnd,
                 onCheckedChange = { scope.launch { prefs.setBypassDnd(it) } },
             )
             HorizontalDivider(modifier = Modifier.padding(start = 64.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
 
             // ── Daily alerts section ─────────────────────────────────────────
-            NotifGroupLabel("Alertes quotidiennes")
+            NotifGroupLabel("Daily alerts")
 
             NotifToggleRow(
                 icon     = Icons.Outlined.Alarm,
-                label    = "Alertes quotidiennes",
-                subtitle = "Recevoir une alerte à heures fixes",
+                label    = "Daily alerts",
+                subtitle = "Receive alerts at fixed times",
                 checked  = alertEnabled,
                 onCheckedChange = { enabled ->
                     scope.launch {
@@ -246,7 +253,7 @@ fun NotificationSettingsScreen(
                                 }
                             ) {
                                 Icon(
-                                    Icons.Outlined.Close, "Supprimer",
+                                    Icons.Outlined.Close, "Remove",
                                     tint     = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(18.dp),
                                 )
@@ -262,15 +269,79 @@ fun NotificationSettingsScreen(
                     ) {
                         Icon(Icons.Outlined.Add, null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("Ajouter un horaire")
+                        Text("Add schedule")
                     }
                 }
             }
 
             HorizontalDivider(modifier = Modifier.padding(start = 64.dp, top = 8.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
 
+            // ── Imminence section ────────────────────────────────────────────
+            NotifGroupLabel("Deadline imminence")
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Outlined.Timer, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+                Spacer(Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Alert before deadline", style = MaterialTheme.typography.bodyLarge)
+                    Text("Notify X minutes before the due time", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+            ) {
+                listOf(15, 30, 60).forEach { mins ->
+                    FilterChip(
+                        selected = imminenceLead == mins,
+                        onClick  = { scope.launch { prefs.setImminenceLeadMinutes(mins) } },
+                        label    = { Text("$mins min") },
+                    )
+                }
+            }
+            HorizontalDivider(modifier = Modifier.padding(start = 64.dp, top = 8.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+
+            // ── Weekly recap section ─────────────────────────────────────────
+            NotifGroupLabel("Weekly recap")
+            NotifToggleRow(
+                icon     = Icons.Outlined.BarChart,
+                label    = "Weekly recap",
+                subtitle = "Summary every Sunday evening",
+                checked  = weeklyEnabled,
+                onCheckedChange = { enabled ->
+                    scope.launch {
+                        prefs.setWeeklyRecapEnabled(enabled)
+                        val t = prefs.weeklyRecapTime.first()
+                        if (enabled) DailyAlertScheduler(context).scheduleWeeklyRecap(DayOfWeek.SUNDAY, t)
+                        else DailyAlertScheduler(context).cancelWeeklyRecap(t)
+                    }
+                },
+            )
+            if (weeklyEnabled) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showWeeklyTimePicker = true }
+                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Outlined.Schedule, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+                    Spacer(Modifier.width(16.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Time", style = MaterialTheme.typography.bodyLarge)
+                        Text(weeklyTime, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Icon(Icons.Outlined.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            HorizontalDivider(modifier = Modifier.padding(start = 64.dp, top = 8.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+
             // ── System section ───────────────────────────────────────────────
-            NotifGroupLabel("Système")
+            NotifGroupLabel("System")
 
             // Direct link to system notification settings for this app
             Row(
@@ -298,9 +369,9 @@ fun NotificationSettingsScreen(
                 )
                 Spacer(Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Paramètres système", style = MaterialTheme.typography.bodyLarge)
+                    Text("System settings", style = MaterialTheme.typography.bodyLarge)
                     Text(
-                        "Gérer sonnerie, canaux et priorité",
+                        "Manage ringtone, channels and priority",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -313,6 +384,29 @@ fun NotificationSettingsScreen(
             }
             HorizontalDivider(modifier = Modifier.padding(start = 64.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
         }
+    }
+
+    // Weekly recap time picker
+    if (showWeeklyTimePicker) {
+        AlertDialog(
+            onDismissRequest = { showWeeklyTimePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    showWeeklyTimePicker = false
+                    val hh = weeklyTimePickerState.hour.toString().padStart(2, '0')
+                    val mm = weeklyTimePickerState.minute.toString().padStart(2, '0')
+                    val hhmm = "$hh:$mm"
+                    scope.launch {
+                        prefs.setWeeklyRecapTime(hhmm)
+                        if (weeklyEnabled) DailyAlertScheduler(context).scheduleWeeklyRecap(DayOfWeek.SUNDAY, hhmm)
+                    }
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showWeeklyTimePicker = false }) { Text("Cancel") }
+            },
+            text = { TimePicker(state = weeklyTimePickerState) },
+        )
     }
 
     // Time picker dialog
@@ -333,7 +427,7 @@ fun NotificationSettingsScreen(
                 }) { Text("OK") }
             },
             dismissButton = {
-                TextButton(onClick = { showTimePicker = false }) { Text("Annuler") }
+                TextButton(onClick = { showTimePicker = false }) { Text("Cancel") }
             },
             text = {
                 TimePicker(state = timePickerState)

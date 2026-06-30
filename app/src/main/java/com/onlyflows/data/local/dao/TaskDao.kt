@@ -136,6 +136,12 @@ interface TaskDao {
     @Query("SELECT COUNT(*) FROM tasks WHERE isArchived = 1 AND deletedAt IS NULL")
     fun observeAllArchivedCount(): Flow<Int>
 
+    @Query("SELECT * FROM tasks WHERE dueDate >= :today AND isCompleted = 0 AND isArchived = 0 AND deletedAt IS NULL ORDER BY dueDate ASC LIMIT 3")
+    suspend fun getUpcomingDeadlines(today: String): List<TaskEntity>
+
+    @Query("SELECT COUNT(*) FROM tasks WHERE isCompleted = 1 AND deletedAt IS NULL AND completedAt >= :sevenDaysAgo")
+    suspend fun getCompletedThisWeekCount(sevenDaysAgo: String): Int
+
     // ── Writes ────────────────────────────────────────────────────────────────
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

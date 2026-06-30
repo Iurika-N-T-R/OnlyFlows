@@ -93,6 +93,38 @@ class DailyAlertScheduler(private val context: Context) {
         return candidate.toInstant().toEpochMilli()
     }
 
+    fun scheduleWeeklyRecap(dayOfWeek: DayOfWeek, hhmm: String) {
+        val time = runCatching { LocalTime.parse(hhmm, timeFormatter) }.getOrNull() ?: return
+        val triggerMs = nextOccurrenceMs(dayOfWeek, time)
+        val intent = Intent(context, WeeklyRecapReceiver::class.java).apply {
+            action = WeeklyRecapReceiver.ACTION
+            putExtra(WeeklyRecapReceiver.EXTRA_TIME, hhmm)
+        }
+        val pending = PendingIntent.getBroadcast(
+            context, abs("weekly_recap_${hhmm}".hashCode()), intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && alarmManager.canScheduleExactAlarms()) {
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMs, pending)
+            } else {
+                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerMs, pending)
+            }
+            Log.d(TAG, "Weekly recap scheduled: $dayOfWeek $hhmm")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to schedule weekly recap", e)
+        }
+    }
+
+    fun cancelWeeklyRecap(hhmm: String) {
+        val intent = Intent(context, WeeklyRecapReceiver::class.java).apply { action = WeeklyRecapReceiver.ACTION }
+        val pending = PendingIntent.getBroadcast(
+            context, abs("weekly_recap_${hhmm}".hashCode()), intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        alarmManager.cancel(pending)
+    }
+
     private fun buildIntent(dayName: String, hhmm: String): PendingIntent {
         val intent = Intent(context, DailyAlertReceiver::class.java).apply {
             action = DailyAlertReceiver.ACTION

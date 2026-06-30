@@ -79,17 +79,26 @@ class AppPreferences(private val context: Context) {
 
 class NotificationPreferences(private val context: Context) {
 
-    private val KEY_SOUND      = booleanPreferencesKey("sound_enabled")
-    private val KEY_VIBRATION  = booleanPreferencesKey("vibration_enabled")
-    private val KEY_BYPASS_DND = booleanPreferencesKey("bypass_dnd")
+    private val KEY_SOUND            = booleanPreferencesKey("sound_enabled")
+    private val KEY_VIBRATION        = booleanPreferencesKey("vibration_enabled")
+    private val KEY_BYPASS_DND       = booleanPreferencesKey("bypass_dnd")
+    private val KEY_IMMINENCE_LEAD   = intPreferencesKey("imminence_lead_minutes")
+    private val KEY_WEEKLY_ENABLED   = booleanPreferencesKey("weekly_recap_enabled")
+    private val KEY_WEEKLY_TIME      = stringPreferencesKey("weekly_recap_time")
 
-    val soundEnabled: Flow<Boolean>     = context.notifDataStore.data.map { it[KEY_SOUND]      ?: true }
-    val vibrationEnabled: Flow<Boolean> = context.notifDataStore.data.map { it[KEY_VIBRATION]  ?: true }
-    val bypassDnd: Flow<Boolean>        = context.notifDataStore.data.map { it[KEY_BYPASS_DND] ?: false }
+    val soundEnabled: Flow<Boolean>        = context.notifDataStore.data.map { it[KEY_SOUND]          ?: true }
+    val vibrationEnabled: Flow<Boolean>    = context.notifDataStore.data.map { it[KEY_VIBRATION]      ?: true }
+    val bypassDnd: Flow<Boolean>           = context.notifDataStore.data.map { it[KEY_BYPASS_DND]     ?: false }
+    val imminenceLeadMinutes: Flow<Int>    = context.notifDataStore.data.map { it[KEY_IMMINENCE_LEAD] ?: 30 }
+    val weeklyRecapEnabled: Flow<Boolean>  = context.notifDataStore.data.map { it[KEY_WEEKLY_ENABLED] ?: false }
+    val weeklyRecapTime: Flow<String>      = context.notifDataStore.data.map { it[KEY_WEEKLY_TIME]    ?: "20:00" }
 
-    suspend fun setSoundEnabled(enabled: Boolean)    = context.notifDataStore.edit { it[KEY_SOUND]      = enabled }
-    suspend fun setVibrationEnabled(enabled: Boolean) = context.notifDataStore.edit { it[KEY_VIBRATION] = enabled }
-    suspend fun setBypassDnd(enabled: Boolean)        = context.notifDataStore.edit { it[KEY_BYPASS_DND] = enabled }
+    suspend fun setSoundEnabled(enabled: Boolean)       = context.notifDataStore.edit { it[KEY_SOUND]          = enabled }
+    suspend fun setVibrationEnabled(enabled: Boolean)   = context.notifDataStore.edit { it[KEY_VIBRATION]      = enabled }
+    suspend fun setBypassDnd(enabled: Boolean)          = context.notifDataStore.edit { it[KEY_BYPASS_DND]     = enabled }
+    suspend fun setImminenceLeadMinutes(minutes: Int)   = context.notifDataStore.edit { it[KEY_IMMINENCE_LEAD] = minutes }
+    suspend fun setWeeklyRecapEnabled(enabled: Boolean) = context.notifDataStore.edit { it[KEY_WEEKLY_ENABLED] = enabled }
+    suspend fun setWeeklyRecapTime(time: String)        = context.notifDataStore.edit { it[KEY_WEEKLY_TIME]    = time }
 
     suspend fun snapshot(): Triple<Boolean, Boolean, Boolean> {
         val p = context.notifDataStore.data.first()

@@ -56,6 +56,14 @@
             android:exported="false" />
 
         <receiver
+            android:name=".data.notifications.ImminenceReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name=".data.notifications.WeeklyRecapReceiver"
+            android:exported="false" />
+
+        <receiver
             android:name=".data.notifications.BootReceiver"
             android:exported="true">
             <intent-filter>

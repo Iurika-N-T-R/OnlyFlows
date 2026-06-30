@@ -8,6 +8,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.time.DayOfWeek
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.LocalTime
 
 class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -72,6 +76,25 @@ class BootReceiver : BroadcastReceiver() {
                     alertPrefs.times.first(),
                     alertPrefs.days.first(),
                 )
+
+                // Rearm imminence alarms for tasks with future due dates+times
+                val notifPrefs = container.notificationPreferences
+                val lead = notifPrefs.imminenceLeadMinutes.first()
+                val today = LocalDate.now().toString()
+                container.taskRepository.getUpcomingDeadlines(today).forEach { task ->
+                    val dueTime = task.dueTime ?: return@forEach
+                    val dueDate = task.dueDate ?: return@forEach
+                    val fireAt = LocalDateTime.of(dueDate, dueTime).minusMinutes(lead.toLong())
+                    if (fireAt.isAfter(LocalDateTime.now())) {
+                        scheduler.scheduleImminence("imm_${task.id}", task.id, task.title, fireAt)
+                    }
+                }
+
+                // Rearm weekly recap
+                if (notifPrefs.weeklyRecapEnabled.first()) {
+                    val recapTime = notifPrefs.weeklyRecapTime.first()
+                    alertScheduler.scheduleWeeklyRecap(DayOfWeek.SUNDAY, recapTime)
+                }
             } finally {
                 pendingResult.finish()
             }

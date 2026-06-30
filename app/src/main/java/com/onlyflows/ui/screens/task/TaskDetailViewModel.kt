@@ -39,6 +39,8 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.onlyflows.data.notifications.ReminderScheduler
+import kotlinx.coroutines.flow.first
 import java.time.temporal.ChronoUnit
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -444,6 +446,23 @@ class TaskDetailViewModel(app: Application) : AndroidViewModel(app) {
                         AppLog.d("TaskDetailVM", "SetDueDate null→floating: assigned group=${updated.scheduledGroup}")
                     }
                     taskRepo.update(updated)
+
+                    // Schedule imminence alarm
+                    val scheduler = ReminderScheduler(getApplication())
+                    val alarmId = "imm_${task.id}"
+                    val dt = event.date
+                    val time = event.dueTime
+                    if (dt != null && time != null) {
+                        val lead = container.notificationPreferences.imminenceLeadMinutes.first()
+                        val fireAt = LocalDateTime.of(dt, time).minusMinutes(lead.toLong())
+                        if (fireAt.isAfter(LocalDateTime.now())) {
+                            scheduler.scheduleImminence(alarmId, task.id, task.title, fireAt)
+                        } else {
+                            scheduler.cancelImminence(alarmId)
+                        }
+                    } else {
+                        scheduler.cancelImminence(alarmId)
+                    }
                 }
                 _uiState.update { it.copy(showDatePicker = false) }
             }

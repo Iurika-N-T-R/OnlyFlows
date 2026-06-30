@@ -397,6 +397,9 @@ class TaskRepository(
             list.map { com.onlyflows.domain.model.ProjectTaskProgress(it.projectId, it.total, it.completed) }
         }
 
+    suspend fun getCompletedThisWeekCount(sevenDaysAgo: String): Int = taskDao.getCompletedThisWeekCount(sevenDaysAgo)
+    suspend fun getUpcomingDeadlines(today: String): List<com.onlyflows.data.local.entity.TaskEntity> = taskDao.getUpcomingDeadlines(today)
+
     fun observeActiveCount(): Flow<Int>        = taskDao.observeActiveCount()
     fun observeAllCompletedCount(): Flow<Int>  = taskDao.observeAllCompletedCount()
     fun observeAllArchivedCount(): Flow<Int>   = taskDao.observeAllArchivedCount()

@@ -62,17 +62,30 @@ class DailyAlertReceiver : BroadcastReceiver() {
                 val channelId = if (soundEnabled || vibrationEnabled)
                     ReminderReceiver.CHANNEL_ID else ReminderReceiver.CHANNEL_ID_SILENT
 
-                val taskCount = container.taskRepository.observeTodayCount().first()
-                val notifText = if (taskCount > 0)
-                    "$taskCount tâche${if (taskCount > 1) "s" else ""} en attente aujourd'hui"
-                else
-                    "Vos tâches vous attendent"
+                val today        = java.time.LocalDate.now().toString()
+                val taskCount    = container.taskRepository.observeTodayCount().first()
+                val overdueCount = container.taskRepository.observeOverdueCount().first()
+                val upcoming     = container.taskRepository.getUpcomingDeadlines(today)
+
+                val shortText    = buildString {
+                    append("$taskCount task${if (taskCount != 1) "s" else ""} today")
+                    if (overdueCount > 0) append(" · $overdueCount overdue")
+                }
+                val bigText = buildString {
+                    appendLine(shortText)
+                    if (upcoming.isNotEmpty()) {
+                        appendLine("─────")
+                        upcoming.forEach { t -> appendLine("• ${t.title}${if (t.dueDate != null) "  (${t.dueDate})" else ""}") }
+                    }
+                }.trimEnd()
 
                 val builder = NotificationCompat.Builder(context, channelId)
                     .setSmallIcon(R.drawable.ic_nav_today)
-                    .setContentTitle("OnlyFlows")
-                    .setContentText(notifText)
+                    .setContentTitle("Good morning — $taskCount task${if (taskCount != 1) "s" else ""} today")
+                    .setContentText(shortText)
+                    .setStyle(NotificationCompat.BigTextStyle().bigText(bigText))
                     .setContentIntent(tapIntent)
+                    .addAction(0, "View", tapIntent)
                     .setAutoCancel(true)
                     .setPriority(NotificationCompat.PRIORITY_HIGH)
 

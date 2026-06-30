@@ -89,6 +89,30 @@ class ReminderScheduler(private val context: Context) {
         setAlarm(triggerMs, pending, title)
     }
 
+    fun scheduleImminence(alarmId: String, taskId: String, title: String, at: LocalDateTime) {
+        val triggerMs = at.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        if (triggerMs <= System.currentTimeMillis()) return
+        val intent = Intent(context, ImminenceReceiver::class.java).apply {
+            action = ImminenceReceiver.ACTION_SHOW
+            putExtra(ImminenceReceiver.EXTRA_TASK_ID, taskId)
+            putExtra(ImminenceReceiver.EXTRA_TITLE, title)
+        }
+        val pending = PendingIntent.getBroadcast(
+            context, abs(alarmId.hashCode()), intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        setAlarm(triggerMs, pending, title)
+    }
+
+    fun cancelImminence(alarmId: String) {
+        val intent = Intent(context, ImminenceReceiver::class.java).apply { action = ImminenceReceiver.ACTION_SHOW }
+        val pending = PendingIntent.getBroadcast(
+            context, abs(alarmId.hashCode()), intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        alarmManager.cancel(pending)
+    }
+
     fun cancelChecklistReminder(reminderId: String) {
         val intent = android.content.Intent(context, ChecklistItemReminderReceiver::class.java).apply {
             action = ChecklistItemReminderReceiver.ACTION_SHOW
