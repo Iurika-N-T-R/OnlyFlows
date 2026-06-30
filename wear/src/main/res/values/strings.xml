@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">OnlyFlows</string>
+    <string name="complication_count">Tâches actives</string>
+    <string name="complication_progress">Progression du jour</string>
+    <string name="complication_add">Ajouter une tâche</string>
+</resources>

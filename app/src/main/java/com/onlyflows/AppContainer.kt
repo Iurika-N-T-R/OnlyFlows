@@ -60,7 +60,10 @@ class AppContainer(context: Context) {
         actionLog       = actionLogRepository,
         syncDao         = syncDao,
         syncthingWriter = lanSyncWriter,
-        onTaskMutated   = { com.onlyflows.ui.widget.WidgetUpdater.updateAll(context) },
+        onTaskMutated   = {
+            com.onlyflows.ui.widget.WidgetUpdater.updateAll(context)
+            com.onlyflows.wear.WearNotifier.notifyRefresh(context)
+        },
     )
 
     val projectRepository: ProjectRepository = ProjectRepository(

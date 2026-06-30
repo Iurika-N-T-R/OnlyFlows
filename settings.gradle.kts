@@ -21,3 +21,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "OnlyFlows"
 include(":app")
+include(":wear")

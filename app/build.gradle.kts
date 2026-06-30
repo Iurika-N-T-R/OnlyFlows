@@ -14,8 +14,8 @@ android {
         applicationId = "com.onlyflows"
         minSdk = 26
         targetSdk = 35
-        versionCode = 89
-        versionName = "0.60.0"
+        versionCode = 90
+        versionName = "0.61.0"
     }
 
     signingConfigs {
@@ -67,6 +67,7 @@ ksp {
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.core.remoteviews)
+    implementation(libs.play.services.wearable)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)

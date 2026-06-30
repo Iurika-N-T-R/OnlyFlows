@@ -5,6 +5,23 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.61.0] — 2026-06-30 · App Wear OS (montre) + pont téléphone
+
+### Ajouté
+
+- **Application Wear OS** (`:wear`) inspirée de Tasks.org, branchée sur le système OnlyFlows :
+  - Liste de tâches (cartes, complétion, retards en rouge, ajout vocal), sélecteur de liste/filtre (listes intelligentes + projets), édition de tâche (titre vocal, terminée, priorité), réglages.
+  - **Rafraîchissement live** : le téléphone notifie la montre à chaque changement.
+  - **File hors-ligne** : tâches créées sans le téléphone, synchronisées au retour de connexion.
+  - **3 complications** : nombre de tâches actives, progression du jour, ajout rapide.
+- **Pont téléphone** : `OnlyFlowsWearService` répond aux requêtes de la montre (getTasks / getLists / getTask / saveTask / complete / getTaskCount) via le Wear Data Layer (MessageClient), en lisant les repos Room existants.
+
+### Technique
+
+- Transport identique à Tasks.org (Data Layer), sans gRPC/protobuf/Hilt : JSON `org.json` + `MessageClient.sendRequest`.
+
+---
+
 ## [0.60.0] — 2026-06-30 · Déplacer une tâche (List) + quick-add widget enrichi
 
 ### Ajouté
