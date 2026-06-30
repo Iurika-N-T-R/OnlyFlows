@@ -14,24 +14,38 @@ data class WidgetPrefs(
     val scopeId: String = "",
     val sortBy: String = "NONE",
     val theme: String = "FOLLOW",
+    val showDetails: Boolean = true,
+    val groupByPriority: Boolean = false,
 )
 
 class WidgetPrefsRepository(private val context: Context) {
 
     companion object {
-        val SCOPE_TYPE = stringPreferencesKey("widget_scope_type")
-        val SCOPE_ID   = stringPreferencesKey("widget_scope_id")
-        val SORT_BY    = stringPreferencesKey("widget_sort_by")
-        val THEME      = stringPreferencesKey("widget_theme")
+        val SCOPE_TYPE   = stringPreferencesKey("widget_scope_type")
+        val SCOPE_ID     = stringPreferencesKey("widget_scope_id")
+        val SORT_BY      = stringPreferencesKey("widget_sort_by")
+        val THEME        = stringPreferencesKey("widget_theme")
+        val SHOW_DETAILS = stringPreferencesKey("widget_show_details")
+        val GROUP_PRIO   = stringPreferencesKey("widget_group_priority")
     }
 
     val prefs: Flow<WidgetPrefs> = context.widgetPrefsDataStore.data.map { p ->
         WidgetPrefs(
-            scopeType = p[SCOPE_TYPE] ?: "ALL",
-            scopeId   = p[SCOPE_ID]   ?: "",
-            sortBy    = p[SORT_BY]    ?: "NONE",
-            theme     = p[THEME]      ?: "FOLLOW",
+            scopeType       = p[SCOPE_TYPE] ?: "ALL",
+            scopeId         = p[SCOPE_ID]   ?: "",
+            sortBy          = p[SORT_BY]    ?: "NONE",
+            theme           = p[THEME]      ?: "FOLLOW",
+            showDetails     = (p[SHOW_DETAILS] ?: "true") == "true",
+            groupByPriority = (p[GROUP_PRIO]   ?: "false") == "true",
         )
+    }
+
+    suspend fun setShowDetails(show: Boolean) {
+        context.widgetPrefsDataStore.edit { it[SHOW_DETAILS] = show.toString() }
+    }
+
+    suspend fun setGroupByPriority(group: Boolean) {
+        context.widgetPrefsDataStore.edit { it[GROUP_PRIO] = group.toString() }
     }
 
     suspend fun setScopeType(type: String) {

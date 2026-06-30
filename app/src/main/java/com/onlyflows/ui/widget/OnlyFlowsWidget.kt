@@ -62,10 +62,7 @@ class OnlyFlowsWidget : GlanceAppWidget() {
             val prefsRepo = WidgetPrefsRepository(context)
             prefs         = prefsRepo.prefs.first()
 
-            val projectId = if (prefs.scopeType == "PROJECT") prefs.scopeId.ifEmpty { null } else null
-            val sectionId = if (prefs.scopeType == "SECTION") prefs.scopeId.ifEmpty { null } else null
-
-            val rawTasks    = db.taskDao().observeActiveForWidget(projectId, sectionId).first()
+            val rawTasks    = widgetTasksFlow(db.taskDao(), prefs).first()
             val allProjects = db.projectDao().observeActiveProjectsAndLists().first()
             val allSections = db.sectionDao().getAll()
 
@@ -80,9 +77,14 @@ class OnlyFlowsWidget : GlanceAppWidget() {
             }
 
             scopeLabel = when (prefs.scopeType) {
-                "PROJECT" -> projectMap[prefs.scopeId]?.title ?: "All"
-                "SECTION" -> sectionMap[prefs.scopeId]?.title ?: "All"
-                else      -> "All"
+                "TODAY"    -> "Today"
+                "ANYTIME"  -> "Anytime"
+                "INBOX"    -> "Inbox"
+                "UPCOMING" -> "Upcoming"
+                "SOMEDAY"  -> "Someday"
+                "PROJECT"  -> projectMap[prefs.scopeId]?.title ?: "All"
+                "SECTION"  -> sectionMap[prefs.scopeId]?.title ?: "All"
+                else       -> "All"
             }
 
             val scopeOptions = buildScopeOptions(allProjects, allSections)
@@ -93,6 +95,12 @@ class OnlyFlowsWidget : GlanceAppWidget() {
             nextId   = next.second
         } catch (_: Exception) { /* show empty widget rather than crashing */ }
 
+        val isDark = when (prefs.theme) {
+            "LIGHT" -> false
+            "DARK"  -> true
+            else    -> context.isNightMode()   // FOLLOW
+        }
+
         provideContent {
             WidgetContent(
                 tasks         = tasks,
@@ -102,7 +110,7 @@ class OnlyFlowsWidget : GlanceAppWidget() {
                 scopeLabel    = scopeLabel,
                 nextScopeType = nextType,
                 nextScopeId   = nextId,
-                isDark        = context.isNightMode(),
+                isDark        = isDark,
             )
         }
     }
@@ -112,6 +120,11 @@ class OnlyFlowsWidget : GlanceAppWidget() {
         sections: List<SectionEntity>,
     ): List<Pair<String, String>> = buildList {
         add("ALL" to "")
+        add("TODAY" to "")
+        add("ANYTIME" to "")
+        add("INBOX" to "")
+        add("UPCOMING" to "")
+        add("SOMEDAY" to "")
         projects.forEach { p ->
             add("PROJECT" to p.id)
             sections.filter { it.projectId == p.id }.forEach { s ->
@@ -217,6 +230,24 @@ private fun WidgetContent(
                 Spacer(GlanceModifier.width(6.dp))
                 Box(
                     modifier = GlanceModifier
+                        .clickable(actionStartActivity<WidgetConfigActivity>())
+                        .size(28.dp)
+                        .background(ImageProvider(R.drawable.widget_btn_circle))
+                        .cornerRadius(50.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text  = "⚙",
+                        style = TextStyle(
+                            color      = ColorProvider(Color(0xFFFFFFFF)),
+                            fontSize   = 14.sp,
+                            textAlign  = TextAlign.Center,
+                        ),
+                    )
+                }
+                Spacer(GlanceModifier.width(6.dp))
+                Box(
+                    modifier = GlanceModifier
                         .clickable(actionStartActivity<MainActivity>())
                         .size(28.dp)
                         .background(ImageProvider(R.drawable.widget_btn_circle))
@@ -295,8 +326,21 @@ private fun WidgetContent(
                 }
             } else {
                 LazyColumn(modifier = GlanceModifier.fillMaxSize()) {
-                    items(tasks, itemId = { it.id.hashCode().toLong() }) { task ->
-                        TaskRow(task = task, projectMap = projectMap, sectionMap = sectionMap, c = c)
+                    if (prefs.groupByPriority) {
+                        // High → Medium → Low → None, header per non-empty group
+                        listOf("HIGH" to "High", "MEDIUM" to "Medium", "LOW" to "Low", "NONE" to "None").forEach { (key, label) ->
+                            val group = tasks.filter { it.priority == key }
+                            if (group.isNotEmpty()) {
+                                item(itemId = ("h_$key").hashCode().toLong()) { PriorityHeader(label, key, c) }
+                                items(group, itemId = { it.id.hashCode().toLong() }) { task ->
+                                    TaskRow(task, projectMap, sectionMap, c, prefs.showDetails)
+                                }
+                            }
+                        }
+                    } else {
+                        items(tasks, itemId = { it.id.hashCode().toLong() }) { task ->
+                            TaskRow(task, projectMap, sectionMap, c, prefs.showDetails)
+                        }
                     }
                 }
             }
@@ -307,11 +351,25 @@ private fun WidgetContent(
 // ── Task row ──────────────────────────────────────────────────────────────────
 
 @Composable
+private fun PriorityHeader(label: String, key: String, c: WColors) {
+    Text(
+        text     = label,
+        modifier = GlanceModifier.padding(top = 4.dp, bottom = 1.dp),
+        style    = TextStyle(
+            color      = ColorProvider(priorityColor(key) ?: c.onSurface),
+            fontSize   = 9.sp,
+            fontWeight = FontWeight.Bold,
+        ),
+    )
+}
+
+@Composable
 private fun TaskRow(
     task: TaskEntity,
     projectMap: Map<String, ProjectEntity>,
     sectionMap: Map<String, SectionEntity>,
     c: WColors,
+    showDetails: Boolean,
 ) {
     val contextLabel = when {
         task.sectionId != null -> sectionMap[task.sectionId]?.title
@@ -323,9 +381,11 @@ private fun TaskRow(
         ?.let { parseHexColor(it) }
         ?: c.accent
 
+    val overdue    = isOverdue(task)
+    val titleColor = if (overdue) overdueRed else c.onBg
     val dateText   = buildDateText(task)
     val pColor     = priorityColor(task.priority)
-    val hasMetaRow = dateText != null || pColor != null || contextLabel != null
+    val hasMetaRow = showDetails && (dateText != null || pColor != null || contextLabel != null)
 
     Column(
         modifier = GlanceModifier
@@ -349,7 +409,7 @@ private fun TaskRow(
                 text     = task.title,
                 maxLines = 1,
                 style    = TextStyle(
-                    color      = ColorProvider(c.onBg),
+                    color      = ColorProvider(titleColor),
                     fontSize   = 12.sp,
                     fontWeight = FontWeight.Bold,
                 ),
@@ -392,6 +452,13 @@ private fun TaskRow(
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+private val overdueRed = Color(0xFFE04444)
+
+private fun isOverdue(task: TaskEntity): Boolean {
+    val due = task.dueDate ?: return false
+    return !task.isCompleted && due.isBefore(java.time.LocalDate.now())
+}
 
 private val dateFormatter = DateTimeFormatter.ofPattern("d MMM", Locale.getDefault())
 private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm", Locale.getDefault())

@@ -5,6 +5,24 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.58.0] — 2026-06-30 · Widget Glance — filtres listes intelligentes + réglages + retards en rouge
+
+### Ajouté
+
+- **Filtres widget** : la pastille de scope cycle désormais sur les listes intelligentes (All / Today / Anytime / Inbox / Upcoming / Someday) en plus des projets/sections, via les flows DAO existants.
+- **Réglages widget** (bouton ⚙ → `WidgetConfigActivity`) : Afficher les détails, Grouper par priorité, Thème (Système / Clair / Sombre).
+- **Groupe par priorité** : en-têtes High / Medium / Low / None dans la liste du widget.
+
+### Modifié
+
+- **Thème widget** : la préférence `theme` (définie mais ignorée) est maintenant appliquée (FOLLOW / LIGHT / DARK).
+
+### Corrigé
+
+- **Tâches en retard** : titre affiché en rouge dans le widget quand la date d'échéance est dépassée.
+
+---
+
 ## [0.57.0] — 2026-06-30 · Sidebar « Show more » + Archivé en section + alignement TaskItem
 
 ### Ajouté
