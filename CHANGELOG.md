@@ -5,6 +5,24 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.59.0] — 2026-06-30 · Nouveau widget (RemoteViews classique, technique Tasks.org)
+
+### Ajouté
+
+- **Widget liste de tâches** reconstruit en RemoteViews classique (`AppWidgetProvider` + `RemoteViewsCompat.setRemoteAdapter` / `RemoteCollectionItems`, sans `RemoteViewsService`). Plus robuste que Glance pour une liste défilante.
+- **Filtre** : Today / Anytime / Inbox / Upcoming / Someday / Toutes + projets (écran de config, affiché à la pose et via ⚙).
+- **Ajout rapide** sans ouvrir l'app (popup flottante → Inbox).
+- **Compléter une tâche** depuis le widget (case à cocher, gère la récurrence).
+- **Détails** (date · heure), **retards en rouge**, **thème** (système/clair/sombre), **rafraîchissement auto** à chaque mutation de tâche.
+
+### Technique
+
+- Clics via `setPendingIntentTemplate` + `setOnClickFillInIntent` → activité dispatcher transparente.
+- Préférences par widget (SharedPreferences clé `appWidgetId`).
+- Ajout dépendance `androidx.core:core-remoteviews:1.1.0`.
+
+---
+
 ## [0.58.3] — 2026-06-30 · Widget reconstruit selon les bonnes pratiques Glance officielles
 
 ### Corrigé

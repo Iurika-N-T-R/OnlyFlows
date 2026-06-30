@@ -32,8 +32,6 @@ import com.onlyflows.data.lan.LanSyncClient
 import com.onlyflows.data.lan.LanSyncCoordinator
 import com.onlyflows.data.lan.LanSyncPreferences
 import com.onlyflows.data.lan.LanSyncWriter
-import com.onlyflows.ui.widget.WidgetPrefsRepository
-import com.onlyflows.ui.widget.WidgetStateManager
 
 class AppContainer(context: Context) {
     private val db = AppDatabase.getInstance(context)
@@ -62,7 +60,7 @@ class AppContainer(context: Context) {
         actionLog       = actionLogRepository,
         syncDao         = syncDao,
         syncthingWriter = lanSyncWriter,
-        onTaskMutated   = {},
+        onTaskMutated   = { com.onlyflows.ui.widget.WidgetUpdater.updateAll(context) },
     )
 
     val projectRepository: ProjectRepository = ProjectRepository(
@@ -142,7 +140,4 @@ class AppContainer(context: Context) {
         syncDao         = syncDao,
         syncthingWriter = lanSyncWriter,
     )
-
-    val widgetPrefsRepository: WidgetPrefsRepository = WidgetPrefsRepository(context)
-    val widgetStateManager: WidgetStateManager       = WidgetStateManager(context, widgetPrefsRepository)
 }

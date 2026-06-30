@@ -1,10 +1,6 @@
 # Domain models (Room entities)
 -keep class com.onlyflows.domain.model.** { *; }
 
-# ── Glance app widgets ────────────────────────────────────────────────────────
--keep class com.onlyflows.ui.widget.** { *; }
--keep class * implements androidx.glance.appwidget.action.ActionCallback { *; }
-
 # ── WorkManager workers ───────────────────────────────────────────────────────
 -keep class * extends androidx.work.Worker
 -keep class * extends androidx.work.CoroutineWorker

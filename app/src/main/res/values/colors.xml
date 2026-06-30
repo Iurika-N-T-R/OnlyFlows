@@ -4,4 +4,15 @@
     <color name="flow_blue">#4A90D9</color>
     <color name="flow_surface">#FFFFFF</color>
     <color name="flow_surface_dark">#161B22</color>
+
+    <!-- Widget (classic RemoteViews) -->
+    <color name="widget_accent">#4A90D9</color>
+    <color name="widget_bg_light">#FFFFFF</color>
+    <color name="widget_bg_dark">#161B22</color>
+    <color name="widget_text_light">#1A1A1A</color>
+    <color name="widget_text_dark">#F0F4F8</color>
+    <color name="widget_text2_light">#6B7280</color>
+    <color name="widget_text2_dark">#8B9BB4</color>
+    <color name="widget_overdue">#E04444</color>
+    <color name="widget_on_accent">#FFFFFF</color>
 </resources>

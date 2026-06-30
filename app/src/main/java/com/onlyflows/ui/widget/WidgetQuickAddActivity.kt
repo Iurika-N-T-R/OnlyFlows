@@ -19,9 +19,8 @@ import com.onlyflows.domain.model.Task
 import com.onlyflows.ui.theme.OnlyFlowsTheme
 import kotlinx.coroutines.launch
 
-/** Floating popup (dialog theme) to add a task from the widget without opening the app.
- *  New tasks land in Inbox. ponytail: Inbox only; honor the widget's current filter if asked. */
-class QuickAddActivity : ComponentActivity() {
+/** Floating popup to add a task from the widget without opening the app. New tasks land in Inbox. */
+class WidgetQuickAddActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

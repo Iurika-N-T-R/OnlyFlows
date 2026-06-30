@@ -1,5 +1,7 @@
 package com.onlyflows.ui.widget
 
+import android.appwidget.AppWidgetManager
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -13,100 +15,94 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.glance.appwidget.updateAll
-import com.onlyflows.data.local.AppDatabase
+import com.onlyflows.OnlyFlowsApp
 import com.onlyflows.data.local.entity.ProjectEntity
-import com.onlyflows.data.local.entity.SectionEntity
 import com.onlyflows.ui.theme.OnlyFlowsTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** Filter chooser + persistent settings for the home-screen widget.
- *  Opened by tapping the widget's scope pill (filter) or used as its settings screen. */
+/** Widget configuration (shown on placement and via the gear). Filter + theme + details. */
 class WidgetConfigActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val repo = WidgetPrefsRepository(this)
-        val db   = AppDatabase.getInstance(this)
+
+        val widgetId = intent?.extras?.getInt(
+            AppWidgetManager.EXTRA_APPWIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID
+        ) ?: AppWidgetManager.INVALID_APPWIDGET_ID
+        if (widgetId == AppWidgetManager.INVALID_APPWIDGET_ID) { finish(); return }
+
+        // Default result = cancelled, so abandoning placement removes the widget.
+        setResult(RESULT_CANCELED, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId))
+
+        val prefs = WidgetPrefs(this, widgetId)
 
         setContent {
             OnlyFlowsTheme {
-                val prefs by repo.prefs.collectAsState(initial = WidgetPrefs())
                 val scope = rememberCoroutineScope()
+                var filterType by remember { mutableStateOf(prefs.filterType) }
+                var filterId   by remember { mutableStateOf(prefs.filterId) }
+                var theme      by remember { mutableStateOf(prefs.theme) }
+                var details    by remember { mutableStateOf(prefs.showDetails) }
+                var projects   by remember { mutableStateOf<List<ProjectEntity>>(emptyList()) }
 
-                var projects by remember { mutableStateOf<List<ProjectEntity>>(emptyList()) }
-                var sections by remember { mutableStateOf<List<SectionEntity>>(emptyList()) }
                 LaunchedEffect(Unit) {
-                    withContext(Dispatchers.IO) {
-                        projects = db.projectDao().observeActiveProjectsAndLists().first()
-                        sections = db.sectionDao().getAll()
+                    projects = withContext(Dispatchers.IO) {
+                        com.onlyflows.data.local.AppDatabase.getInstance(this@WidgetConfigActivity)
+                            .projectDao().observeActiveProjectsAndLists().first()
                     }
                 }
 
-                fun edit(block: suspend WidgetPrefsRepository.() -> Unit) = scope.launch {
-                    repo.block()
-                    OnlyFlowsWidget().updateAll(this@WidgetConfigActivity)
-                }
-
-                fun selectScope(type: String, id: String) = scope.launch {
-                    repo.setScopeType(type)
-                    repo.setScopeId(id)
-                    OnlyFlowsWidget().updateAll(this@WidgetConfigActivity)
-                    finish()   // pill behaves like a chooser: pick → close
+                fun done() {
+                    prefs.filterType = filterType
+                    prefs.filterId   = filterId
+                    prefs.theme      = theme
+                    prefs.showDetails = details
+                    WidgetUpdater.updateAll(this@WidgetConfigActivity)
+                    setResult(RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId))
+                    finish()
                 }
 
                 Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surface) {
                     Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 520.dp)
-                            .verticalScroll(rememberScrollState())
-                            .padding(20.dp),
+                        Modifier.fillMaxWidth().heightIn(max = 560.dp)
+                            .verticalScroll(rememberScrollState()).padding(20.dp),
                     ) {
                         Text("Widget", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
 
-                        // ── Filtre / liste ────────────────────────────────────
-                        Spacer(Modifier.height(16.dp))
-                        SectionTitle("Filtre")
-                        val smartLists = listOf(
-                            "ALL" to "Toutes", "TODAY" to "Today", "ANYTIME" to "Anytime",
-                            "INBOX" to "Inbox", "UPCOMING" to "Upcoming", "SOMEDAY" to "Someday",
-                        )
-                        smartLists.forEach { (type, label) ->
-                            FilterRow(label, selected = prefs.scopeType == type) { selectScope(type, "") }
+                        Spacer(Modifier.height(14.dp))
+                        Section("Filtre")
+                        listOf(
+                            "TODAY" to "Today", "ANYTIME" to "Anytime", "INBOX" to "Inbox",
+                            "UPCOMING" to "Upcoming", "SOMEDAY" to "Someday", "ALL" to "Toutes",
+                        ).forEach { (type, label) ->
+                            Pick(label, selected = filterType == type) { filterType = type; filterId = "" }
                         }
                         projects.forEach { p ->
-                            FilterRow(p.title, selected = prefs.scopeType == "PROJECT" && prefs.scopeId == p.id) {
-                                selectScope("PROJECT", p.id)
-                            }
-                            sections.filter { it.projectId == p.id }.forEach { s ->
-                                FilterRow("   ${s.title}", selected = prefs.scopeType == "SECTION" && prefs.scopeId == s.id) {
-                                    selectScope("SECTION", s.id)
-                                }
+                            Pick(p.title, selected = filterType == "PROJECT" && filterId == p.id) {
+                                filterType = "PROJECT"; filterId = p.id
                             }
                         }
-
-                        // ── Réglages ──────────────────────────────────────────
-                        Spacer(Modifier.height(20.dp))
-                        SectionTitle("Réglages")
-                        SwitchRow("Afficher les détails", prefs.showDetails) { v -> edit { setShowDetails(v) } }
-                        SwitchRow("Grouper par priorité", prefs.groupByPriority) { v -> edit { setGroupByPriority(v) } }
 
                         Spacer(Modifier.height(16.dp))
-                        SectionTitle("Thème")
+                        Section("Thème")
                         Spacer(Modifier.height(8.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf("FOLLOW" to "Système", "LIGHT" to "Clair", "DARK" to "Sombre").forEach { (key, label) ->
-                                FilterChip(
-                                    selected = prefs.theme == key,
-                                    onClick  = { edit { setTheme(key) } },
-                                    label    = { Text(label) },
-                                )
+                            listOf("FOLLOW" to "Système", "LIGHT" to "Clair", "DARK" to "Sombre").forEach { (k, l) ->
+                                FilterChip(selected = theme == k, onClick = { theme = k }, label = { Text(l) })
                             }
                         }
+
+                        Spacer(Modifier.height(8.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+                            Text("Afficher les détails", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                            Switch(checked = details, onCheckedChange = { details = it })
+                        }
+
+                        Spacer(Modifier.height(12.dp))
+                        Button(onClick = { done() }, modifier = Modifier.fillMaxWidth()) { Text("Terminé") }
                     }
                 }
             }
@@ -115,33 +111,16 @@ class WidgetConfigActivity : ComponentActivity() {
 }
 
 @Composable
-private fun SectionTitle(text: String) {
+private fun Section(text: String) =
     Text(text, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-}
 
 @Composable
-private fun FilterRow(label: String, selected: Boolean, onClick: () -> Unit) {
+private fun Pick(label: String, selected: Boolean, onClick: () -> Unit) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 10.dp),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 10.dp),
     ) {
         Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-        if (selected) {
-            Text("✓", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.primary)
-        }
-    }
-}
-
-@Composable
-private fun SwitchRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-    ) {
-        Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-        Switch(checked = checked, onCheckedChange = onChange)
+        if (selected) Text("✓", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyLarge)
     }
 }

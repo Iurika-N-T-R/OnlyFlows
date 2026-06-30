@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_row"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingEnd="14dp">
+
+    <ImageView
+        android:id="@+id/widget_checkbox"
+        android:layout_width="46dp"
+        android:layout_height="46dp"
+        android:padding="13dp"
+        android:scaleType="fitCenter"
+        android:contentDescription="Complete task"
+        android:src="@drawable/ic_task_unchecked" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:paddingTop="9dp"
+        android:paddingBottom="9dp">
+
+        <TextView
+            android:id="@+id/widget_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:maxLines="2"
+            android:ellipsize="end"
+            android:textColor="@color/widget_text_light"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/widget_meta"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="1dp"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:textColor="@color/widget_text2_light"
+            android:textSize="11sp"
+            android:visibility="gone" />
+    </LinearLayout>
+</LinearLayout>

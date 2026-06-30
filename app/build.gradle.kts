@@ -14,8 +14,8 @@ android {
         applicationId = "com.onlyflows"
         minSdk = 26
         targetSdk = 35
-        versionCode = 87
-        versionName = "0.58.3"
+        versionCode = 88
+        versionName = "0.59.0"
     }
 
     signingConfigs {
@@ -66,6 +66,7 @@ ksp {
 
 dependencies {
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.core.remoteviews)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
@@ -111,10 +112,4 @@ dependencies {
 
     // Location + Geofencing
     implementation(libs.play.services.location)
-
-    // Glance widgets
-    implementation(libs.androidx.glance.appwidget)
-    implementation(libs.androidx.glance.material3)
-
-
 }

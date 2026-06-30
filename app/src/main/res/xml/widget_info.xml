@@ -9,5 +9,7 @@
     android:resizeMode="horizontal|vertical"
     android:updatePeriodMillis="0"
     android:widgetCategory="home_screen"
-    android:description="@string/widget_description"
-    android:initialLayout="@layout/glance_default_loading_layout" />
+    android:initialLayout="@layout/widget_scrollable"
+    android:configure="com.onlyflows.ui.widget.WidgetConfigActivity"
+    android:widgetFeatures="reconfigurable|configuration_optional"
+    android:description="@string/app_name" />

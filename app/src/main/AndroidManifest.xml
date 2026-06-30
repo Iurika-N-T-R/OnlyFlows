@@ -42,19 +42,6 @@
             </intent-filter>
         </activity>
 
-        <activity
-            android:name=".ui.widget.WidgetConfigActivity"
-            android:exported="false"
-            android:label="@string/app_name"
-            android:theme="@style/Theme.OnlyFlows.Dialog" />
-
-        <activity
-            android:name=".ui.widget.QuickAddActivity"
-            android:exported="false"
-            android:label="@string/app_name"
-            android:windowSoftInputMode="stateVisible|adjustResize"
-            android:theme="@style/Theme.OnlyFlows.Dialog" />
-
         <service
             android:name="androidx.work.impl.foreground.SystemForegroundService"
             android:foregroundServiceType="dataSync"
@@ -81,8 +68,9 @@
             android:exported="true"
             android:permission="android.permission.ACCESS_FINE_LOCATION" />
 
+        <!-- ── Home-screen widget (classic RemoteViews collection) ── -->
         <receiver
-            android:name=".ui.widget.OnlyFlowsWidgetReceiver"
+            android:name=".ui.widget.OnlyFlowsWidgetProvider"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -91,6 +79,29 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_info" />
         </receiver>
+
+        <activity
+            android:name=".ui.widget.WidgetClickActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <activity
+            android:name=".ui.widget.WidgetQuickAddActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:windowSoftInputMode="stateVisible|adjustResize"
+            android:theme="@style/Theme.OnlyFlows.Dialog" />
+
+        <activity
+            android:name=".ui.widget.WidgetConfigActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:theme="@style/Theme.OnlyFlows.Dialog">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
 
     </application>
 

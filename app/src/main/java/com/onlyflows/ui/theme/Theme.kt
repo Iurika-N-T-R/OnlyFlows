@@ -59,7 +59,7 @@ val LocalFlowColors = staticCompositionLocalOf {
     )
 }
 
-internal val LightColorScheme = lightColorScheme(
+private val LightColorScheme = lightColorScheme(
     primary           = FlowBlue,
     onPrimary         = Color.White,
     primaryContainer  = FlowBlueLight,
@@ -77,7 +77,7 @@ internal val LightColorScheme = lightColorScheme(
     error             = FlowRed,
 )
 
-internal val DarkColorScheme = darkColorScheme(
+private val DarkColorScheme = darkColorScheme(
     primary           = FlowBlue,
     onPrimary         = Color.White,
     primaryContainer  = Color(0xFF1A3050),

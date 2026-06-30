@@ -27,7 +27,6 @@ class OnlyFlowsApp : Application() {
         installUncaughtExceptionLogger()
         container = AppContainer(this)
         container.lanSyncCoordinator.start()
-        container.widgetStateManager.start(CoroutineScope(Dispatchers.IO))
         SyncthingImportWorker.schedule(this)
         // Schedule RSS sync with the saved interval (default 30 min)
         CoroutineScope(Dispatchers.IO).launch {
