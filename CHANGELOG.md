@@ -5,6 +5,15 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.58.1] — 2026-06-30 · Fix widget — bouton + (ajout tâche) + sélecteur de filtre
+
+### Corrigé
+
+- **Bouton + du widget** : lançait `MainActivity` sans extra, le flux d'ajout de tâche ne se déclenchait jamais. Passe désormais `EXTRA_ADD_TASK` → ouvre l'ajout de tâche.
+- **Choix du filtre** : la pastille cyclait d'un cran par tap (impossible de choisir une liste précise). Elle ouvre maintenant un sélecteur (Toutes / Today / Anytime / Inbox / Upcoming / Someday + projets/sections) — on tape, ça s'applique et se ferme. Réglages (détails / groupe priorité / thème) sur le même écran ; bouton ⚙ retiré (redondant).
+
+---
+
 ## [0.58.0] — 2026-06-30 · Widget Glance — filtres listes intelligentes + réglages + retards en rouge
 
 ### Ajouté

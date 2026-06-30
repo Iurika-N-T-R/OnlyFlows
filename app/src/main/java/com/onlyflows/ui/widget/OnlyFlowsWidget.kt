@@ -54,8 +54,6 @@ class OnlyFlowsWidget : GlanceAppWidget() {
         var sectionMap  = emptyMap<String, SectionEntity>()
         var prefs       = WidgetPrefs()
         var scopeLabel  = "All"
-        var nextType    = "ALL"
-        var nextId      = ""
 
         try {
             val db        = AppDatabase.getInstance(context)
@@ -86,13 +84,6 @@ class OnlyFlowsWidget : GlanceAppWidget() {
                 "SECTION"  -> sectionMap[prefs.scopeId]?.title ?: "All"
                 else       -> "All"
             }
-
-            val scopeOptions = buildScopeOptions(allProjects, allSections)
-            val curIdx = scopeOptions.indexOfFirst { it.first == prefs.scopeType && it.second == prefs.scopeId }
-                .takeIf { it >= 0 } ?: 0
-            val next = scopeOptions[(curIdx + 1) % scopeOptions.size]
-            nextType = next.first
-            nextId   = next.second
         } catch (_: Exception) { /* show empty widget rather than crashing */ }
 
         val isDark = when (prefs.theme) {
@@ -108,28 +99,8 @@ class OnlyFlowsWidget : GlanceAppWidget() {
                 sectionMap    = sectionMap,
                 prefs         = prefs,
                 scopeLabel    = scopeLabel,
-                nextScopeType = nextType,
-                nextScopeId   = nextId,
                 isDark        = isDark,
             )
-        }
-    }
-
-    private fun buildScopeOptions(
-        projects: List<ProjectEntity>,
-        sections: List<SectionEntity>,
-    ): List<Pair<String, String>> = buildList {
-        add("ALL" to "")
-        add("TODAY" to "")
-        add("ANYTIME" to "")
-        add("INBOX" to "")
-        add("UPCOMING" to "")
-        add("SOMEDAY" to "")
-        projects.forEach { p ->
-            add("PROJECT" to p.id)
-            sections.filter { it.projectId == p.id }.forEach { s ->
-                add("SECTION" to s.id)
-            }
         }
     }
 }
@@ -178,8 +149,6 @@ private fun WidgetContent(
     sectionMap: Map<String, SectionEntity>,
     prefs: WidgetPrefs,
     scopeLabel: String,
-    nextScopeType: String,
-    nextScopeId: String,
     isDark: Boolean,
 ) {
     val c     = if (isDark) darkColors() else lightColors()
@@ -195,7 +164,7 @@ private fun WidgetContent(
     ) {
         Column(modifier = GlanceModifier.fillMaxSize()) {
 
-            // ── Header: scope pill (weight=1) + [+] button ────────────────
+            // ── Header: scope pill (tap → filter/settings chooser) + [+] add task ──
             Row(
                 modifier = GlanceModifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -203,14 +172,7 @@ private fun WidgetContent(
                 // defaultWeight() MUST be called inline inside Row lambda (RowScope extension)
                 Box(
                     modifier = GlanceModifier
-                        .clickable(
-                            actionRunCallback<SetScopeCallback>(
-                                actionParametersOf(
-                                    keyScopeType to nextScopeType,
-                                    keyScopeId   to nextScopeId,
-                                )
-                            )
-                        )
+                        .clickable(actionStartActivity<WidgetConfigActivity>())
                         .defaultWeight()
                         .background(ImageProvider(R.drawable.widget_chip_selected_bg))
                         .cornerRadius(50.dp)
@@ -218,7 +180,7 @@ private fun WidgetContent(
                     contentAlignment = Alignment.CenterStart,
                 ) {
                     Text(
-                        text     = scopeLabel,
+                        text     = "$scopeLabel  ▾",
                         maxLines = 1,
                         style    = TextStyle(
                             color      = ColorProvider(Color(0xFFFFFFFF)),
@@ -230,25 +192,11 @@ private fun WidgetContent(
                 Spacer(GlanceModifier.width(6.dp))
                 Box(
                     modifier = GlanceModifier
-                        .clickable(actionStartActivity<WidgetConfigActivity>())
-                        .size(28.dp)
-                        .background(ImageProvider(R.drawable.widget_btn_circle))
-                        .cornerRadius(50.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text  = "⚙",
-                        style = TextStyle(
-                            color      = ColorProvider(Color(0xFFFFFFFF)),
-                            fontSize   = 14.sp,
-                            textAlign  = TextAlign.Center,
-                        ),
-                    )
-                }
-                Spacer(GlanceModifier.width(6.dp))
-                Box(
-                    modifier = GlanceModifier
-                        .clickable(actionStartActivity<MainActivity>())
+                        .clickable(
+                            actionStartActivity<MainActivity>(
+                                actionParametersOf(keyAddTask to true)
+                            )
+                        )
                         .size(28.dp)
                         .background(ImageProvider(R.drawable.widget_btn_circle))
                         .cornerRadius(50.dp),

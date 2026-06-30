@@ -11,9 +11,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 val keyTaskId    = ActionParameters.Key<String>("taskId")
-val keyScopeType = ActionParameters.Key<String>("scopeType")
-val keyScopeId   = ActionParameters.Key<String>("scopeId")
 val keySortBy    = ActionParameters.Key<String>("sortBy")
+// Maps to MainActivity.EXTRA_ADD_TASK — Glance forwards the key name as an intent extra.
+val keyAddTask   = ActionParameters.Key<Boolean>("extra_add_task")
 
 @Keep
 class ToggleTaskCallback : ActionCallback {
@@ -32,21 +32,6 @@ class ToggleTaskCallback : ActionCallback {
                 app.container.taskRepository.setCompleted(taskId, true)
             }
         }
-    }
-}
-
-@Keep
-class SetScopeCallback : ActionCallback {
-    override suspend fun onAction(
-        context: Context,
-        glanceId: GlanceId,
-        parameters: ActionParameters,
-    ) {
-        val scopeType = parameters[keyScopeType] ?: return
-        val scopeId   = parameters[keyScopeId]   ?: ""
-        val repo = WidgetPrefsRepository(context)
-        repo.setScopeType(scopeType)
-        repo.setScopeId(scopeId)
     }
 }
 
