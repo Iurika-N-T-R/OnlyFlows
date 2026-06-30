@@ -119,7 +119,7 @@ class BackupSettingsViewModel(app: Application) : AndroidViewModel(app) {
     fun backupNow() {
         val uriStr = _uiState.value.folderUri
         if (uriStr.isBlank()) {
-            _uiState.update { it.copy(snackbar = "Choisissez d'abord un dossier de sauvegarde") }
+            _uiState.update { it.copy(snackbar = "Choose a backup folder first") }
             return
         }
         _uiState.update { it.copy(isBackingUp = true) }
@@ -130,10 +130,10 @@ class BackupSettingsViewModel(app: Application) : AndroidViewModel(app) {
             result.fold(
                 onSuccess = { fileName ->
                     prefs.setLastBackupMs(System.currentTimeMillis())
-                    _uiState.update { it.copy(isBackingUp = false, snackbar = "Sauvegarde créée : $fileName") }
+                    _uiState.update { it.copy(isBackingUp = false, snackbar = "Backup created: $fileName") }
                 },
                 onFailure = { e ->
-                    _uiState.update { it.copy(isBackingUp = false, snackbar = "Erreur : ${e.message}") }
+                    _uiState.update { it.copy(isBackingUp = false, snackbar = "Error: ${e.message}") }
                 },
             )
         }
@@ -150,10 +150,10 @@ class BackupSettingsViewModel(app: Application) : AndroidViewModel(app) {
             val result = withContext(Dispatchers.IO) { manager.restore(uri) }
             result.fold(
                 onSuccess = {
-                    _uiState.update { it.copy(isBackingUp = false, snackbar = "Restauration réussie — redémarrez l'application") }
+                    _uiState.update { it.copy(isBackingUp = false, snackbar = "Restore successful — restart the app") }
                 },
                 onFailure = { e ->
-                    _uiState.update { it.copy(isBackingUp = false, snackbar = "Erreur restauration : ${e.message}") }
+                    _uiState.update { it.copy(isBackingUp = false, snackbar = "Restore error: ${e.message}") }
                 },
             )
         }
@@ -224,15 +224,15 @@ fun BackupSettingsScreen(
     if (state.showRestoreConfirm) {
         AlertDialog(
             onDismissRequest = viewModel::cancelRestore,
-            title   = { Text("Restaurer la sauvegarde ?") },
-            text    = { Text("Toutes les données actuelles seront remplacées. Cette action est irréversible.") },
+            title   = { Text("Restore backup?") },
+            text    = { Text("All current data will be replaced. This action cannot be undone.") },
             confirmButton = {
                 TextButton(onClick = viewModel::confirmRestore) {
-                    Text("Restaurer", color = MaterialTheme.colorScheme.error)
+                    Text("Restore", color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
-                TextButton(onClick = viewModel::cancelRestore) { Text("Annuler") }
+                TextButton(onClick = viewModel::cancelRestore) { Text("Cancel") }
             },
         )
     }
@@ -242,14 +242,14 @@ fun BackupSettingsScreen(
             TopAppBar(
                 title = {
                     Text(
-                        "Sauvegarde",
+                        "Backup",
                         style      = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.SemiBold,
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Retour")
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -269,7 +269,7 @@ fun BackupSettingsScreen(
         ) {
 
             // ── Dossier ──────────────────────────────────────────────────────
-            SectionLabel("Dossier de sauvegarde")
+            SectionLabel("Backup folder")
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -288,9 +288,9 @@ fun BackupSettingsScreen(
                 )
                 Spacer(Modifier.width(16.dp))
                 Column(Modifier.weight(1f)) {
-                    Text("Choisir un dossier", style = MaterialTheme.typography.bodyLarge)
+                    Text("Choose folder", style = MaterialTheme.typography.bodyLarge)
                     Text(
-                        text  = if (state.folderDisplayName.isNotBlank()) state.folderDisplayName else "Non défini",
+                        text  = if (state.folderDisplayName.isNotBlank()) state.folderDisplayName else "Not set",
                         style = MaterialTheme.typography.bodySmall,
                         color = if (state.folderDisplayName.isNotBlank())
                             MaterialTheme.colorScheme.primary
@@ -308,10 +308,10 @@ fun BackupSettingsScreen(
             Divider()
 
             // ── Sauvegarde manuelle ───────────────────────────────────────────
-            SectionLabel("Sauvegarde manuelle")
+            SectionLabel("Manual backup")
 
             val lastFmt = remember(state.lastBackupMs) {
-                if (state.lastBackupMs == 0L) "Jamais"
+                if (state.lastBackupMs == 0L) "Never"
                 else Instant.ofEpochMilli(state.lastBackupMs)
                     .atZone(ZoneId.systemDefault())
                     .format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
@@ -322,7 +322,7 @@ fun BackupSettingsScreen(
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text("Dernière sauvegarde", style = MaterialTheme.typography.bodyMedium)
+                    Text("Last backup", style = MaterialTheme.typography.bodyMedium)
                     Text(
                         text  = lastFmt,
                         style = MaterialTheme.typography.bodySmall,
@@ -342,14 +342,14 @@ fun BackupSettingsScreen(
                     } else {
                         Icon(Icons.Outlined.CloudUpload, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("Sauvegarder")
+                        Text("Back up")
                     }
                 }
             }
             Divider()
 
             // ── Sauvegarde automatique ────────────────────────────────────────
-            SectionLabel("Sauvegarde automatique")
+            SectionLabel("Automatic backup")
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -358,9 +358,9 @@ fun BackupSettingsScreen(
                     .padding(horizontal = 20.dp, vertical = 8.dp),
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text("Activer", style = MaterialTheme.typography.bodyLarge)
+                    Text("Enable", style = MaterialTheme.typography.bodyLarge)
                     Text(
-                        "Sauvegarde automatique en arrière-plan",
+                        "Automatic backup in the background",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -373,8 +373,8 @@ fun BackupSettingsScreen(
             }
 
             if (state.autoBackupEnabled) {
-                SectionLabel("Fréquence")
-                listOf(1 to "Quotidienne", 7 to "Hebdomadaire").forEach { (days, label) ->
+                SectionLabel("Frequency")
+                listOf(1 to "Daily", 7 to "Weekly").forEach { (days, label) ->
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
@@ -394,7 +394,7 @@ fun BackupSettingsScreen(
             }
 
             // ── Restauration ──────────────────────────────────────────────────
-            SectionLabel("Restauration")
+            SectionLabel("Restore")
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -412,7 +412,7 @@ fun BackupSettingsScreen(
                 Spacer(Modifier.width(16.dp))
                 Column(Modifier.weight(1f)) {
                     Text(
-                        "Restaurer depuis une sauvegarde",
+                        "Restore from backup",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.error,
                     )

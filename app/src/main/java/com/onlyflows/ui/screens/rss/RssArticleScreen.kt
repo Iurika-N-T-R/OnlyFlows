@@ -73,7 +73,7 @@ fun RssArticleScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Retour")
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back")
                     }
                 },
                 actions = {
@@ -81,7 +81,7 @@ fun RssArticleScreen(
                         IconButton(onClick = {
                             runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(link))) }
                         }) {
-                            Icon(Icons.Outlined.OpenInBrowser, "Ouvrir dans le navigateur")
+                            Icon(Icons.Outlined.OpenInBrowser, "Open in browser")
                         }
                     }
                 },
@@ -140,7 +140,7 @@ fun RssArticleScreen(
                     )
                 } else {
                     Text(
-                        text = "Aucun contenu disponible. Ouvre l'article dans le navigateur pour lire le texte complet.",
+                        text = "No content available. Open the article in your browser to read the full text.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontStyle = FontStyle.Italic,
@@ -158,7 +158,7 @@ fun RssArticleScreen(
                 ) {
                     Icon(Icons.Outlined.OpenInBrowser, null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Lire l'article complet")
+                    Text("Read full article")
                 }
 
                 Spacer(Modifier.height(32.dp))

@@ -78,7 +78,7 @@ class WidgetQuickAddActivity : ComponentActivity() {
                         Modifier.fillMaxWidth().heightIn(max = 560.dp)
                             .verticalScroll(rememberScrollState()).padding(20.dp),
                     ) {
-                        Text("Nouvelle tâche", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("New task", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(12.dp))
                         OutlinedTextField(
                             value           = text,
@@ -100,9 +100,9 @@ class WidgetQuickAddActivity : ComponentActivity() {
                         }
 
                         Spacer(Modifier.height(10.dp))
-                        Label("Priorité")
+                        Label("Priority")
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf(TaskPriority.NONE to "Aucune", TaskPriority.LOW to "Basse", TaskPriority.MEDIUM to "Moyenne", TaskPriority.HIGH to "Haute")
+                            listOf(TaskPriority.NONE to "None", TaskPriority.LOW to "Low", TaskPriority.MEDIUM to "Medium", TaskPriority.HIGH to "High")
                                 .forEach { (p, label) ->
                                     FilterChip(selected = priority == p, onClick = { priority = p }, label = { Text(label) })
                                 }
@@ -126,9 +126,9 @@ class WidgetQuickAddActivity : ComponentActivity() {
 
                         Spacer(Modifier.height(14.dp))
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                            TextButton(onClick = { finish() }) { Text("Annuler") }
+                            TextButton(onClick = { finish() }) { Text("Cancel") }
                             Spacer(Modifier.width(8.dp))
-                            Button(onClick = { save() }, enabled = text.isNotBlank()) { Text("Ajouter") }
+                            Button(onClick = { save() }, enabled = text.isNotBlank()) { Text("Add") }
                         }
                     }
                 }

@@ -35,7 +35,7 @@ fun ArchivedScreen(
             LargeTopAppBar(
                 title = {
                     Text(
-                        "Archivé",
+                        "Archived",
                         style      = MaterialTheme.typography.displayLarge,
                         fontWeight = FontWeight.Bold,
                     )
@@ -64,8 +64,8 @@ fun ArchivedScreen(
             ) {
                 EmptyState(
                     emoji    = "🗄️",
-                    title    = "Aucun projet archivé",
-                    subtitle = "Les projets archivés apparaissent ici.",
+                    title    = "No archived projects",
+                    subtitle = "Archived projects appear here.",
                 )
             }
         } else {

@@ -63,7 +63,7 @@ fun DateTrackerScreen(
                         Text("⏳", style = MaterialTheme.typography.headlineMedium)
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            "Dates & Comptes à rebours",
+                            "Dates & Countdowns",
                             style      = MaterialTheme.typography.displayLarge,
                             fontWeight = FontWeight.Bold,
                         )
@@ -105,7 +105,7 @@ fun DateTrackerScreen(
                 ) {
                     BuiltinCountdownCard(
                         emoji = "📅",
-                        label = "Fin du mois",
+                        label = "End of month",
                         daysSupplier = {
                             val today = LocalDate.now()
                             ChronoUnit.DAYS.between(today, today.withDayOfMonth(today.lengthOfMonth())).toInt()
@@ -114,7 +114,7 @@ fun DateTrackerScreen(
                     )
                     BuiltinCountdownCard(
                         emoji = "🎆",
-                        label = "Fin d'année",
+                        label = "End of year",
                         daysSupplier = {
                             val today = LocalDate.now()
                             ChronoUnit.DAYS.between(today, LocalDate.of(today.year, 12, 31)).toInt()
@@ -132,8 +132,8 @@ fun DateTrackerScreen(
                     ) {
                         EmptyState(
                             emoji    = "⏳",
-                            title    = "Aucun suivi",
-                            subtitle = "Ajoute un anniversaire, compte à rebours ou événement.",
+                            title    = "No trackers",
+                            subtitle = "Add an anniversary, countdown, or event.",
                         )
                     }
                 }
@@ -190,7 +190,7 @@ private fun BuiltinCountdownCard(
                 color      = MaterialTheme.colorScheme.primary,
             )
             Text(
-                text  = "jours avant",
+                text  = "days to go",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -265,7 +265,7 @@ private fun TrackerCard(
                 )
                 Spacer(Modifier.height(3.dp))
                 Text(
-                    text  = categoryLabel(tracker.category) + if (tracker.isAnnual) " · annuel" else "",
+                    text  = categoryLabel(tracker.category) + if (tracker.isAnnual) " · annual" else "",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                 )
@@ -289,12 +289,12 @@ private fun TrackerCard(
             onDismissRequest = { showMenu = false },
         ) {
             DropdownMenuItem(
-                text        = { Text("Modifier") },
+                text        = { Text("Edit") },
                 leadingIcon = { Icon(Icons.Outlined.Edit, null) },
                 onClick     = { showMenu = false; onEdit() },
             )
             DropdownMenuItem(
-                text      = { Text("Supprimer") },
+                text      = { Text("Delete") },
                 leadingIcon = { Icon(Icons.Outlined.Delete, null) },
                 onClick   = { showMenu = false; onDelete() },
             )
@@ -313,10 +313,10 @@ internal fun computeLabel(tracker: DateTracker, now: LocalDate): String {
             val daysUntilNext = ChronoUnit.DAYS.between(now, nextBirthday)
             val period = Period.between(tracker.targetDate, now)
             buildString {
-                if (period.years > 0) append("${period.years} an${if (period.years > 1) "s" else ""} ")
-                if (period.months > 0) append("${period.months} mois ")
-                append("${period.days} jour${if (period.days > 1) "s" else ""}")
-                if (daysUntilNext in 0..7) append(" · 🎂 dans $daysUntilNext j")
+                if (period.years > 0) append("${period.years} year${if (period.years > 1) "s" else ""} ")
+                if (period.months > 0) append("${period.months} month${if (period.months > 1) "s" else ""} ")
+                append("${period.days} day${if (period.days > 1) "s" else ""}")
+                if (daysUntilNext in 0..7) append(" · 🎂 in ${daysUntilNext}d")
             }.trim()
         }
         // Annual non-anniversary: countdown to next occurrence
@@ -325,14 +325,14 @@ internal fun computeLabel(tracker: DateTracker, now: LocalDate): String {
             val next     = if (!thisYear.isBefore(now)) thisYear else thisYear.plusYears(1)
             val days     = ChronoUnit.DAYS.between(now, next)
             when {
-                days == 0L  -> "Aujourd'hui ! 🎉"
-                days == 1L  -> "Demain"
-                days < 30L  -> "Dans $days jours"
+                days == 0L  -> "Today! 🎉"
+                days == 1L  -> "Tomorrow"
+                days < 30L  -> "In $days days"
                 else        -> {
                     val p = Period.between(now, next)
                     buildString {
-                        if (p.months > 0) append("${p.months} mois ")
-                        append("${p.days} jour${if (p.days > 1) "s" else ""}")
+                        if (p.months > 0) append("${p.months} month${if (p.months > 1) "s" else ""} ")
+                        append("${p.days} day${if (p.days > 1) "s" else ""}")
                     }.trim()
                 }
             }
@@ -341,22 +341,22 @@ internal fun computeLabel(tracker: DateTracker, now: LocalDate): String {
         else -> {
             val days = ChronoUnit.DAYS.between(now, tracker.targetDate)
             when {
-                days == 0L  -> "Aujourd'hui ! 🎉"
-                days == 1L  -> "Demain"
+                days == 0L  -> "Today! 🎉"
+                days == 1L  -> "Tomorrow"
                 days > 0L   -> {
                     val p = Period.between(now, tracker.targetDate)
                     buildString {
-                        if (p.years > 0)  append("${p.years} an${if (p.years > 1) "s" else ""} ")
-                        if (p.months > 0) append("${p.months} mois ")
-                        append("${p.days} jour${if (p.days != 1) "s" else ""} restant${if (p.days != 1) "s" else ""}")
+                        if (p.years > 0)  append("${p.years} year${if (p.years > 1) "s" else ""} ")
+                        if (p.months > 0) append("${p.months} month${if (p.months > 1) "s" else ""} ")
+                        append("${p.days} day${if (p.days != 1) "s" else ""} remaining")
                     }.trim()
                 }
                 else -> {
                     val p = Period.between(tracker.targetDate, now)
                     buildString {
-                        if (p.years > 0)  append("${p.years} an${if (p.years > 1) "s" else ""} ")
-                        if (p.months > 0) append("${p.months} mois ")
-                        append("${p.days} jour${if (p.days != 1) "s" else ""} passé${if (p.days != 1) "s" else ""}")
+                        if (p.years > 0)  append("${p.years} year${if (p.years > 1) "s" else ""} ")
+                        if (p.months > 0) append("${p.months} month${if (p.months > 1) "s" else ""} ")
+                        append("${p.days} day${if (p.days != 1) "s" else ""} ago")
                     }.trim()
                 }
             }
@@ -365,11 +365,11 @@ internal fun computeLabel(tracker: DateTracker, now: LocalDate): String {
 }
 
 private fun categoryLabel(cat: DateTrackerCategory) = when (cat) {
-    DateTrackerCategory.COUNTDOWN   -> "Compte à rebours"
-    DateTrackerCategory.ANNIVERSARY -> "Anniversaire"
-    DateTrackerCategory.EVENT       -> "Événement"
-    DateTrackerCategory.HOLIDAY     -> "Fête"
-    DateTrackerCategory.OTHER       -> "Autre"
+    DateTrackerCategory.COUNTDOWN   -> "Countdown"
+    DateTrackerCategory.ANNIVERSARY -> "Anniversary"
+    DateTrackerCategory.EVENT       -> "Event"
+    DateTrackerCategory.HOLIDAY     -> "Celebration"
+    DateTrackerCategory.OTHER       -> "Other"
 }
 
 // ── Add sheet ─────────────────────────────────────────────────────────────────
@@ -411,7 +411,7 @@ private fun AddDateTrackerSheet(
                     showDatePicker = false
                 }) { Text("OK") }
             },
-            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("Annuler") } },
+            dismissButton = { TextButton(onClick = { showDatePicker = false }) { Text("Cancel") } },
         ) {
             DatePicker(state = datePickerState)
         }
@@ -434,13 +434,13 @@ private fun AddDateTrackerSheet(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    if (isEdit) "Modifier le suivi" else "Nouveau suivi",
+                    if (isEdit) "Edit tracker" else "New tracker",
                     style      = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     modifier   = Modifier.weight(1f),
                 )
                 IconButton(onClick = onDismiss) {
-                    Icon(Icons.Outlined.Close, "Fermer")
+                    Icon(Icons.Outlined.Close, "Close")
                 }
             }
 
@@ -459,7 +459,7 @@ private fun AddDateTrackerSheet(
                 OutlinedTextField(
                     value         = state.draftName,
                     onValueChange = { onEvent(DateTrackerEvent.SetDraftName(it)) },
-                    label         = { Text("Nom") },
+                    label         = { Text("Name") },
                     singleLine    = true,
                     modifier      = Modifier.weight(1f),
                 )
@@ -474,7 +474,7 @@ private fun AddDateTrackerSheet(
                     dateText = v
                     if (v.length == 10) commitDateText(v)
                 },
-                label         = { Text("Date (jj/mm/aaaa)") },
+                label         = { Text("Date (dd/mm/yyyy)") },
                 placeholder   = { Text("17/05/1999") },
                 singleLine    = true,
                 modifier      = Modifier.fillMaxWidth(),
@@ -489,7 +489,7 @@ private fun AddDateTrackerSheet(
             Spacer(Modifier.height(14.dp))
 
             // Category chips
-            Text("Catégorie", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Category", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 DateTrackerCategory.entries.forEach { cat ->
@@ -508,7 +508,7 @@ private fun AddDateTrackerSheet(
                 modifier          = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Récurrent chaque année", modifier = Modifier.weight(1f))
+                Text("Repeats yearly", modifier = Modifier.weight(1f))
                 Switch(
                     checked         = state.draftIsAnnual,
                     onCheckedChange = { onEvent(DateTrackerEvent.SetDraftIsAnnual(it)) },
@@ -522,7 +522,7 @@ private fun AddDateTrackerSheet(
                 enabled  = state.draftName.isNotBlank() && state.draftDate != null,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text(if (isEdit) "Enregistrer" else "Ajouter")
+                Text(if (isEdit) "Save" else "Add")
             }
         }
     }

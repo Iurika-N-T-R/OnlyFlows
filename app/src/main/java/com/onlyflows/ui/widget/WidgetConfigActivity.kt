@@ -97,12 +97,12 @@ class WidgetConfigActivity : ComponentActivity() {
 
                         Spacer(Modifier.height(8.dp))
                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-                            Text("Afficher les détails", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                            Text("Show details", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
                             Switch(checked = details, onCheckedChange = { details = it })
                         }
 
                         Spacer(Modifier.height(12.dp))
-                        Button(onClick = { done() }, modifier = Modifier.fillMaxWidth()) { Text("Terminé") }
+                        Button(onClick = { done() }, modifier = Modifier.fillMaxWidth()) { Text("Done") }
                     }
                 }
             }

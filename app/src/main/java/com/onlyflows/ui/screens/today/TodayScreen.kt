@@ -74,12 +74,12 @@ fun TodayScreen(
     if (showExitDialog) {
         AlertDialog(
             onDismissRequest = { showExitDialog = false },
-            title  = { Text("Quitter OnlyFlows ?") },
+            title  = { Text("Quit OnlyFlows?") },
             confirmButton  = {
-                TextButton(onClick = { activity.finish() }) { Text("Quitter") }
+                TextButton(onClick = { activity.finish() }) { Text("Quit") }
             },
             dismissButton  = {
-                TextButton(onClick = { showExitDialog = false }) { Text("Annuler") }
+                TextButton(onClick = { showExitDialog = false }) { Text("Cancel") }
             },
         )
     }
@@ -93,8 +93,8 @@ fun TodayScreen(
     LaunchedEffect(state.pendingDeleteTask) {
         val task = state.pendingDeleteTask ?: return@LaunchedEffect
         val result = snackbarHostState.showSnackbar(
-            message     = "\"${task.title}\" supprimée",
-            actionLabel = "Annuler",
+            message     = "\"${task.title}\" deleted",
+            actionLabel = "Cancel",
             duration    = SnackbarDuration.Short,
         )
         if (result == SnackbarResult.ActionPerformed) viewModel.undoDelete()
@@ -252,8 +252,8 @@ fun TodayScreen(
                     ) {
                         EmptyState(
                             emoji    = "⭐",
-                            title    = "Rien pour aujourd'hui",
-                            subtitle = "Profitez de votre temps libre, ou ajoutez une tâche.",
+                            title    = "Nothing for today",
+                            subtitle = "Enjoy your free time, or add a task.",
                         )
                     }
                 }
@@ -513,13 +513,13 @@ private fun CalendarPermissionBanner(
             )
             Spacer(Modifier.width(12.dp))
             Text(
-                text     = "Activer l'accès au calendrier",
+                text     = "Enable calendar access",
                 style    = MaterialTheme.typography.bodyMedium,
                 color    = MaterialTheme.colorScheme.onSecondaryContainer,
                 modifier = Modifier.weight(1f),
             )
             TextButton(onClick = onRequestPermission) {
-                Text("Autoriser")
+                Text("Allow")
             }
         }
     }

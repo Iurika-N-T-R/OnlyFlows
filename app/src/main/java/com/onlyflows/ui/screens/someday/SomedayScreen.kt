@@ -75,8 +75,8 @@ fun SomedayScreen(
     LaunchedEffect(state.pendingDeleteTask) {
         val task = state.pendingDeleteTask ?: return@LaunchedEffect
         val result = snackbarHostState.showSnackbar(
-            message     = "\"${task.title}\" supprimée",
-            actionLabel = "Annuler",
+            message     = "\"${task.title}\" deleted",
+            actionLabel = "Cancel",
             duration    = SnackbarDuration.Short,
         )
         if (result == SnackbarResult.ActionPerformed) viewModel.undoDelete()
@@ -164,7 +164,7 @@ fun SomedayScreen(
                         EmptyState(
                             emoji    = "🌊",
                             title    = "Rien en Someday",
-                            subtitle = "Les tâches sans date ni priorité apparaissent ici.",
+                            subtitle = "Tasks without a date or priority appear here.",
                         )
                     }
                 }

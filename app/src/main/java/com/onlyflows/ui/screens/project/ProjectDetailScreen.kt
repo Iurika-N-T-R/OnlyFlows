@@ -276,17 +276,17 @@ fun ProjectDetailScreen(
                             onDismissRequest = { showProjectMenu = false },
                         ) {
                             DropdownMenuItem(
-                                text    = { Text("Modifier") },
+                                text    = { Text("Edit") },
                                 onClick = { showProjectMenu = false; showEditProject = true },
                             )
                             if (project != null && project.type != ProjectType.NOTE && project.sections.isNotEmpty()) {
                                 DropdownMenuItem(
-                                    text    = { Text("Réordonner les sections") },
+                                    text    = { Text("Reorder sections") },
                                     onClick = { showProjectMenu = false; showReorderSections = true },
                                 )
                             }
                             DropdownMenuItem(
-                                text    = { Text(if (state.hideCompleted) "Afficher terminées" else "Masquer terminées") },
+                                text    = { Text(if (state.hideCompleted) "Show completed" else "Hide completed") },
                                 onClick = { showProjectMenu = false; viewModel.onEvent(ProjectDetailEvent.ToggleHideCompleted) },
                             )
                         }
@@ -406,7 +406,7 @@ fun ProjectDetailScreen(
                         ) {
                             EmptyState(
                                 emoji    = "📝",
-                                title    = "Aucune note",
+                                title    = "No notes",
                                 subtitle = "Appuyez sur + pour ajouter une note.",
                             )
                         }
@@ -543,8 +543,8 @@ fun ProjectDetailScreen(
                     ) {
                         EmptyState(
                             emoji    = "📋",
-                            title    = "Aucune tâche",
-                            subtitle = "Ajoutez une tâche pour démarrer ce projet.",
+                            title    = "No tasks",
+                            subtitle = "Add a task to start this project.",
                         )
                     }
                 }
@@ -641,7 +641,7 @@ fun ProjectDetailScreen(
                         count    = state.archivedTasks.size,
                         expanded = archivedSectionExpanded,
                         onToggle = { archivedSectionExpanded = !archivedSectionExpanded },
-                        label    = "Archivées",
+                        label    = "Archived",
                         modifier = Modifier.padding(top = 8.dp),
                     )
                 }
@@ -661,7 +661,7 @@ fun ProjectDetailScreen(
                             modifier = Modifier.fillMaxWidth().padding(end = 16.dp),
                         ) {
                             TextButton(onClick = { viewModel.onEvent(ProjectDetailEvent.UnarchiveTask(task.id)) }) {
-                                Text("Restaurer", style = MaterialTheme.typography.labelSmall)
+                                Text("Restore", style = MaterialTheme.typography.labelSmall)
                             }
                         }
                         HorizontalDivider(
@@ -978,7 +978,7 @@ private fun ReorderSectionsSheet(
         sheetState       = sheetState,
     ) {
         Text(
-            text       = "Réordonner les sections",
+            text       = "Reorder sections",
             style      = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
             modifier   = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
@@ -1030,7 +1030,7 @@ private fun ReorderSectionsSheet(
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp),
         ) {
-            Text("Confirmer")
+            Text("Confirm")
         }
         Spacer(Modifier.height(20.dp))
     }
@@ -1068,9 +1068,9 @@ private fun ProjectEditSheet(
                 .padding(horizontal = 20.dp, vertical = 8.dp),
         ) {
             val editTitle = when (project.type) {
-                ProjectType.NOTE -> "Modifier la liste de notes"
-                ProjectType.LIST -> "Modifier la liste"
-                else             -> "Modifier le projet"
+                ProjectType.NOTE -> "Edit note list"
+                ProjectType.LIST -> "Edit list"
+                else             -> "Edit project"
             }
             Text(editTitle, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(16.dp))

@@ -61,7 +61,7 @@ fun NoteCard(
                     }
                     if (note.title.isBlank() && note.content.isBlank()) {
                         Text(
-                            text  = "Note vide",
+                            text  = "Empty note",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                         )
@@ -71,7 +71,7 @@ fun NoteCard(
                 IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) {
                     Icon(
                         Icons.Outlined.Edit,
-                        contentDescription = "Modifier",
+                        contentDescription = "Edit",
                         tint               = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier           = Modifier.size(18.dp),
                     )
@@ -79,7 +79,7 @@ fun NoteCard(
                 IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
                     Icon(
                         Icons.Outlined.Delete,
-                        contentDescription = "Supprimer",
+                        contentDescription = "Delete",
                         tint               = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
                         modifier           = Modifier.size(18.dp),
                     )

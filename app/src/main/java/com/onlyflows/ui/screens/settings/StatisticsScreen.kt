@@ -35,14 +35,14 @@ fun StatisticsScreen(
             TopAppBar(
                 title = {
                     Text(
-                        "Statistiques",
+                        "Statistics",
                         style      = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.SemiBold,
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Retour")
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -61,19 +61,19 @@ fun StatisticsScreen(
             contentPadding = PaddingValues(vertical = 16.dp),
         ) {
             item {
-                SectionLabel("Vue d'ensemble")
+                SectionLabel("Overview")
                 Spacer(Modifier.height(8.dp))
                 Row(
                     modifier            = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     StatCard(
-                        label = "Projets",
+                        label = "Projects",
                         value = state.projectCount.toString(),
                         modifier = Modifier.weight(1f),
                     )
                     StatCard(
-                        label = "Tâches actives",
+                        label = "Active tasks",
                         value = state.activeTaskCount.toString(),
                         modifier = Modifier.weight(1f),
                     )
@@ -84,13 +84,13 @@ fun StatisticsScreen(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     StatCard(
-                        label = "Complétées",
+                        label = "Completed",
                         value = state.completedTaskCount.toString(),
                         tint  = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.weight(1f),
                     )
                     StatCard(
-                        label = "Abandonnées",
+                        label = "Abandoned",
                         value = state.abandonedTaskCount.toString(),
                         tint  = MaterialTheme.colorScheme.error,
                         modifier = Modifier.weight(1f),
@@ -100,12 +100,12 @@ fun StatisticsScreen(
 
             item {
                 Spacer(Modifier.height(4.dp))
-                SectionLabel("Tâches complétées")
+                SectionLabel("Completed tasks")
                 Spacer(Modifier.height(8.dp))
 
                 // Period selector chips
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(7 to "7 j", 30 to "30 j", 90 to "90 j").forEach { (days, label) ->
+                    listOf(7 to "7 d", 30 to "30 d", 90 to "90 d").forEach { (days, label) ->
                         FilterChip(
                             selected = state.selectedPeriodDays == days,
                             onClick  = { viewModel.selectPeriod(days) },
@@ -127,7 +127,7 @@ fun StatisticsScreen(
 
             item {
                 Spacer(Modifier.height(4.dp))
-                SectionLabel("Stockage")
+                SectionLabel("Storage")
                 Spacer(Modifier.height(8.dp))
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -144,11 +144,11 @@ fun StatisticsScreen(
                         verticalAlignment   = Alignment.CenterVertically,
                     ) {
                         Text(
-                            "Base de données",
+                            "Database",
                             style = MaterialTheme.typography.bodyLarge,
                         )
                         Text(
-                            text  = "%.2f Mo".format(state.dbSizeMb),
+                            text  = "%.2f MB".format(state.dbSizeMb),
                             style = MaterialTheme.typography.bodyLarge,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.primary,
@@ -216,7 +216,7 @@ private fun CompletionBarChart(
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                "Aucune donnée pour cette période",
+                "No data for this period",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

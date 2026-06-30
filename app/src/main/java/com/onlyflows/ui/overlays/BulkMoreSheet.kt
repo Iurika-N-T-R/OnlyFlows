@@ -53,16 +53,16 @@ fun BulkMoreSheet(
             ) {
                 if (page != Page.ROOT) {
                     IconButton(onClick = { page = Page.ROOT }) {
-                        Icon(Icons.Outlined.ArrowBack, contentDescription = "Retour")
+                        Icon(Icons.Outlined.ArrowBack, contentDescription = "Back")
                     }
                 }
                 Text(
                     text = when (page) {
-                        Page.ROOT     -> "$selectedCount tâche${if (selectedCount > 1) "s" else ""} sélectionnée${if (selectedCount > 1) "s" else ""}"
-                        Page.PRIORITY -> "Priorité"
-                        Page.TAG      -> "Ajouter un tag"
-                        Page.SCHEDULE -> "Planifier"
-                        Page.WONT_DO  -> "Ne se fera pas"
+                        Page.ROOT     -> "$selectedCount task${if (selectedCount > 1) "s" else ""} selected"
+                        Page.PRIORITY -> "Priority"
+                        Page.TAG      -> "Add tag"
+                        Page.SCHEDULE -> "Schedule"
+                        Page.WONT_DO  -> "Won't do"
                     },
                     style      = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
@@ -107,16 +107,16 @@ private fun RootPage(
     onTrackTask: (() -> Unit)? = null,
 ) {
     Column {
-        SheetRow(icon = Icons.Outlined.Star,         label = "Marquer comme favori")    { onStar(true) }
-        SheetRow(icon = Icons.Outlined.StarBorder,   label = "Retirer des favoris")     { onStar(false) }
+        SheetRow(icon = Icons.Outlined.Star,         label = "Mark as favourite")    { onStar(true) }
+        SheetRow(icon = Icons.Outlined.StarBorder,   label = "Remove from favourites")  { onStar(false) }
         HorizontalDivider(
             modifier  = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
             thickness = 0.5.dp,
             color     = MaterialTheme.colorScheme.outlineVariant,
         )
-        SheetRow(icon = Icons.Outlined.Flag,         label = "Priorité",   trailing = true, onClick = onPriority)
-        SheetRow(icon = Icons.Outlined.Label,        label = "Ajouter un tag", trailing = true, onClick = onTag)
-        SheetRow(icon = Icons.Outlined.CalendarMonth, label = "Planifier",  trailing = true, onClick = onSchedule)
+        SheetRow(icon = Icons.Outlined.Flag,         label = "Priority",   trailing = true, onClick = onPriority)
+        SheetRow(icon = Icons.Outlined.Label,        label = "Add tag", trailing = true, onClick = onTag)
+        SheetRow(icon = Icons.Outlined.CalendarMonth, label = "Schedule",  trailing = true, onClick = onSchedule)
         HorizontalDivider(
             modifier  = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
             thickness = 0.5.dp,
@@ -124,7 +124,7 @@ private fun RootPage(
         )
         SheetRow(
             icon     = Icons.Outlined.Block,
-            label    = "Ne se fera pas",
+            label    = "Won't do",
             trailing = true,
             tint     = MaterialTheme.colorScheme.error,
             onClick  = onWontDo,
@@ -135,7 +135,7 @@ private fun RootPage(
                 thickness = 0.5.dp,
                 color     = MaterialTheme.colorScheme.outlineVariant,
             )
-            SheetRow(icon = Icons.Outlined.Timer, label = "Démarrer le minuteur", onClick = onTrackTask)
+            SheetRow(icon = Icons.Outlined.Timer, label = "Start timer", onClick = onTrackTask)
         }
     }
 }
@@ -152,18 +152,18 @@ private fun WontDoPage(
         if (isRecurring) {
             SheetRow(
                 icon    = Icons.Outlined.SkipNext,
-                label   = "Passer cette occurrence",
+                label   = "Skip this occurrence",
                 onClick = onAbandon,
             )
         } else {
             SheetRow(
                 icon    = Icons.Outlined.Archive,
-                label   = "Passer définitivement",
+                label   = "Skip permanently",
                 onClick = onAbandon,
             )
             SheetRow(
                 icon    = Icons.Outlined.CalendarMonth,
-                label   = "Changer la date",
+                label   = "Change date",
                 onClick = onReschedule,
             )
         }
@@ -176,10 +176,10 @@ private fun WontDoPage(
 private fun PriorityPage(onSetPriority: (TaskPriority) -> Unit) {
     Column {
         listOf(
-            TaskPriority.HIGH   to ("Haute"   to androidx.compose.ui.graphics.Color(0xFFEF5350)),
-            TaskPriority.MEDIUM to ("Moyenne" to androidx.compose.ui.graphics.Color(0xFFFF9800)),
-            TaskPriority.LOW    to ("Basse"   to androidx.compose.ui.graphics.Color(0xFF42A5F5)),
-            TaskPriority.NONE   to ("Aucune"  to androidx.compose.ui.graphics.Color(0xFF9E9E9E)),
+            TaskPriority.HIGH   to ("High"   to androidx.compose.ui.graphics.Color(0xFFEF5350)),
+            TaskPriority.MEDIUM to ("Medium" to androidx.compose.ui.graphics.Color(0xFFFF9800)),
+            TaskPriority.LOW    to ("Low"    to androidx.compose.ui.graphics.Color(0xFF42A5F5)),
+            TaskPriority.NONE   to ("None"   to androidx.compose.ui.graphics.Color(0xFF9E9E9E)),
         ).forEach { (priority, pair) ->
             val (label, color) = pair
             Row(
@@ -213,7 +213,7 @@ private fun TagPage(tags: List<Tag>, onAddTag: (String) -> Unit) {
     ) {
         if (tags.isEmpty()) {
             Text(
-                text     = "Aucun tag disponible",
+                text     = "No tags available",
                 style    = MaterialTheme.typography.bodyMedium,
                 color    = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(20.dp),
@@ -250,15 +250,15 @@ private fun SchedulePage(onSchedule: (LocalDate?) -> Unit) {
     val nextWeek = today.plusWeeks(1)
 
     Column {
-        SheetRow(icon = Icons.Outlined.Today,          label = "Aujourd'hui")  { onSchedule(today) }
-        SheetRow(icon = Icons.Outlined.WbSunny,        label = "Demain")       { onSchedule(tomorrow) }
-        SheetRow(icon = Icons.Outlined.DateRange,      label = "La semaine prochaine") { onSchedule(nextWeek) }
+        SheetRow(icon = Icons.Outlined.Today,          label = "Today")       { onSchedule(today) }
+        SheetRow(icon = Icons.Outlined.WbSunny,        label = "Tomorrow")    { onSchedule(tomorrow) }
+        SheetRow(icon = Icons.Outlined.DateRange,      label = "Next week")   { onSchedule(nextWeek) }
         HorizontalDivider(
             modifier  = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
             thickness = 0.5.dp,
             color     = MaterialTheme.colorScheme.outlineVariant,
         )
-        SheetRow(icon = Icons.Outlined.EventBusy, label = "Supprimer la date") { onSchedule(null) }
+        SheetRow(icon = Icons.Outlined.EventBusy, label = "Remove date") { onSchedule(null) }
     }
 }
 

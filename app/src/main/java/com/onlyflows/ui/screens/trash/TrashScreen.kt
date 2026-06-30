@@ -33,16 +33,16 @@ fun TrashScreen(
     if (state.showConfirmEmpty) {
         AlertDialog(
             onDismissRequest = { viewModel.onEvent(TrashEvent.HideConfirmEmpty) },
-            title   = { Text("Vider la corbeille ?") },
-            text    = { Text("${state.tasks.size} tâche(s) seront supprimées définitivement. Cette action est irréversible.") },
+            title   = { Text("Empty trash?") },
+            text    = { Text("${state.tasks.size} task(s) will be permanently deleted. This action cannot be undone.") },
             confirmButton = {
                 TextButton(
                     onClick = { viewModel.onEvent(TrashEvent.EmptyTrash) },
                     colors  = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                ) { Text("Vider") }
+                ) { Text("Empty") }
             },
             dismissButton = {
-                TextButton(onClick = { viewModel.onEvent(TrashEvent.HideConfirmEmpty) }) { Text("Annuler") }
+                TextButton(onClick = { viewModel.onEvent(TrashEvent.HideConfirmEmpty) }) { Text("Cancel") }
             },
         )
     }
@@ -52,7 +52,7 @@ fun TrashScreen(
             LargeTopAppBar(
                 title = {
                     Text(
-                        "Corbeille",
+                        "Trash",
                         style      = MaterialTheme.typography.displayLarge,
                         fontWeight = FontWeight.Bold,
                     )
@@ -68,7 +68,7 @@ fun TrashScreen(
                             onClick = { viewModel.onEvent(TrashEvent.ShowConfirmEmpty) },
                             colors  = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
                         ) {
-                            Text("Vider")
+                            Text("Empty")
                         }
                     }
                 },
@@ -91,8 +91,8 @@ fun TrashScreen(
             ) {
                 EmptyState(
                     emoji    = "🗑️",
-                    title    = "Corbeille vide",
-                    subtitle = "Les tâches supprimées apparaissent ici.",
+                    title    = "Trash empty",
+                    subtitle = "Deleted tasks appear here.",
                 )
             }
         } else {
@@ -114,7 +114,7 @@ fun TrashScreen(
                         supportingContent = task.deletedAt?.let { deleted ->
                             {
                                 Text(
-                                    "Supprimée le ${deleted.format(dateFmt)}",
+                                    "Deleted on ${deleted.format(dateFmt)}",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -125,14 +125,14 @@ fun TrashScreen(
                                 IconButton(onClick = { viewModel.onEvent(TrashEvent.Restore(task.id)) }) {
                                     Icon(
                                         Icons.Outlined.RestoreFromTrash,
-                                        contentDescription = "Restaurer",
+                                        contentDescription = "Restore",
                                         tint = MaterialTheme.colorScheme.primary,
                                     )
                                 }
                                 IconButton(onClick = { viewModel.onEvent(TrashEvent.DeleteForever(task.id)) }) {
                                     Icon(
                                         Icons.Outlined.DeleteForever,
-                                        contentDescription = "Supprimer définitivement",
+                                        contentDescription = "Delete permanently",
                                         tint = MaterialTheme.colorScheme.error,
                                     )
                                 }

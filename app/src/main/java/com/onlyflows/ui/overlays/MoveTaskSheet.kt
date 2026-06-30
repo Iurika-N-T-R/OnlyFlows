@@ -80,10 +80,10 @@ fun MoveTaskSheet(
                     }
                     Text(
                         text = when (page) {
-                            MovePage.ROOT          -> "Déplacer $count tâche${if (count > 1) "s" else ""}"
-                            MovePage.LIST          -> "Choisir une liste"
-                            MovePage.LIST_SECTIONS -> selectedProject?.title ?: "Choisir une section"
-                            MovePage.SECTION       -> "Choisir une section"
+                            MovePage.ROOT          -> "Move $count task${if (count > 1) "s" else ""}"
+                            MovePage.LIST          -> "Choose a list"
+                            MovePage.LIST_SECTIONS -> selectedProject?.title ?: "Choose a section"
+                            MovePage.SECTION       -> "Choose a section"
                         },
                         style      = MaterialTheme.typography.titleLarge,
                         color      = Color.White,
@@ -91,7 +91,7 @@ fun MoveTaskSheet(
                     )
                 }
                 TextButton(onClick = onDismiss) {
-                    Text("Annuler", color = Color.White.copy(alpha = 0.7f))
+                    Text("Cancel", color = Color.White.copy(alpha = 0.7f))
                 }
             }
 
@@ -102,12 +102,12 @@ fun MoveTaskSheet(
                 MovePage.ROOT -> {
                     Column {
                         MoveOptionRow(
-                            label   = "Déplacer dans une section",
+                            label   = "Move to section",
                             onClick = { page = MovePage.SECTION },
                         )
                         HorizontalDivider(color = Color.White.copy(alpha = 0.06f), thickness = 0.5.dp)
                         MoveOptionRow(
-                            label   = "Déplacer dans une autre liste",
+                            label   = "Move to another list",
                             onClick = { page = MovePage.LIST },
                         )
                         HorizontalDivider(color = Color.White.copy(alpha = 0.06f), thickness = 0.5.dp)
@@ -120,7 +120,7 @@ fun MoveTaskSheet(
                         item(key = "no_section") {
                             MoveRow(
                                 color = Color.White.copy(alpha = 0.3f),
-                                label = "Sans section",
+                                label = "No section",
                                 initial = "—",
                                 isProject = false,
                                 selected = false,
@@ -176,7 +176,7 @@ fun MoveTaskSheet(
                     LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 380.dp)) {
                         item(key = "no_section") {
                             MoveRow(
-                                color = Color.White.copy(alpha = 0.3f), label = "Sans section",
+                                color = Color.White.copy(alpha = 0.3f), label = "No section",
                                 initial = "—", isProject = false,
                                 selected = selectedSection == null,
                                 onClick = { selectedSection = null },
@@ -197,7 +197,7 @@ fun MoveTaskSheet(
                     Button(
                         onClick  = { onConfirm(proj.id, selectedSection?.id) },
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-                    ) { Text("Déplacer ici") }
+                    ) { Text("Move here") }
                 }
             }
         }

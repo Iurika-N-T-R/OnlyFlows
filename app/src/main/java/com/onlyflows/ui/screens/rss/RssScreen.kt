@@ -82,7 +82,7 @@ fun RssScreen(
             OutlinedTextField(
                 value = state.searchQuery,
                 onValueChange = { viewModel.onEvent(RssEvent.SetSearch(it)) },
-                placeholder = { Text("Rechercher…") },
+                placeholder = { Text("Search…") },
                 leadingIcon = { Icon(Icons.Outlined.Search, null) },
                 trailingIcon = {
                     if (state.searchQuery.isNotBlank()) {
@@ -107,7 +107,7 @@ fun RssScreen(
                 ) {
                     item {
                         FeedChip(
-                            label = "Tous",
+                            label = "All",
                             color = MaterialTheme.colorScheme.primary,
                             selected = state.selectedFeedId == null,
                             unreadCount = state.unreadCount,
@@ -141,7 +141,7 @@ fun RssScreen(
                     modifier = Modifier.weight(1f),
                 )
                 Text(
-                    "Non lus seulement",
+                    "Unread only",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -170,8 +170,8 @@ fun RssScreen(
                         Spacer(Modifier.height(12.dp))
                         Text(
                             text = if (state.feeds.isEmpty())
-                                "Ajoutez des flux RSS dans les paramètres"
-                            else "Aucun article",
+                                "Add RSS feeds in settings"
+                            else "No articles",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -314,7 +314,7 @@ private fun ArticleRow(
             Icon(
                 imageVector = if (article.isRead) Icons.Outlined.RadioButtonUnchecked
                               else Icons.Outlined.CheckCircleOutline,
-                contentDescription = if (article.isRead) "Marquer non lu" else "Marquer lu",
+                contentDescription = if (article.isRead) "Mark unread" else "Mark read",
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha),
                 modifier = Modifier.size(18.dp),
             )

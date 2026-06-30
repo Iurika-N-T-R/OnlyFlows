@@ -140,8 +140,8 @@ fun UpcomingScreen(
     LaunchedEffect(state.pendingDeleteTask) {
         val task = state.pendingDeleteTask ?: return@LaunchedEffect
         val result = snackbarHostState.showSnackbar(
-            message     = "\"${task.title}\" supprimée",
-            actionLabel = "Annuler",
+            message     = "\"${task.title}\" deleted",
+            actionLabel = "Cancel",
             duration    = SnackbarDuration.Short,
         )
         if (result == SnackbarResult.ActionPerformed) viewModel.undoDelete()

@@ -145,13 +145,13 @@ fun NoteEditorContent(
                 .padding(horizontal = 8.dp, vertical = 4.dp),
         ) {
             IconButton(onClick = handleDismiss) {
-                Icon(Icons.Outlined.Close, contentDescription = "Fermer")
+                Icon(Icons.Outlined.Close, contentDescription = "Close")
             }
             Text(
                 text       = when {
-                    isNewNote  -> "Nouvelle note"
+                    isNewNote  -> "New note"
                     isViewMode -> "Note"
-                    else       -> "Modifier"
+                    else       -> "Edit"
                 },
                 style      = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
@@ -161,7 +161,7 @@ fun NoteEditorContent(
             )
             if (isViewMode) {
                 IconButton(onClick = { isViewMode = false }) {
-                    Icon(Icons.Outlined.Edit, contentDescription = "Modifier")
+                    Icon(Icons.Outlined.Edit, contentDescription = "Edit")
                 }
             } else {
                 TextButton(
@@ -170,7 +170,7 @@ fun NoteEditorContent(
                 ) {
                     Icon(Icons.Outlined.Check, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("Enregistrer")
+                    Text("Save")
                 }
             }
         }
