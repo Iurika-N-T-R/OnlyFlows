@@ -119,9 +119,9 @@ fun TaskItem(
         // ── Main content ──────────────────────────────────────────────────────
         Column(modifier = Modifier.weight(1f)) {
 
-            // Title row
+            // Title row — center so badges/icons line up with the title's text, not its tall line box
             Row(
-                verticalAlignment = Alignment.Top,
+                verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 // Checklist progress badge "done/total"

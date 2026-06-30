@@ -5,6 +5,22 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.57.0] — 2026-06-30 · Sidebar « Show more » + Archivé en section + alignement TaskItem
+
+### Ajouté
+
+- **Section « Archivé »** : les projets archivés ont désormais leur propre écran (`ArchivedScreen`), accessible comme les autres sections (Trash, Inbox…) au lieu d'un dropdown inline dans la sidebar. Tap ouvre le projet, l'icône désarchive.
+
+### Modifié
+
+- **Sidebar épurée** : seuls Inbox / Today / Upcoming / Anytime / Someday / Logbook restent visibles en haut. Projects, Goals, RSS, Date Tracker, Trash et Archivé sont repliés dans un dropdown « Show more » sous Logbook.
+
+### Corrigé
+
+- **Alignement TaskItem** : badges (récurrence, note, rappel, deadline, checklist) centrés verticalement sur le titre au lieu de flotter au-dessus de la checkbox et du titre.
+
+---
+
 ## [0.55.5] — 2026-06-06 · Fix migration DB 30→31
 
 ### Corrigé

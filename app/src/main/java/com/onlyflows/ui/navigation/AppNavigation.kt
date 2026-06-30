@@ -11,6 +11,7 @@ import java.net.URLDecoder
 import com.onlyflows.ui.screens.anytime.AnytimeScreen
 import com.onlyflows.ui.screens.inbox.InboxScreen
 import com.onlyflows.ui.screens.trash.TrashScreen
+import com.onlyflows.ui.screens.archived.ArchivedScreen
 import com.onlyflows.ui.screens.projects.ProjectsScreen
 import com.onlyflows.ui.screens.logbook.LogbookScreen
 import com.onlyflows.ui.screens.someday.SomedayScreen
@@ -136,6 +137,13 @@ fun AppNavigation(
 
         composable(Screen.Trash.route) {
             TrashScreen(onOpenDrawer = onOpenDrawer)
+        }
+
+        composable(Screen.Archived.route) {
+            ArchivedScreen(
+                onProjectClick = { navController.navigate(Screen.ProjectDetail.createRoute(it)) },
+                onOpenDrawer   = onOpenDrawer,
+            )
         }
 
         composable(Screen.Goals.route) {

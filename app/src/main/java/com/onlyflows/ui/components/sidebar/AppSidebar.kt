@@ -115,6 +115,7 @@ fun AppSidebar(
     var showCreateProject     by remember { mutableStateOf(false) }
     var createProjectFolderId by remember { mutableStateOf<String?>(null) }
     var showCreateFolder      by remember { mutableStateOf(false) }
+    var showMore              by remember { mutableStateOf(false) }  // ponytail: local state, lift to DataStore if it must survive reopen
 
     // ── Drag-to-reorder state ─────────────────────────────────────────────────
     val localTopLevel = remember { mutableStateListOf<TopLevelEntry>() }
@@ -168,12 +169,20 @@ fun AppSidebar(
             item(key = "nav_anytime")  { NavItem(painterResource(com.onlyflows.R.drawable.ic_nav_anytime),  Color(0xFF39A59A), "Anytime",  isSelected = route == Screen.Anytime.route)   { navigateTab(navController, Screen.Anytime.route);  onItemSelected() } }
             item(key = "nav_someday")  { NavItem(painterResource(com.onlyflows.R.drawable.ic_nav_someday),  Color(0xFFCEC17F), "Someday",  isSelected = route == Screen.Someday.route)   { navigateTab(navController, Screen.Someday.route);  onItemSelected() } }
             item(key = "nav_logbook")  { NavItem(painterResource(com.onlyflows.R.drawable.ic_nav_logbook),  Color(0xFF4DBE60), "Logbook",  isSelected = route == Screen.Logbook.route)   { navigateTab(navController, Screen.Logbook.route);  onItemSelected() } }
+
+            // ── Show more: collapsible group for secondary nav ──────────────────
+            item(key = "show_more_toggle") {
+                ShowMoreHeader(expanded = showMore, onToggle = { showMore = !showMore })
+            }
             val hidden = state.hiddenNavItems
-            if ("nav_projects" !in hidden)    item(key = "nav_projects")    { NavItem(Icons.Outlined.GridView,      Color(0xFF8B5CF6),  "Projects",        isSelected = route == Screen.Projects.route)     { navigateTab(navController, Screen.Projects.route);     onItemSelected() } }
-            if ("nav_goals" !in hidden)       item(key = "nav_goals")       { NavItem(Icons.Outlined.TrackChanges, Color(0xFFFF9500),  "Goals",            isSelected = route == Screen.Goals.route)        { navigateTab(navController, Screen.Goals.route);        onItemSelected() } }
-            if ("nav_rss" !in hidden)         item(key = "nav_rss")         { NavItem(Icons.Outlined.RssFeed,      Color(0xFFFF6B35),  "RSS",              isSelected = route == Screen.Rss.route)          { navigateTab(navController, Screen.Rss.route);          onItemSelected() } }
-            if ("nav_datetracker" !in hidden) item(key = "nav_datetracker") { NavItem(Icons.Outlined.Timer,        Color(0xFFFF6B6B),  "Dates & Comptes",  isSelected = route == Screen.DateTracker.route)  { navigateTab(navController, Screen.DateTracker.route);  onItemSelected() } }
-            if ("nav_trash" !in hidden)       item(key = "nav_trash")       { NavItem(Icons.Outlined.Delete, MaterialTheme.colorScheme.onSurfaceVariant, "Trash", isSelected = route == Screen.Trash.route) { navigateTab(navController, Screen.Trash.route);        onItemSelected() } }
+            if (showMore) {
+                if ("nav_projects" !in hidden)    item(key = "nav_projects")    { NavItem(Icons.Outlined.GridView,      Color(0xFF8B5CF6),  "Projects",        isSelected = route == Screen.Projects.route)     { navigateTab(navController, Screen.Projects.route);     onItemSelected() } }
+                if ("nav_goals" !in hidden)       item(key = "nav_goals")       { NavItem(Icons.Outlined.TrackChanges, Color(0xFFFF9500),  "Goals",            isSelected = route == Screen.Goals.route)        { navigateTab(navController, Screen.Goals.route);        onItemSelected() } }
+                if ("nav_rss" !in hidden)         item(key = "nav_rss")         { NavItem(Icons.Outlined.RssFeed,      Color(0xFFFF6B35),  "RSS",              isSelected = route == Screen.Rss.route)          { navigateTab(navController, Screen.Rss.route);          onItemSelected() } }
+                if ("nav_datetracker" !in hidden) item(key = "nav_datetracker") { NavItem(Icons.Outlined.Timer,        Color(0xFFFF6B6B),  "Dates & Comptes",  isSelected = route == Screen.DateTracker.route)  { navigateTab(navController, Screen.DateTracker.route);  onItemSelected() } }
+                if ("nav_trash" !in hidden)       item(key = "nav_trash")       { NavItem(Icons.Outlined.Delete, MaterialTheme.colorScheme.onSurfaceVariant, "Trash", isSelected = route == Screen.Trash.route) { navigateTab(navController, Screen.Trash.route);        onItemSelected() } }
+                if ("nav_archived" !in hidden)    item(key = "nav_archived")    { NavItem(Icons.Outlined.Archive, MaterialTheme.colorScheme.onSurfaceVariant, "Archivé", isSelected = route == Screen.Archived.route) { navigateTab(navController, Screen.Archived.route); onItemSelected() } }
+            }
 
             // Divider before folders + projects section
             item(key = "nav_divider") {
@@ -238,25 +247,6 @@ fun AppSidebar(
                     Spacer(Modifier.height(8.dp))
                     NewListButton(onClick = { createProjectFolderId = null; showCreateProject = true })
                     Spacer(Modifier.height(8.dp))
-                }
-            }
-
-            if (state.archivedItems.isNotEmpty()) {
-                item(key = "archived_header") {
-                    ArchivedSectionHeader(
-                        count    = state.archivedItems.size,
-                        expanded = state.showArchivedSection,
-                        onToggle = { viewModel.onEvent(SidebarEvent.ToggleArchivedSection) },
-                    )
-                }
-                if (state.showArchivedSection) {
-                    items(state.archivedItems, key = { "archived_${it.id}" }) { project ->
-                        ArchivedProjectItem(
-                            project     = project,
-                            onUnarchive = { viewModel.onEvent(SidebarEvent.UnarchiveProject(project.id)) },
-                        )
-                    }
-                    item(key = "archived_bottom_spacer") { Spacer(Modifier.height(8.dp)) }
                 }
             }
         }
@@ -649,33 +639,40 @@ private fun PieProgressIcon(ratio: Float, color: Color, size: Int, modifier: Mod
     }
 }
 
-// ── Archived section ──────────────────────────────────────────────────────────
+// ── Show more toggle ──────────────────────────────────────────────────────────
 
 @Composable
-private fun ArchivedSectionHeader(count: Int, expanded: Boolean, onToggle: () -> Unit) {
-    val rotation by animateFloatAsState(if (expanded) 90f else 0f, label = "chevron")
+private fun ShowMoreHeader(expanded: Boolean, onToggle: () -> Unit) {
+    val rotation by animateFloatAsState(if (expanded) 90f else 0f, label = "showmore")
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 8.dp, end = 8.dp, top = 2.dp, bottom = 2.dp)
+            .padding(horizontal = 8.dp, vertical = 1.dp)
             .clip(RoundedCornerShape(8.dp))
             .clickable(onClick = onToggle)
             .padding(horizontal = 10.dp, vertical = 8.dp),
     ) {
-        Icon(
-            imageVector = Icons.Outlined.Archive,
-            contentDescription = null,
-            tint     = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(15.dp),
-        )
-        Spacer(Modifier.width(7.dp))
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(26.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.12f)),
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.MoreHoriz,
+                contentDescription = null,
+                tint     = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(16.dp),
+            )
+        }
+        Spacer(Modifier.width(10.dp))
         Text(
-            text       = "Archived ($count)",
-            style      = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.SemiBold,
-            color      = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier   = Modifier.weight(1f),
+            text     = if (expanded) "Show less" else "Show more",
+            style    = MaterialTheme.typography.bodyMedium,
+            color    = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f),
         )
         Icon(
             imageVector = Icons.Outlined.ChevronRight,
@@ -683,47 +680,6 @@ private fun ArchivedSectionHeader(count: Int, expanded: Boolean, onToggle: () ->
             tint     = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(16.dp).rotate(rotation),
         )
-    }
-}
-
-@Composable
-private fun ArchivedProjectItem(project: Project, onUnarchive: () -> Unit) {
-    val color = remember(project.colorHex) {
-        try { Color(android.graphics.Color.parseColor(project.colorHex)) }
-        catch (e: Exception) { Color(0xFF4A90D9) }
-    }
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 20.dp, end = 8.dp, top = 1.dp, bottom = 1.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .padding(horizontal = 10.dp, vertical = 7.dp),
-    ) {
-        if (project.type == ProjectType.LIST && project.iconEmoji.isNotBlank()) {
-            Text(project.iconEmoji, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.size(18.dp))
-        } else when (project.type) {
-            ProjectType.PROJECT -> PieProgressIcon(ratio = 0f, color = color, size = 18)
-            ProjectType.LIST    -> Icon(Icons.Outlined.FormatListBulleted, null, tint = color, modifier = Modifier.size(18.dp))
-            ProjectType.NOTE    -> Icon(Icons.Outlined.Article, null, tint = color, modifier = Modifier.size(18.dp))
-        }
-        Spacer(Modifier.width(10.dp))
-        Text(
-            text     = project.title,
-            style    = MaterialTheme.typography.bodyMedium,
-            color    = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
-        )
-        IconButton(onClick = onUnarchive, modifier = Modifier.size(32.dp)) {
-            Icon(
-                imageVector = Icons.Outlined.Unarchive,
-                contentDescription = "Restore",
-                tint     = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(16.dp),
-            )
-        }
     }
 }
 
