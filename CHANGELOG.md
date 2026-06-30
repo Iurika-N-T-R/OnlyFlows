@@ -5,6 +5,23 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.58.2] — 2026-06-30 · Widget simplifié — quick-add en popup + chooser/réglages en dialog
+
+### Ajouté
+
+- **Ajout rapide sans ouvrir l'app** : le bouton + ouvre une popup flottante (titre → Ajouter) qui crée la tâche dans l'Inbox et se referme, sans entrer dans l'application.
+
+### Modifié
+
+- **Widget allégé** : suppression de la rangée de tris (Date/Priorité/Tag/None). Tri par défaut = date d'échéance.
+- **Chooser & réglages en dialog flottant** : la pastille de filtre et l'écran de réglages s'affichent en popup par-dessus l'écran d'accueil au lieu d'un écran plein style « app ».
+
+### Supprimé
+
+- Code mort : `SetSortCallback`, préférence `sortBy`, `keyAddTask`, `priorityRank`, couleurs de chips inutilisées.
+
+---
+
 ## [0.58.1] — 2026-06-30 · Fix widget — bouton + (ajout tâche) + sélecteur de filtre
 
 ### Corrigé

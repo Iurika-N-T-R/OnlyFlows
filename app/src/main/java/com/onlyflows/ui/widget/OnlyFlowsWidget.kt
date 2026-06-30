@@ -35,7 +35,6 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
-import com.onlyflows.MainActivity
 import com.onlyflows.R
 import com.onlyflows.data.local.AppDatabase
 import com.onlyflows.data.local.entity.ProjectEntity
@@ -67,12 +66,8 @@ class OnlyFlowsWidget : GlanceAppWidget() {
             projectMap = allProjects.associate { it.id to it }
             sectionMap = allSections.associate { it.id to it }
 
-            tasks = when (prefs.sortBy) {
-                "PRIORITY" -> rawTasks.sortedByDescending { priorityRank(it.priority) }
-                "DATE"     -> rawTasks.sortedWith(compareBy(nullsLast()) { it.dueDate })
-                "TAG"      -> rawTasks.sortedBy { it.tagIds.firstOrNull() ?: "￿" }
-                else       -> rawTasks
-            }
+            // Overdue first, then by due date — sensible default, no sort UI to fiddle with.
+            tasks = rawTasks.sortedWith(compareBy(nullsLast()) { it.dueDate })
 
             scopeLabel = when (prefs.scopeType) {
                 "TODAY"    -> "Today"
@@ -112,32 +107,23 @@ private data class WColors(
     val onBg: Color,
     val onSurface: Color,
     val accent: Color,
-    val chipBg: Color,
-    val chipSelectedBg: Color,
-    val chipSelectedText: Color,
     val divider: Color,
 )
 
 private fun lightColors() = WColors(
-    bg               = Color(0xFFFFFFFF),
-    onBg             = Color(0xFF1A1A1A),
-    onSurface        = Color(0xFF6B7280),
-    accent           = Color(0xFF4A90D9),
-    chipBg           = Color(0xFFEBF4FF),
-    chipSelectedBg   = Color(0xFF4A90D9),
-    chipSelectedText = Color(0xFFFFFFFF),
-    divider          = Color(0xFFE5E7EB),
+    bg        = Color(0xFFFFFFFF),
+    onBg      = Color(0xFF1A1A1A),
+    onSurface = Color(0xFF6B7280),
+    accent    = Color(0xFF4A90D9),
+    divider   = Color(0xFFE5E7EB),
 )
 
 private fun darkColors() = WColors(
-    bg               = Color(0xFF161B22),
-    onBg             = Color(0xFFF0F4F8),
-    onSurface        = Color(0xFF8B9BB4),
-    accent           = Color(0xFF4A90D9),
-    chipBg           = Color(0xFF1C2330),
-    chipSelectedBg   = Color(0xFF4A90D9),
-    chipSelectedText = Color(0xFFFFFFFF),
-    divider          = Color(0xFF2A3448),
+    bg        = Color(0xFF161B22),
+    onBg      = Color(0xFFF0F4F8),
+    onSurface = Color(0xFF8B9BB4),
+    accent    = Color(0xFF4A90D9),
+    divider   = Color(0xFF2A3448),
 )
 
 // ── Root ──────────────────────────────────────────────────────────────────────
@@ -192,11 +178,7 @@ private fun WidgetContent(
                 Spacer(GlanceModifier.width(6.dp))
                 Box(
                     modifier = GlanceModifier
-                        .clickable(
-                            actionStartActivity<MainActivity>(
-                                actionParametersOf(keyAddTask to true)
-                            )
-                        )
+                        .clickable(actionStartActivity<QuickAddActivity>())
                         .size(28.dp)
                         .background(ImageProvider(R.drawable.widget_btn_circle))
                         .cornerRadius(50.dp),
@@ -215,38 +197,6 @@ private fun WidgetContent(
             }
 
             Spacer(GlanceModifier.height(8.dp))
-
-            // ── Sort chips — defaultWeight() inline for equal distribution ─
-            Row(modifier = GlanceModifier.fillMaxWidth()) {
-                val chips = listOf("Date" to "DATE", "Priority" to "PRIORITY", "Tag" to "TAG", "None" to "NONE")
-                chips.forEachIndexed { i, (label, sort) ->
-                    if (i > 0) Spacer(GlanceModifier.width(4.dp))
-                    val selected  = prefs.sortBy == sort
-                    val bgColor   = if (selected) c.chipSelectedBg   else c.chipBg
-                    val textColor = if (selected) c.chipSelectedText else c.onSurface
-                    Box(
-                        modifier = GlanceModifier
-                            .clickable(actionRunCallback<SetSortCallback>(actionParametersOf(keySortBy to sort)))
-                            .defaultWeight()
-                            .background(ColorProvider(bgColor))
-                            .cornerRadius(50.dp)
-                            .padding(horizontal = 4.dp, vertical = 3.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text     = label,
-                            maxLines = 1,
-                            style    = TextStyle(
-                                color     = ColorProvider(textColor),
-                                fontSize  = 9.sp,
-                                textAlign = TextAlign.Center,
-                            ),
-                        )
-                    }
-                }
-            }
-
-            Spacer(GlanceModifier.height(6.dp))
 
             // ── Divider ───────────────────────────────────────────────────
             Box(
@@ -423,13 +373,6 @@ private fun priorityColor(priority: String): Color? = when (priority) {
     "MEDIUM" -> Color(0xFFF59E0B)
     "LOW"    -> Color(0xFF4A90D9)
     else     -> null
-}
-
-private fun priorityRank(priority: String) = when (priority) {
-    "HIGH"   -> 3
-    "MEDIUM" -> 2
-    "LOW"    -> 1
-    else     -> 0
 }
 
 private fun parseHexColor(hex: String): Color? =

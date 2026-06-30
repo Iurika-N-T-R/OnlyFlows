@@ -46,7 +46,14 @@
             android:name=".ui.widget.WidgetConfigActivity"
             android:exported="false"
             android:label="@string/app_name"
-            android:theme="@style/Theme.OnlyFlows" />
+            android:theme="@style/Theme.OnlyFlows.Dialog" />
+
+        <activity
+            android:name=".ui.widget.QuickAddActivity"
+            android:exported="false"
+            android:label="@string/app_name"
+            android:windowSoftInputMode="stateVisible|adjustResize"
+            android:theme="@style/Theme.OnlyFlows.Dialog" />
 
         <service
             android:name="androidx.work.impl.foreground.SystemForegroundService"

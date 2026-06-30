@@ -12,7 +12,6 @@ private val Context.widgetPrefsDataStore by preferencesDataStore(name = "widget_
 data class WidgetPrefs(
     val scopeType: String = "ALL",
     val scopeId: String = "",
-    val sortBy: String = "NONE",
     val theme: String = "FOLLOW",
     val showDetails: Boolean = true,
     val groupByPriority: Boolean = false,
@@ -23,7 +22,6 @@ class WidgetPrefsRepository(private val context: Context) {
     companion object {
         val SCOPE_TYPE   = stringPreferencesKey("widget_scope_type")
         val SCOPE_ID     = stringPreferencesKey("widget_scope_id")
-        val SORT_BY      = stringPreferencesKey("widget_sort_by")
         val THEME        = stringPreferencesKey("widget_theme")
         val SHOW_DETAILS = stringPreferencesKey("widget_show_details")
         val GROUP_PRIO   = stringPreferencesKey("widget_group_priority")
@@ -33,7 +31,6 @@ class WidgetPrefsRepository(private val context: Context) {
         WidgetPrefs(
             scopeType       = p[SCOPE_TYPE] ?: "ALL",
             scopeId         = p[SCOPE_ID]   ?: "",
-            sortBy          = p[SORT_BY]    ?: "NONE",
             theme           = p[THEME]      ?: "FOLLOW",
             showDetails     = (p[SHOW_DETAILS] ?: "true") == "true",
             groupByPriority = (p[GROUP_PRIO]   ?: "false") == "true",
@@ -54,10 +51,6 @@ class WidgetPrefsRepository(private val context: Context) {
 
     suspend fun setScopeId(id: String) {
         context.widgetPrefsDataStore.edit { it[SCOPE_ID] = id }
-    }
-
-    suspend fun setSortBy(sort: String) {
-        context.widgetPrefsDataStore.edit { it[SORT_BY] = sort }
     }
 
     suspend fun setTheme(theme: String) {

@@ -10,10 +10,7 @@ import com.onlyflows.data.local.AppDatabase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-val keyTaskId    = ActionParameters.Key<String>("taskId")
-val keySortBy    = ActionParameters.Key<String>("sortBy")
-// Maps to MainActivity.EXTRA_ADD_TASK — Glance forwards the key name as an intent extra.
-val keyAddTask   = ActionParameters.Key<Boolean>("extra_add_task")
+val keyTaskId = ActionParameters.Key<String>("taskId")
 
 @Keep
 class ToggleTaskCallback : ActionCallback {
@@ -32,17 +29,5 @@ class ToggleTaskCallback : ActionCallback {
                 app.container.taskRepository.setCompleted(taskId, true)
             }
         }
-    }
-}
-
-@Keep
-class SetSortCallback : ActionCallback {
-    override suspend fun onAction(
-        context: Context,
-        glanceId: GlanceId,
-        parameters: ActionParameters,
-    ) {
-        val sortBy = parameters[keySortBy] ?: return
-        WidgetPrefsRepository(context).setSortBy(sortBy)
     }
 }

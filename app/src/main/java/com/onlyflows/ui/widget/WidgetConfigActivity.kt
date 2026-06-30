@@ -58,10 +58,11 @@ class WidgetConfigActivity : ComponentActivity() {
                     finish()   // pill behaves like a chooser: pick → close
                 }
 
-                Surface(color = MaterialTheme.colorScheme.background) {
+                Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surface) {
                     Column(
                         modifier = Modifier
-                            .fillMaxSize()
+                            .fillMaxWidth()
+                            .heightIn(max = 520.dp)
                             .verticalScroll(rememberScrollState())
                             .padding(20.dp),
                     ) {
