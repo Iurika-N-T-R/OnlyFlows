@@ -5,6 +5,15 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.60.0] — 2026-06-30 · Déplacer une tâche (List) + quick-add widget enrichi
+
+### Ajouté
+
+- **Propriété « List » dans le détail de tâche** : la ligne est désormais toujours affichée (avant : masquée si la tâche n'avait pas de projet). Une tâche de l'Inbox peut donc être déplacée vers n'importe quelle liste/projet ou groupe (Today/Anytime/Someday) via le SmartMoveSheet existant.
+- **Quick-add widget enrichi** : en plus du titre, choix de **Quand** (Inbox/Today/Anytime/Someday), **Priorité** (Aucune/Basse/Moyenne/Haute) et **Tags** (multi-sélection). La destination par défaut suit le filtre du widget.
+
+---
+
 ## [0.59.0] — 2026-06-30 · Nouveau widget (RemoteViews classique, technique Tasks.org)
 
 ### Ajouté

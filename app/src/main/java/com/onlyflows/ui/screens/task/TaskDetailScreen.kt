@@ -485,11 +485,17 @@ fun TaskDetailScreen(
                 val use24h  = com.onlyflows.ui.theme.LocalUse24hFormat.current
                 val timePat = if (use24h) "HH:mm" else "hh:mm a"
                 SectionCard {
-                    // Project
+                    // List — always shown so a task can be moved into / out of any list (incl. from Inbox)
+                    MetaRow(
+                        icon    = Icons.Outlined.FolderOpen,
+                        label   = "List",
+                        value   = state.projectName ?: "Inbox",
+                        valueColor = if (state.projectName == null) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f) else null,
+                        onClick = { viewModel.onEvent(TaskDetailEvent.ShowSmartMove) },
+                    )
+                    HorizontalDivider(modifier = Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+                    // Section picker (only when the task is in a project that has sections)
                     if (state.projectName != null) {
-                        MetaRow(icon = Icons.Outlined.FolderOpen, label = "Project", value = state.projectName, onClick = { viewModel.onEvent(TaskDetailEvent.ShowSmartMove) })
-                        HorizontalDivider(modifier = Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
-                        // Section picker (only when the project has sections)
                         val currentProject = state.projects.find { it.id == task.projectId }
                         val projectSections = currentProject?.sections?.sortedBy { it.sortOrder } ?: emptyList()
                         if (projectSections.isNotEmpty()) {

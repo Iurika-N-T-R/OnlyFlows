@@ -85,7 +85,7 @@ private fun buildWidget(context: Context, id: Int): RemoteViews {
 
         // Header actions
         setOnClickPendingIntent(R.id.widget_title,    openAppPI(context, id))
-        setOnClickPendingIntent(R.id.widget_add,      activityPI(context, id, WidgetQuickAddActivity::class.java, "add"))
+        setOnClickPendingIntent(R.id.widget_add,      quickAddPI(context, id, prefs))
         setOnClickPendingIntent(R.id.widget_settings, configPI(context, id))
 
         // List
@@ -195,9 +195,12 @@ private fun configPI(context: Context, id: Int): PendingIntent =
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
     )
 
-private fun activityPI(context: Context, id: Int, cls: Class<*>, tag: String): PendingIntent =
+private fun quickAddPI(context: Context, id: Int, prefs: WidgetPrefs): PendingIntent =
     PendingIntent.getActivity(
-        context, "$tag$id".hashCode(),
-        Intent(context, cls).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        context, "add$id".hashCode(),
+        Intent(context, WidgetQuickAddActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            .putExtra(WidgetQuickAddActivity.EXTRA_FILTER_TYPE, prefs.filterType)
+            .putExtra(WidgetQuickAddActivity.EXTRA_FILTER_ID, prefs.filterId),
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
     )
