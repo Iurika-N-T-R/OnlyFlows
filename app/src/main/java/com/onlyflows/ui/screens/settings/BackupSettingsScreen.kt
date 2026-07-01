@@ -417,7 +417,7 @@ fun BackupSettingsScreen(
                         color = MaterialTheme.colorScheme.error,
                     )
                     Text(
-                        "Remplace toutes les données actuelles",
+                        "Replaces all current data",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

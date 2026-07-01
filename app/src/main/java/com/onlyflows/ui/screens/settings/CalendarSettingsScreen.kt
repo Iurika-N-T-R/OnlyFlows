@@ -81,14 +81,14 @@ fun CalendarSettingsScreen(
             TopAppBar(
                 title = {
                     Text(
-                        "Calendriers",
+                        "Calendars",
                         style      = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.SemiBold,
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Retour")
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -107,7 +107,7 @@ fun CalendarSettingsScreen(
                     .padding(32.dp),
             ) {
                 Text(
-                    text  = "L'accès au calendrier n'est pas autorisé. Activez-le dans les paramètres de l'application.",
+                    text  = "Calendar access is not granted. Enable it in app settings.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

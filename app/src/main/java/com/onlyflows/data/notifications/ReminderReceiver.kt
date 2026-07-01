@@ -147,8 +147,8 @@ class ReminderReceiver : BroadcastReceiver() {
                     val dt = java.time.Instant.ofEpochMilli(scheduledAtMs)
                         .atZone(java.time.ZoneId.systemDefault())
                         .toLocalDateTime()
-                    "Rappel · %s".format(
-                        dt.format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy · HH:mm", java.util.Locale.FRENCH))
+                    "Reminder · %s".format(
+                        dt.format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy · HH:mm", java.util.Locale.ENGLISH))
                     )
                 } else null
 
@@ -158,8 +158,8 @@ class ReminderReceiver : BroadcastReceiver() {
                     .setContentIntent(tapIntent)
                     .setAutoCancel(true)
                     .setPriority(NotificationCompat.PRIORITY_HIGH)
-                    .addAction(0, "Terminer", completeIntent)
-                    .addAction(0, "Reporter 15 min", snoozeIntent)
+                    .addAction(0, "Complete", completeIntent)
+                    .addAction(0, "Snooze 15 min", snoozeIntent)
 
                 if (bodyText != null) {
                     builder.setContentText(bodyText)

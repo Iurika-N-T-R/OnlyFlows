@@ -59,7 +59,7 @@ fun SettingsScreen(
         uri ?: return@rememberLauncherForActivityResult
         scope.launch {
             val count = try { quoteRepo.importFromUri(uri) } catch (_: Exception) { 0 }
-            snackbarHostState.showSnackbar("$count citations importées")
+            snackbarHostState.showSnackbar("$count quotes imported")
         }
     }
 
@@ -69,14 +69,14 @@ fun SettingsScreen(
             TopAppBar(
                 title = {
                     Text(
-                        "Paramètres",
+                        "Settings",
                         style      = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.SemiBold,
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Retour")
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -92,40 +92,40 @@ fun SettingsScreen(
                 .padding(padding)
                 .padding(vertical = 8.dp),
         ) {
-            SettingsGroupLabel("Général")
+            SettingsGroupLabel("General")
             SettingsRow(
                 icon    = Icons.Outlined.Tune,
-                label   = "Général",
+                label   = "General",
                 onClick = onGeneralSettingsClick,
             )
             Divider()
             SettingsRow(
                 icon    = Icons.Outlined.Palette,
-                label   = "Apparence",
+                label   = "Appearance",
                 onClick = onAppearanceClick,
             )
             Divider()
             SettingsRow(
                 icon    = Icons.Outlined.NotificationsNone,
-                label   = "Sons & notifications",
+                label   = "Sounds & notifications",
                 onClick = onNotificationSettingsClick,
             )
             Divider()
             SettingsRow(
                 icon    = Icons.Outlined.CalendarMonth,
-                label   = "Calendriers",
+                label   = "Calendars",
                 onClick = onCalendarSettingsClick,
             )
             Divider()
             SettingsRow(
                 icon    = Icons.Outlined.CloudUpload,
-                label   = "Sauvegarde",
+                label   = "Backup",
                 onClick = onBackupClick,
             )
             Divider()
             SettingsRow(
                 icon    = Icons.Outlined.SyncAlt,
-                label   = "Synchronisation LAN",
+                label   = "LAN Sync",
                 onClick = onLanSyncClick,
             )
             Divider()
@@ -137,7 +137,7 @@ fun SettingsScreen(
             Divider()
             SettingsRow(
                 icon    = Icons.Outlined.BarChart,
-                label   = "Statistiques",
+                label   = "Statistics",
                 onClick = onStatisticsClick,
             )
             Divider()
@@ -150,13 +150,13 @@ fun SettingsScreen(
             Divider()
             SettingsRow(
                 icon    = Icons.Outlined.RssFeed,
-                label   = "Flux RSS",
+                label   = "RSS",
                 onClick = onRssSettingsClick,
             )
             Divider()
             SettingsRow(
                 icon    = Icons.Outlined.FormatQuote,
-                label   = "Citations — importer JSON",
+                label   = "Quotes — import JSON",
                 onClick = { quotePicker.launch(arrayOf("application/json", "*/*")) },
             )
             Divider()
@@ -169,7 +169,7 @@ fun SettingsScreen(
             Divider()
             SettingsRow(
                 icon    = Icons.Outlined.Info,
-                label   = "À propos",
+                label   = "About",
                 onClick = onAboutClick,
             )
             Divider()

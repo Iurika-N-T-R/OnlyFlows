@@ -35,7 +35,7 @@ fun LanSyncSettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Synchronisation LAN") },
+                title = { Text("LAN Sync") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = null)
@@ -43,7 +43,7 @@ fun LanSyncSettingsScreen(
                 },
                 actions = {
                     IconButton(onClick = vm::rescan) {
-                        Icon(Icons.Outlined.Refresh, contentDescription = "Scanner le réseau")
+                        Icon(Icons.Outlined.Refresh, contentDescription = "Scan network")
                     }
                 }
             )
@@ -63,8 +63,8 @@ fun LanSyncSettingsScreen(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Column(Modifier.weight(1f)) {
-                            Text("Sync LAN actif", style = MaterialTheme.typography.bodyLarge)
-                            Text("Synchronise avec les appareils jum. sur le meme reseau",
+                            Text("LAN sync active", style = MaterialTheme.typography.bodyLarge)
+                            Text("Syncs with paired devices on the same network",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
@@ -76,7 +76,7 @@ fun LanSyncSettingsScreen(
             item {
                 Card {
                     Column(Modifier.fillMaxWidth().padding(16.dp)) {
-                        Text("Nom de cet appareil", style = MaterialTheme.typography.labelMedium,
+                        Text("This device name", style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary)
                         Spacer(Modifier.height(8.dp))
                         if (nameEditing) {
@@ -103,7 +103,7 @@ fun LanSyncSettingsScreen(
                             ) {
                                 Text(state.deviceName, style = MaterialTheme.typography.bodyLarge)
                                 TextButton(onClick = { nameInput = state.deviceName; nameEditing = true }) {
-                                    Text("Modifier")
+                                    Text("Edit")
                                 }
                             }
                         }
@@ -114,27 +114,27 @@ fun LanSyncSettingsScreen(
             item {
                 Card {
                     Column(Modifier.fillMaxWidth().padding(16.dp)) {
-                        Text("Jumeler un appareil", style = MaterialTheme.typography.labelMedium,
+                        Text("Pair a device", style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary)
                         Spacer(Modifier.height(8.dp))
                         if (state.pairingCode != null) {
                             val remaining = ((state.pairingCodeExpiryMs - System.currentTimeMillis()) / 1000).coerceAtLeast(0)
-                            Text("Code sur cet appareil :", style = MaterialTheme.typography.bodySmall,
+                            Text("Code on this device:", style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Spacer(Modifier.height(4.dp))
                             Text(state.pairingCode!!, style = MaterialTheme.typography.headlineMedium,
                                 fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                            Text("Expire dans ${remaining}s", style = MaterialTheme.typography.bodySmall,
+                            Text("Expires in ${remaining}s", style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                         } else {
-                            Text("Generez un code sur cet appareil, puis entrez-le sur l'autre.",
+                            Text("Generate a code on this device, then enter it on the other.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Spacer(Modifier.height(12.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             OutlinedButton(onClick = vm::generateCode, modifier = Modifier.weight(1f)) {
-                                Text("Generer code")
+                                Text("Generate code")
                             }
                             Button(
                                 onClick = {
@@ -144,9 +144,9 @@ fun LanSyncSettingsScreen(
                                 modifier = Modifier.weight(1f)
                             ) {
                                 if (state.discoveredPeers.isNotEmpty())
-                                    Text("Entrer code (${state.discoveredPeers.size})")
+                                    Text("Enter code (${state.discoveredPeers.size})")
                                 else
-                                    Text("Entrer code")
+                                    Text("Enter code")
                             }
                         }
                     }
@@ -155,7 +155,7 @@ fun LanSyncSettingsScreen(
 
             if (state.pairedDevices.isNotEmpty()) {
                 item {
-                    Text("Appareils jumeles", style = MaterialTheme.typography.labelMedium,
+                    Text("Paired devices", style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 4.dp))
                 }
@@ -172,7 +172,7 @@ fun LanSyncSettingsScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             IconButton(onClick = { vm.unpair(device.id) }) {
-                                Icon(Icons.Outlined.Delete, contentDescription = "Retirer",
+                                Icon(Icons.Outlined.Delete, contentDescription = "Remove",
                                     tint = MaterialTheme.colorScheme.error)
                             }
                         }
@@ -187,16 +187,16 @@ fun LanSyncSettingsScreen(
     if (showPairDialog) {
         AlertDialog(
             onDismissRequest = { showPairDialog = false; codeInput = "" },
-            title = { Text("Jumeler avec un appareil") },
+            title = { Text("Pair with a device") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     if (state.discoveredPeers.isEmpty()) {
-                        Text("Scan en cours… Appuyez sur ↺ si rien n'apparaît.",
+                        Text("Scanning… Tap ↺ if nothing appears.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                         LinearProgressIndicator(Modifier.fillMaxWidth())
                     } else if (state.discoveredPeers.size == 1) {
-                        Text("Appareil trouvé : ${state.discoveredPeers.first().third}",
+                        Text("Device found: ${state.discoveredPeers.first().third}",
                             style = MaterialTheme.typography.bodyMedium)
                     } else {
                         state.discoveredPeers.forEach { peer ->
@@ -210,7 +210,7 @@ fun LanSyncSettingsScreen(
                     OutlinedTextField(
                         value = codeInput,
                         onValueChange = { if (it.length <= 6 && it.all(Char::isDigit)) codeInput = it },
-                        label = { Text("Code à 6 chiffres") },
+                        label = { Text("6-digit code") },
                         singleLine = true,
                     )
                 }
@@ -224,10 +224,10 @@ fun LanSyncSettingsScreen(
                     },
                     enabled = codeInput.length == 6 &&
                         (selectedPeer != null || state.discoveredPeers.isNotEmpty()),
-                ) { Text("Jumeler") }
+                ) { Text("Pair") }
             },
             dismissButton = {
-                TextButton(onClick = { showPairDialog = false; codeInput = "" }) { Text("Annuler") }
+                TextButton(onClick = { showPairDialog = false; codeInput = "" }) { Text("Cancel") }
             },
         )
     }

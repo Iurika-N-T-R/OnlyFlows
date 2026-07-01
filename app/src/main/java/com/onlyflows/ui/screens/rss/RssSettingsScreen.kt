@@ -37,10 +37,10 @@ fun RssSettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Flux RSS", fontWeight = FontWeight.SemiBold) },
+                title = { Text("RSS Feeds", fontWeight = FontWeight.SemiBold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Retour")
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -50,7 +50,7 @@ fun RssSettingsScreen(
         },
         floatingActionButton = {
             FloatingActionButton(onClick = { showAddSheet = true }) {
-                Icon(Icons.Outlined.Add, "Ajouter un flux")
+                Icon(Icons.Outlined.Add, "Add feed")
             }
         },
         containerColor = MaterialTheme.colorScheme.background,
@@ -65,7 +65,7 @@ fun RssSettingsScreen(
             // Refresh interval section
             item {
                 Text(
-                    "Rafraîchissement automatique",
+                    "Auto refresh",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.primary,
@@ -80,7 +80,7 @@ fun RssSettingsScreen(
             item {
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "Flux RSS (${state.feeds.size})",
+                    "RSS Feeds (${state.feeds.size})",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.primary,
@@ -96,7 +96,7 @@ fun RssSettingsScreen(
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
-                            "Aucun flux. Appuyez sur + pour en ajouter.",
+                            "No feeds. Tap + to add one.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -144,12 +144,12 @@ private fun RefreshIntervalSelector(
     onSelect: (Long) -> Unit,
 ) {
     val options = listOf(
-        0L to "Manuel uniquement",
+        0L to "Manual only",
         15L to "15 minutes",
         30L to "30 minutes",
-        60L to "1 heure",
-        180L to "3 heures",
-        360L to "6 heures",
+        60L to "1 hour",
+        180L to "3 hours",
+        360L to "6 hours",
     )
     var expanded by remember { mutableStateOf(false) }
     val currentLabel = options.find { it.first == currentMinutes }?.second ?: "$currentMinutes min"
@@ -162,7 +162,7 @@ private fun RefreshIntervalSelector(
             value = currentLabel,
             onValueChange = {},
             readOnly = true,
-            label = { Text("Intervalle") },
+            label = { Text("Interval") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
             modifier = Modifier.fillMaxWidth().menuAnchor(),
         )
@@ -238,10 +238,10 @@ private fun FeedCard(
                 Icon(Icons.Outlined.Refresh, "Sync", modifier = Modifier.size(18.dp))
             }
             IconButton(onClick = onEdit) {
-                Icon(Icons.Outlined.Edit, "Modifier", modifier = Modifier.size(18.dp))
+                Icon(Icons.Outlined.Edit, "Edit", modifier = Modifier.size(18.dp))
             }
             IconButton(onClick = onDelete) {
-                Icon(Icons.Outlined.Delete, "Supprimer", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
+                Icon(Icons.Outlined.Delete, "Delete", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
             }
         }
     }
@@ -269,12 +269,12 @@ private fun AddFeedSheet(
                 .padding(bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("Ajouter un flux RSS", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text("Add RSS feed", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
 
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
-                label = { Text("Nom du flux") },
+                label = { Text("Feed name") },
                 placeholder = { Text("ex. TechCrunch") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
@@ -294,7 +294,7 @@ private fun AddFeedSheet(
             OutlinedTextField(
                 value = keywordInput,
                 onValueChange = { keywordInput = it },
-                label = { Text("Filtrer par mot-clé (optionnel)") },
+                label = { Text("Filter by keyword (optional)") },
                 placeholder = { Text("ex. AI") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
@@ -309,7 +309,7 @@ private fun AddFeedSheet(
                         },
                         enabled = keywordInput.isNotBlank(),
                     ) {
-                        Icon(Icons.Outlined.Add, "Ajouter")
+                        Icon(Icons.Outlined.Add, "Add")
                     }
                 },
             )
@@ -328,7 +328,7 @@ private fun AddFeedSheet(
             }
 
             // Color picker
-            Text("Couleur", style = MaterialTheme.typography.labelMedium)
+            Text("Color", style = MaterialTheme.typography.labelMedium)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 colors.forEach { hex ->
                     val c = runCatching { Color(android.graphics.Color.parseColor(hex)) }.getOrElse { Color.Gray }
@@ -353,11 +353,11 @@ private fun AddFeedSheet(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
             ) {
-                TextButton(onClick = onDismiss) { Text("Annuler") }
+                TextButton(onClick = onDismiss) { Text("Cancel") }
                 Button(
                     onClick = { onAdd(name.trim(), url.trim(), keywords, selectedColor) },
                     enabled = name.isNotBlank() && url.isNotBlank(),
-                ) { Text("Ajouter") }
+                ) { Text("Add") }
             }
         }
     }
@@ -386,12 +386,12 @@ private fun EditFeedSheet(
                 .padding(bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("Modifier le flux", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text("Edit feed", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
 
             OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
-                label = { Text("Nom du flux") },
+                label = { Text("Feed name") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
             )
@@ -408,7 +408,7 @@ private fun EditFeedSheet(
             OutlinedTextField(
                 value = keywordInput,
                 onValueChange = { keywordInput = it },
-                label = { Text("Filtrer par mot-clé (optionnel)") },
+                label = { Text("Filter by keyword (optional)") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 trailingIcon = {
@@ -419,7 +419,7 @@ private fun EditFeedSheet(
                             keywordInput = ""
                         },
                         enabled = keywordInput.isNotBlank(),
-                    ) { Icon(Icons.Outlined.Add, "Ajouter") }
+                    ) { Icon(Icons.Outlined.Add, "Add") }
                 },
             )
 
@@ -436,7 +436,7 @@ private fun EditFeedSheet(
                 }
             }
 
-            Text("Couleur", style = MaterialTheme.typography.labelMedium)
+            Text("Color", style = MaterialTheme.typography.labelMedium)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 colors.forEach { hex ->
                     val c = runCatching { Color(android.graphics.Color.parseColor(hex)) }.getOrElse { Color.Gray }
@@ -459,13 +459,13 @@ private fun EditFeedSheet(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
             ) {
-                TextButton(onClick = onDismiss) { Text("Annuler") }
+                TextButton(onClick = onDismiss) { Text("Cancel") }
                 Button(
                     onClick = {
                         onSave(feed.copy(name = name.trim(), url = url.trim(), keywords = keywords, colorHex = selectedColor))
                     },
                     enabled = name.isNotBlank() && url.isNotBlank(),
-                ) { Text("Enregistrer") }
+                ) { Text("Save") }
             }
         }
     }

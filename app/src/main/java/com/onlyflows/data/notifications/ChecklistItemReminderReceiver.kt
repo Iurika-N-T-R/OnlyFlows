@@ -33,7 +33,7 @@ class ChecklistItemReminderReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != ACTION_SHOW) return
         val taskId = intent.getStringExtra(EXTRA_TASK_ID) ?: return
-        val title  = intent.getStringExtra(EXTRA_TITLE) ?: "Rappel"
+        val title  = intent.getStringExtra(EXTRA_TITLE) ?: "Reminder"
         val itemId = intent.getStringExtra(EXTRA_ITEM_ID) ?: return
         val notifId = abs(itemId.hashCode())
 
@@ -56,7 +56,7 @@ class ChecklistItemReminderReceiver : BroadcastReceiver() {
                 val builder = NotificationCompat.Builder(context, channelId)
                     .setSmallIcon(R.drawable.ic_nav_today)
                     .setContentTitle(title)
-                    .setContentText("Rappel d'item de checklist")
+                    .setContentText("Checklist item reminder")
                     .setContentIntent(tapIntent)
                     .setAutoCancel(true)
                     .setPriority(NotificationCompat.PRIORITY_HIGH)

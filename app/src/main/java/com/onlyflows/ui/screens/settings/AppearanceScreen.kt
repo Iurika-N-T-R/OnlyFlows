@@ -66,14 +66,14 @@ fun AppearanceScreen(
             TopAppBar(
                 title = {
                     Text(
-                        "Apparence",
+                        "Appearance",
                         style      = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.SemiBold,
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Retour")
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -90,7 +90,7 @@ fun AppearanceScreen(
                 .padding(horizontal = 20.dp, vertical = 12.dp),
         ) {
             Text(
-                text     = "THÈME",
+                text     = "THEME",
                 style    = MaterialTheme.typography.labelSmall,
                 color    = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 8.dp),
@@ -102,19 +102,19 @@ fun AppearanceScreen(
             ) {
                 Column {
                     ThemeOption(
-                        label     = "Suivre le système",
+                        label     = "Follow system",
                         selected  = themeMode == ThemeMode.SYSTEM,
                         showDivider = true,
                         onClick   = { viewModel.setThemeMode(ThemeMode.SYSTEM) },
                     )
                     ThemeOption(
-                        label     = "Clair",
+                        label     = "Light",
                         selected  = themeMode == ThemeMode.LIGHT,
                         showDivider = true,
                         onClick   = { viewModel.setThemeMode(ThemeMode.LIGHT) },
                     )
                     ThemeOption(
-                        label     = "Sombre",
+                        label     = "Dark",
                         selected  = themeMode == ThemeMode.DARK,
                         showDivider = false,
                         onClick   = { viewModel.setThemeMode(ThemeMode.DARK) },
@@ -125,7 +125,7 @@ fun AppearanceScreen(
             Spacer(Modifier.height(24.dp))
 
             Text(
-                text     = "TAILLE DU TEXTE",
+                text     = "TEXT SIZE",
                 style    = MaterialTheme.typography.labelSmall,
                 color    = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 8.dp),
@@ -159,7 +159,7 @@ fun AppearanceScreen(
 
             Spacer(Modifier.height(8.dp))
             Text(
-                text  = "Aperçu: La taille du texte s'applique à toute l'application.",
+                text  = "Preview: Text size applies to the whole app.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

@@ -75,8 +75,8 @@ fun AnytimeScreen(
     LaunchedEffect(state.pendingDeleteTask) {
         val task = state.pendingDeleteTask ?: return@LaunchedEffect
         val result = snackbarHostState.showSnackbar(
-            message     = "\"${task.title}\" supprimée",
-            actionLabel = "Annuler",
+            message     = "\"${task.title}\" deleted",
+            actionLabel = "Cancel",
             duration    = SnackbarDuration.Short,
         )
         if (result == SnackbarResult.ActionPerformed) viewModel.undoDelete()
@@ -165,8 +165,8 @@ fun AnytimeScreen(
                     ) {
                         EmptyState(
                             emoji    = "✨",
-                            title    = "Rien en Anytime",
-                            subtitle = "Les tâches avec priorité et sans date apparaissent ici.",
+                            title    = "Anytime empty",
+                            subtitle = "Tasks with priority and no date appear here.",
                         )
                     }
                 }

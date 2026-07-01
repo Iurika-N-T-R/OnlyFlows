@@ -190,7 +190,7 @@ fun QuickFindScreen(
                 if (state.dateResults.isNotEmpty()) {
                     item(key = "date_results_header") {
                         Text(
-                            "Tâches",
+                            "Tasks",
                             style    = MaterialTheme.typography.labelMedium,
                             color    = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),

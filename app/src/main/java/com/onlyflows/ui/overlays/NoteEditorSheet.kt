@@ -397,7 +397,7 @@ internal fun MarkdownToolbar(
             Icon(Icons.Outlined.FormatListBulleted, contentDescription = "Liste", tint = tint, modifier = Modifier.size(20.dp))
         }
         IconButton(onClick = onCheckbox, modifier = Modifier.size(40.dp)) {
-            Icon(Icons.Outlined.CheckBoxOutlineBlank, contentDescription = "Case à cocher", tint = tint, modifier = Modifier.size(20.dp))
+            Icon(Icons.Outlined.CheckBoxOutlineBlank, contentDescription = "Checkbox", tint = tint, modifier = Modifier.size(20.dp))
         }
     }
 }

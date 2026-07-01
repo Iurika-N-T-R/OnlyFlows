@@ -92,7 +92,7 @@ fun ArchivedScreen(
                             IconButton(onClick = { viewModel.unarchive(project.id) }) {
                                 Icon(
                                     Icons.Outlined.Unarchive,
-                                    contentDescription = "Désarchiver",
+                                    contentDescription = "Unarchive",
                                     tint = MaterialTheme.colorScheme.primary,
                                 )
                             }

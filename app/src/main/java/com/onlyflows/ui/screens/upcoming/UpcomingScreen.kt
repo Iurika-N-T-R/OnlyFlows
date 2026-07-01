@@ -377,7 +377,7 @@ private fun UpcomingCalendarPermissionBanner(
             )
             Spacer(Modifier.width(12.dp))
             Text(
-                text     = "Activer l'accès au calendrier",
+                text     = "Enable calendar access",
                 style    = MaterialTheme.typography.bodyMedium,
                 color    = MaterialTheme.colorScheme.onSecondaryContainer,
                 modifier = Modifier.weight(1f),

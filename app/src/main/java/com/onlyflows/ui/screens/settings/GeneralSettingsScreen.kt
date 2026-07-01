@@ -36,14 +36,14 @@ fun GeneralSettingsScreen(
             TopAppBar(
                 title = {
                     Text(
-                        "Général",
+                        "General",
                         style      = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.SemiBold,
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Retour")
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -68,13 +68,13 @@ fun GeneralSettingsScreen(
             )
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
 
-            SettingsGroupLabel("Sidebar — sections visibles")
+            SettingsGroupLabel("Sidebar — visible sections")
             listOf(
-                Triple("nav_projects",    "Projects",        "Listes & projets"),
-                Triple("nav_goals",       "Goals",           "Suivi d'objectifs"),
-                Triple("nav_rss",         "RSS",             "Flux d'actualités"),
-                Triple("nav_datetracker", "Dates & Comptes", "Anniversaires & comptes à rebours"),
-                Triple("nav_trash",       "Trash",           "Éléments supprimés"),
+                Triple("nav_projects",    "Projects",          "Lists & projects"),
+                Triple("nav_goals",       "Goals",             "Goal tracking"),
+                Triple("nav_rss",         "RSS",               "News feed"),
+                Triple("nav_datetracker", "Dates & Countdowns","Anniversaries & countdowns"),
+                Triple("nav_trash",       "Trash",             "Deleted items"),
             ).forEachIndexed { index, (key, label, subtitle) ->
                 if (index > 0) HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
                 SwitchSettingsRow(

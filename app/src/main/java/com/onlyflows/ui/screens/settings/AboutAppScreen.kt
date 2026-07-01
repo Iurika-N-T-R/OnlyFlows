@@ -25,14 +25,14 @@ fun AboutAppScreen(
             TopAppBar(
                 title = {
                     Text(
-                        "À propos",
+                        "About",
                         style      = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.SemiBold,
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Retour")
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -86,7 +86,7 @@ fun AboutAppScreen(
             Spacer(Modifier.height(16.dp))
 
             Text(
-                text      = "Gestionnaire de tâches local, minimal et éditorial.",
+                text      = "A local, minimal, editorial task manager.",
                 style     = MaterialTheme.typography.bodyMedium,
                 color     = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,

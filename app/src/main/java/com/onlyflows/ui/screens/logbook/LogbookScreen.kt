@@ -91,7 +91,7 @@ fun LogbookScreen(
                 Tab(
                     selected = state.selectedTab == 1,
                     onClick  = { viewModel.selectTab(1) },
-                    text     = { Text("Journal") },
+                    text     = { Text("Activity") },
                 )
             }
 
@@ -329,7 +329,7 @@ private fun actionTypeLabel(type: ActionType) = when (type) {
     ActionType.TASK_ARCHIVED          -> "Archived"
     ActionType.TASK_DELETED           -> "Deleted"
     ActionType.TASK_RESTORED          -> "Restored"
-    ActionType.TASK_ABANDONED         -> "Abandonné"
+    ActionType.TASK_ABANDONED         -> "Abandoned"
     ActionType.TASK_MOVED             -> "Task moved"
     ActionType.TIMER_STARTED          -> "Timer started"
     ActionType.TIMER_STOPPED          -> "Timer stopped"

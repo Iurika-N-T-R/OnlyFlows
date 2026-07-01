@@ -188,7 +188,7 @@ fun TaskDetailScreen(
                                 Spacer(Modifier.width(4.dp))
                             }
                             Text(
-                                text  = if (task.isCompleted) "Terminé" else "Marquer terminé",
+                                text  = if (task.isCompleted) "Done" else "Mark done",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = if (task.isCompleted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -331,12 +331,12 @@ fun TaskDetailScreen(
                 Tab(
                     selected = pagerState.currentPage == 0,
                     onClick  = { pagerScope.launch { pagerState.animateScrollToPage(0) } },
-                    text     = { Text("Détail") },
+                    text     = { Text("Detail") },
                 )
                 Tab(
                     selected = pagerState.currentPage == 1,
                     onClick  = { pagerScope.launch { pagerState.animateScrollToPage(1) } },
-                    text     = { Text("Sous-tâches" + if (task.checklistItems.isNotEmpty()) " (${task.checklistItems.count { it.isCompleted }}/${task.checklistItems.size})" else "") },
+                    text     = { Text("Subtasks" + if (task.checklistItems.isNotEmpty()) " (${task.checklistItems.count { it.isCompleted }}/${task.checklistItems.size})" else "") },
                 )
                 Tab(
                     selected = pagerState.currentPage == 2,
@@ -490,7 +490,7 @@ fun TaskDetailScreen(
                                     Icon(Icons.Outlined.AccountTree, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
                                     Spacer(Modifier.width(14.dp))
                                     Column {
-                                        Text("Interdépendant de", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("Interdependent of", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         Spacer(Modifier.height(4.dp))
                                         state.dependingTasks.forEach { dep ->
                                             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 2.dp)) {
@@ -625,7 +625,7 @@ fun TaskDetailScreen(
                                                     Icon(Icons.Outlined.MoreVert, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                                                 }
                                                 DropdownMenu(expanded = showSectionMenu, onDismissRequest = { showSectionMenu = false }) {
-                                                    DropdownMenuItem(text = { Text("Supprimer la section") }, onClick = { showSectionMenu = false; viewModel.onEvent(TaskDetailEvent.DeleteChecklistSection(row.id)) })
+                                                    DropdownMenuItem(text = { Text("Delete section") }, onClick = { showSectionMenu = false; viewModel.onEvent(TaskDetailEvent.DeleteChecklistSection(row.id)) })
                                                 }
                                             }
                                         }
@@ -692,7 +692,7 @@ fun TaskDetailScreen(
                                         }
                                     }),
                                     decorationBox = { inner ->
-                                        if (newSection.isEmpty()) Text("Ajouter une section", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f))
+                                        if (newSection.isEmpty()) Text("Add section", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f))
                                         inner()
                                     },
                                     singleLine = true,
@@ -720,7 +720,7 @@ fun TaskDetailScreen(
                             if (state.comments.isEmpty()) {
                                 item(key = "empty") {
                                     Text(
-                                        "Aucun commentaire",
+                                        "No comments",
                                         style    = MaterialTheme.typography.bodyMedium,
                                         color    = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
@@ -1060,7 +1060,7 @@ private fun AttachmentsMetaSection(
             ) {
                 Icon(Icons.Outlined.Attachment, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(14.dp))
-                Text("Pièces jointes", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+                Text("Attachments", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
                 Icon(Icons.Outlined.ChevronRight, null, tint = MaterialTheme.colorScheme.outlineVariant, modifier = Modifier.size(16.dp))
             }
         } else {
@@ -1112,7 +1112,7 @@ private fun AttachmentsMetaSection(
             ) {
                 Icon(Icons.Outlined.Add, null, modifier = Modifier.size(14.dp))
                 Spacer(Modifier.width(4.dp))
-                Text("Ajouter une pièce jointe", style = MaterialTheme.typography.labelMedium)
+                Text("Add attachment", style = MaterialTheme.typography.labelMedium)
             }
         }
     }
@@ -1454,9 +1454,9 @@ private fun ChecklistItemDateSheet(
                     .clickable { showReminderPicker = true }
                     .padding(vertical = 12.dp),
             ) {
-                Text("Rappel", style = MaterialTheme.typography.bodyMedium)
+                Text("Reminder", style = MaterialTheme.typography.bodyMedium)
                 Text(
-                    text  = currentReminder?.format(reminderFmt) ?: "Aucun",
+                    text  = currentReminder?.format(reminderFmt) ?: "None",
                     style = MaterialTheme.typography.bodyMedium,
                     color = if (currentReminder != null) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1477,14 +1477,14 @@ private fun ChecklistItemDateSheet(
                     ) {
                         Text("Section", style = MaterialTheme.typography.bodyMedium)
                         Text(
-                            text  = sections.find { it.id == item.sectionId }?.title ?: "Aucune",
+                            text  = sections.find { it.id == item.sectionId }?.title ?: "None",
                             style = MaterialTheme.typography.bodyMedium,
                             color = if (item.sectionId != null) MaterialTheme.colorScheme.primary
                                     else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                     DropdownMenu(expanded = showSectionMenu, onDismissRequest = { showSectionMenu = false }) {
-                        DropdownMenuItem(text = { Text("Aucune") }, onClick = { showSectionMenu = false; onSetSection(null) })
+                        DropdownMenuItem(text = { Text("None") }, onClick = { showSectionMenu = false; onSetSection(null) })
                         sections.forEach { section ->
                             DropdownMenuItem(text = { Text(section.title) }, onClick = { showSectionMenu = false; onSetSection(section.id) })
                         }
@@ -1569,7 +1569,7 @@ private fun DependencyPickerSheet(
                 .padding(bottom = 16.dp),
         ) {
             Text(
-                "Dépend de",
+                "Depends on",
                 style      = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 modifier   = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
@@ -1579,7 +1579,7 @@ private fun DependencyPickerSheet(
             OutlinedTextField(
                 value       = query,
                 onValueChange = { query = it },
-                placeholder = { Text("Rechercher une tâche…") },
+                placeholder = { Text("Search a task…") },
                 leadingIcon = { Icon(Icons.Outlined.Search, null, modifier = Modifier.size(18.dp)) },
                 singleLine  = true,
                 modifier    = Modifier
@@ -1605,7 +1605,7 @@ private fun DependencyPickerSheet(
                     )
                     Spacer(Modifier.width(14.dp))
                     Text(
-                        "Supprimer la dépendance",
+                        "Remove dependency",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.error,
                     )
@@ -1621,7 +1621,7 @@ private fun DependencyPickerSheet(
                 if (filtered.isEmpty()) {
                     item {
                         Text(
-                            "Aucune tâche trouvée",
+                            "No tasks found",
                             style    = MaterialTheme.typography.bodyMedium,
                             color    = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
@@ -1960,7 +1960,7 @@ private fun RecurrencePickerSheet(
 
                 // ── Fin de récurrence ────────────────────────────────────────
                 Spacer(Modifier.height(12.dp))
-                Text("Fin de récurrence", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("End recurrence", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(6.dp))
                 listOf("never" to "Jamais", "date" to "Par date", "count" to "Par compte").forEach { (mode, label) ->
                     Row(
@@ -1995,7 +1995,7 @@ private fun RecurrencePickerSheet(
                             contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
                         ) { Text("−") }
                         Text(
-                            "Terminer après $endCount répétitions",
+                            "End after $endCount repetitions",
                             modifier = Modifier.weight(1f),
                             style    = MaterialTheme.typography.bodyMedium,
                         )
@@ -2054,7 +2054,7 @@ private fun RecurrencePickerSheet(
                     showEndDatePicker = false
                 }) { Text("OK") }
             },
-            dismissButton = { TextButton(onClick = { showEndDatePicker = false }) { Text("Annuler") } },
+            dismissButton = { TextButton(onClick = { showEndDatePicker = false }) { Text("Cancel") } },
         ) { DatePicker(state = datePickerState) }
     }
 }
@@ -2182,10 +2182,10 @@ private fun ReminderPickerSheet(
 
             // Due-date relative templates
             val dueDateTemplates = listOf(
-                Triple("Le jour même · 9:00",    Icons.Outlined.Today,            0L),
-                Triple("1 jour avant · 9:00",    Icons.Outlined.EventAvailable,   1L),
-                Triple("2 jours avant · 9:00",   Icons.Outlined.EventAvailable,   2L),
-                Triple("1 semaine avant · 9:00", Icons.Outlined.DateRange,        7L),
+                Triple("Same day · 9:00",        Icons.Outlined.Today,            0L),
+                Triple("1 day before · 9:00",    Icons.Outlined.EventAvailable,   1L),
+                Triple("2 days before · 9:00",   Icons.Outlined.EventAvailable,   2L),
+                Triple("1 week before · 9:00",   Icons.Outlined.DateRange,        7L),
             )
             dueDateTemplates.forEach { (label, icon, daysBefore) ->
                 val targetDate = taskDueDate?.minusDays(daysBefore)
@@ -2193,7 +2193,7 @@ private fun ReminderPickerSheet(
                     icon     = icon,
                     tint     = if (targetDate != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
                     label    = label,
-                    sublabel = if (targetDate == null) "Aucune date d'échéance" else null,
+                    sublabel = if (targetDate == null) "No due date" else null,
                     onClick  = if (targetDate != null) ({
                         onApply(targetDate.atTime(9, 0), null, com.onlyflows.domain.model.ReminderRecurrence.NONE)
                         onDismiss()
@@ -2204,7 +2204,7 @@ private fun ReminderPickerSheet(
 
             // ── Personnalisé ────────────────────────────────────────────────
             Spacer(Modifier.height(12.dp))
-            Text("Personnalisé", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Custom", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(8.dp))
 
             // Mode toggle chips
@@ -2212,22 +2212,22 @@ private fun ReminderPickerSheet(
                 FilterChip(
                     selected = persoMode == "daily",
                     onClick  = { persoMode = "daily" },
-                    label    = { Text("Quotidien") },
+                    label    = { Text("Daily") },
                 )
                 FilterChip(
                     selected = persoMode == "weekly",
                     onClick  = { persoMode = "weekly" },
-                    label    = { Text("Hebdomadaire") },
+                    label    = { Text("Weekly") },
                 )
             }
             Spacer(Modifier.height(8.dp))
 
             val hasDueDate = taskDueDate != null
             val unitLabel = when {
-                persoMode == "daily"  && hasDueDate  -> "jours avant l'échéance"
-                persoMode == "weekly" && hasDueDate  -> "semaines avant l'échéance"
-                persoMode == "daily"                 -> "jours à partir d'aujourd'hui"
-                else                                 -> "semaines à partir d'aujourd'hui"
+                persoMode == "daily"  && hasDueDate  -> "days before due"
+                persoMode == "weekly" && hasDueDate  -> "weeks before due"
+                persoMode == "daily"                 -> "days from today"
+                else                                 -> "weeks from today"
             }
             val persoTarget: LocalDate = taskDueDate?.let {
                 val days = if (persoMode == "daily") persoCount.toLong() else persoCount.toLong() * 7
@@ -2236,8 +2236,8 @@ private fun ReminderPickerSheet(
                 val days = if (persoMode == "daily") persoCount.toLong() else persoCount.toLong() * 7
                 LocalDate.now().plusDays(days)
             }
-            val persoPreviewFormatter = DateTimeFormatter.ofPattern("d MMM yyyy", java.util.Locale.FRENCH)
-            val persoPreviewText = "Rappel à %02d:%02d le %s".format(
+            val persoPreviewFormatter = DateTimeFormatter.ofPattern("d MMM yyyy", java.util.Locale.ENGLISH)
+            val persoPreviewText = "Reminder at %02d:%02d on %s".format(
                 persoHour, persoMinute, persoTarget.format(persoPreviewFormatter)
             )
 
@@ -2281,7 +2281,7 @@ private fun ReminderPickerSheet(
                     onDismiss()
                 },
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Définir ce rappel") }
+            ) { Text("Set reminder") }
 
             // Location picker (only shown if saved locations exist)
             if (locations.isNotEmpty()) {
@@ -2379,7 +2379,7 @@ private fun ReminderPickerSheet(
                     showPersoTimePicker = false
                 }) { Text("OK") }
             },
-            dismissButton = { TextButton(onClick = { showPersoTimePicker = false }) { Text("Annuler") } },
+            dismissButton = { TextButton(onClick = { showPersoTimePicker = false }) { Text("Cancel") } },
             text = { TimePicker(state = timePickerState) },
         )
     }

@@ -87,10 +87,10 @@ class WidgetConfigActivity : ComponentActivity() {
                         }
 
                         Spacer(Modifier.height(16.dp))
-                        Section("Thème")
+                        Section("Theme")
                         Spacer(Modifier.height(8.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf("FOLLOW" to "Système", "LIGHT" to "Clair", "DARK" to "Sombre").forEach { (k, l) ->
+                            listOf("FOLLOW" to "System", "LIGHT" to "Light", "DARK" to "Dark").forEach { (k, l) ->
                                 FilterChip(selected = theme == k, onClick = { theme = k }, label = { Text(l) })
                             }
                         }
