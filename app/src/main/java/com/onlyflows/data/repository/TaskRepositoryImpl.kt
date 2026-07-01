@@ -204,6 +204,7 @@ class TaskRepository(
             id            = "task_${System.currentTimeMillis()}",
             isCompleted   = false,
             dueDate       = nextDue,
+            recurrenceDoneCount = entity.recurrenceDoneCount + 1,   // carry running total onto live occurrence
             checklistItems = task.checklistItems.map { it.copy(isCompleted = false) },
             createdAt     = LocalDateTime.now(),
             updatedAt     = LocalDateTime.now(),
@@ -256,6 +257,7 @@ class TaskRepository(
             isCompleted    = false,
             isArchived     = false,
             dueDate        = nextDue,
+            recurrenceAbandonedCount = entity.recurrenceAbandonedCount + 1,   // carry running total onto live occurrence
             checklistItems = task.checklistItems.map { it.copy(isCompleted = false) },
             createdAt      = LocalDateTime.now(),
             updatedAt      = LocalDateTime.now(),
