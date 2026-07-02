@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 data class ProjectsUiState(
@@ -32,9 +33,28 @@ class ProjectsViewModel(app: Application) : AndroidViewModel(app) {
     private val projectRepo = container.projectRepository
     private val folderRepo  = container.folderRepository
     private val taskRepo    = container.taskRepository
+    private val appPrefs    = container.appPreferences
 
     private val _uiState = MutableStateFlow(ProjectsUiState())
     val uiState: StateFlow<ProjectsUiState> = _uiState.asStateFlow()
+
+    // ── Persisted view state ──────────────────────────────────────────────────
+    // null = not loaded yet (avoids flashing the wrong view/page on startup)
+    val viewMode: StateFlow<String?> = appPrefs.projectsViewMode
+        .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, null)
+    val boardPage: StateFlow<Int?> = appPrefs.projectsBoardPage
+        .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, null)
+    val collapsedStatuses: StateFlow<Set<String>> = appPrefs.projectsCollapsedStatuses
+        .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, emptySet())
+
+    fun setViewMode(mode: String)  = viewModelScope.launch { appPrefs.setProjectsViewMode(mode) }
+    fun setBoardPage(page: Int)    = viewModelScope.launch { appPrefs.setProjectsBoardPage(page) }
+    fun toggleCollapsed(status: ProjectStatus) = viewModelScope.launch {
+        val cur = collapsedStatuses.value
+        appPrefs.setProjectsCollapsedStatuses(
+            if (status.name in cur) cur - status.name else cur + status.name
+        )
+    }
 
     fun moveProject(projectId: String, newStatus: ProjectStatus) {
         viewModelScope.launch { projectRepo.updateStatus(projectId, newStatus) }

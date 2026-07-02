@@ -73,6 +73,25 @@ class AppPreferences(private val context: Context) {
 
     suspend fun setRssRefreshInterval(minutes: Long) =
         context.appDataStore.edit { it[RSS_INTERVAL] = minutes }
+
+    // ── Projects screen view state (persisted) ────────────────────────────────
+
+    private val PROJECTS_VIEW_MODE     = stringPreferencesKey("projects_view_mode")          // BOARD | LIST
+    private val PROJECTS_BOARD_PAGE    = intPreferencesKey("projects_board_page")            // active kanban column
+    private val PROJECTS_COLLAPSED     = stringSetPreferencesKey("projects_collapsed_statuses")
+
+    val projectsViewMode: Flow<String> = context.appDataStore.data.map { it[PROJECTS_VIEW_MODE] ?: "BOARD" }
+    suspend fun setProjectsViewMode(mode: String) =
+        context.appDataStore.edit { it[PROJECTS_VIEW_MODE] = mode }
+
+    val projectsBoardPage: Flow<Int> = context.appDataStore.data.map { it[PROJECTS_BOARD_PAGE] ?: -1 }
+    suspend fun setProjectsBoardPage(page: Int) =
+        context.appDataStore.edit { it[PROJECTS_BOARD_PAGE] = page }
+
+    val projectsCollapsedStatuses: Flow<Set<String>> =
+        context.appDataStore.data.map { it[PROJECTS_COLLAPSED] ?: emptySet() }
+    suspend fun setProjectsCollapsedStatuses(names: Set<String>) =
+        context.appDataStore.edit { it[PROJECTS_COLLAPSED] = names }
 }
 
 // ── NotificationPreferences ───────────────────────────────────────────────────

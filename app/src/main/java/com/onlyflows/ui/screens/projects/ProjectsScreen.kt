@@ -1,33 +1,59 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package com.onlyflows.ui.screens.projects
 
+import android.content.ClipData
+import android.content.ClipDescription
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.draganddrop.dragAndDropSource
+import androidx.compose.foundation.draganddrop.dragAndDropTarget
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Article
+import androidx.compose.material.icons.outlined.ExpandMore
+import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.FormatListBulleted
 import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.ViewKanban
+import androidx.compose.material.icons.automirrored.outlined.ViewList
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draganddrop.DragAndDropEvent
+import androidx.compose.ui.draganddrop.DragAndDropTarget
+import androidx.compose.ui.draganddrop.DragAndDropTransferData
+import androidx.compose.ui.draganddrop.mimeTypes
+import androidx.compose.ui.draganddrop.toAndroidDragEvent
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.onlyflows.domain.model.ProjectStatus
 import com.onlyflows.domain.model.ProjectType
+import com.onlyflows.ui.components.statusIcon
+import com.onlyflows.ui.components.statusLabel
+import com.onlyflows.ui.components.statusShortLabel
+import com.onlyflows.ui.components.statusTint
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
@@ -35,9 +61,30 @@ import java.time.temporal.ChronoUnit
 
 private enum class ProjectsViewMode { BOARD, LIST }
 
+// ── Drag & drop helpers ───────────────────────────────────────────────────────
+
+private const val DND_LABEL = "projectId"
+
+private fun Modifier.projectDragSource(
+    projectId: String,
+    haptics: androidx.compose.ui.hapticfeedback.HapticFeedback,
+): Modifier =
+    this.dragAndDropSource {
+        detectTapGestures(onLongPress = {
+            haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+            startTransfer(DragAndDropTransferData(ClipData.newPlainText(DND_LABEL, projectId)))
+        })
+    }
+
+private fun DragAndDropEvent.draggedProjectId(): String? =
+    runCatching { toAndroidDragEvent().clipData?.getItemAt(0)?.text?.toString() }.getOrNull()
+
+private fun acceptsProjectDrag(event: DragAndDropEvent): Boolean =
+    event.mimeTypes().contains(ClipDescription.MIMETYPE_TEXT_PLAIN)
+
 // ── Screen ────────────────────────────────────────────────────────────────────
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun ProjectsScreen(
     onProjectClick: (String) -> Unit = {},
@@ -45,7 +92,11 @@ fun ProjectsScreen(
     viewModel: ProjectsViewModel = viewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    var viewMode by remember { mutableStateOf(ProjectsViewMode.BOARD) }
+    // Persisted view state — null while loading to avoid flashing the wrong view
+    val savedViewMode  by viewModel.viewMode.collectAsStateWithLifecycle()
+    val savedBoardPage by viewModel.boardPage.collectAsStateWithLifecycle()
+    val collapsedNames by viewModel.collapsedStatuses.collectAsStateWithLifecycle()
+    val viewMode = savedViewMode?.let { runCatching { ProjectsViewMode.valueOf(it) }.getOrDefault(ProjectsViewMode.BOARD) }
 
     Scaffold(
         topBar = {
@@ -63,68 +114,180 @@ fun ProjectsScreen(
         },
         containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            // View toggle chips
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-            ) {
-                FilterChip(
-                    selected = viewMode == ProjectsViewMode.BOARD,
-                    onClick  = { viewMode = ProjectsViewMode.BOARD },
-                    label    = { Text("Board") },
-                )
-                FilterChip(
-                    selected = viewMode == ProjectsViewMode.LIST,
-                    onClick  = { viewMode = ProjectsViewMode.LIST },
-                    label    = { Text("List") },
-                )
-            }
+            Column(modifier = Modifier.fillMaxSize()) {
+                StatusStatsRow(state = state)
 
-            if (state.isLoading) {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier.fillMaxSize(),
-                ) {
-                    CircularProgressIndicator()
+                if (state.isLoading || viewMode == null || savedBoardPage == null) {
+                    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                        CircularProgressIndicator()
+                    }
+                } else when (viewMode) {
+                    ProjectsViewMode.BOARD -> BoardView(
+                        state          = state,
+                        initialPage    = savedBoardPage!!,
+                        onPageChanged  = viewModel::setBoardPage,
+                        onProjectClick = onProjectClick,
+                        onStatusChange = viewModel::moveProject,
+                    )
+                    ProjectsViewMode.LIST -> ListView(
+                        state             = state,
+                        collapsedNames    = collapsedNames,
+                        onToggleCollapsed = viewModel::toggleCollapsed,
+                        onProjectClick    = onProjectClick,
+                        onStatusChange    = viewModel::moveProject,
+                    )
                 }
-                return@Column
             }
 
-            when (viewMode) {
-                ProjectsViewMode.BOARD -> BoardView(state = state, onProjectClick = onProjectClick, onStatusChange = viewModel::moveProject)
-                ProjectsViewMode.LIST  -> ListView(state = state, onProjectClick = onProjectClick, onStatusChange = viewModel::moveProject)
+            // Floating Board/List switcher
+            if (viewMode != null) {
+                ViewModeSwitcher(
+                    mode     = viewMode,
+                    onChange = { viewModel.setViewMode(it.name) },
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 20.dp),
+                )
             }
         }
     }
 }
 
-// ── Board view ────────────────────────────────────────────────────────────────
+// ── Stats row (counts per status, single row) ────────────────────────────────
 
+@Composable
+private fun StatusStatsRow(state: ProjectsUiState) {
+    Surface(
+        color  = MaterialTheme.colorScheme.surfaceVariant,
+        shape  = RoundedCornerShape(12.dp),
+        shadowElevation = 1.dp,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+    ) {
+        Row(modifier = Modifier.padding(vertical = 8.dp)) {
+            ProjectStatus.entries.forEach { status ->
+                val count = state.columns[status]?.size ?: 0
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(status.statusIcon, null, tint = status.statusTint, modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text       = "$count",
+                            style      = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                    Text(
+                        text     = status.statusShortLabel,
+                        style    = MaterialTheme.typography.labelSmall,
+                        color    = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ── Floating view switcher ────────────────────────────────────────────────────
+
+@Composable
+private fun ViewModeSwitcher(
+    mode: ProjectsViewMode,
+    onChange: (ProjectsViewMode) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        shape           = CircleShape,
+        color           = MaterialTheme.colorScheme.surface,
+        shadowElevation = 6.dp,
+        tonalElevation  = 3.dp,
+        modifier        = modifier,
+    ) {
+        Row(modifier = Modifier.padding(4.dp)) {
+            @Composable
+            fun segment(target: ProjectsViewMode, icon: androidx.compose.ui.graphics.vector.ImageVector, label: String) {
+                val selected = mode == target
+                Surface(
+                    shape = CircleShape,
+                    color = if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .clickable { onChange(target) },
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                    ) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = label,
+                            tint = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text       = label,
+                            style      = MaterialTheme.typography.labelMedium,
+                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                            color      = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+            segment(ProjectsViewMode.BOARD, Icons.Outlined.ViewKanban, "Board")
+            segment(ProjectsViewMode.LIST, Icons.AutoMirrored.Outlined.ViewList, "List")
+        }
+    }
+}
+
+// ── Board view — centered pager, neighbours peeking ──────────────────────────
+
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun BoardView(
     state: ProjectsUiState,
+    initialPage: Int,
+    onPageChanged: (Int) -> Unit,
     onProjectClick: (String) -> Unit,
     onStatusChange: (String, ProjectStatus) -> Unit,
 ) {
-    LazyRow(
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier.fillMaxSize(),
-    ) {
-        items(ProjectStatus.entries) { status ->
-            val cards = state.columns[status] ?: emptyList()
-            ProjectColumn(
-                status         = status,
-                cards          = cards,
-                onProjectClick = onProjectClick,
-                onStatusChange = onStatusChange,
-            )
-        }
+    val statuses   = ProjectStatus.entries
+    val pagerState = rememberPagerState(
+        initialPage = initialPage.takeIf { it in statuses.indices } ?: statuses.indexOf(ProjectStatus.IN_PROGRESS),
+    ) { statuses.size }
+
+    // Persist the active column
+    LaunchedEffect(pagerState) {
+        snapshotFlow { pagerState.currentPage }.collect { onPageChanged(it) }
+    }
+
+    HorizontalPager(
+        state             = pagerState,
+        contentPadding    = PaddingValues(start = 36.dp, end = 36.dp, top = 4.dp, bottom = 8.dp),
+        pageSpacing       = 12.dp,
+        verticalAlignment = Alignment.Top,
+        modifier          = Modifier.fillMaxSize(),
+    ) { page ->
+        val status = statuses[page]
+        ProjectColumn(
+            status         = status,
+            // children (nested lists/groups) live inside their parent, not on the board
+            cards          = (state.columns[status] ?: emptyList()).filter { it.progress.project.parentProjectId == null },
+            onProjectClick = onProjectClick,
+            onStatusChange = onStatusChange,
+            modifier       = Modifier.fillMaxHeight(),
+        )
     }
 }
 
@@ -134,28 +297,51 @@ private fun ProjectColumn(
     cards: List<ProjectsCard>,
     onProjectClick: (String) -> Unit,
     onStatusChange: (String, ProjectStatus) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
+    var dragHover by remember { mutableStateOf(false) }
+    val dropTarget = remember(status) {
+        object : DragAndDropTarget {
+            override fun onEntered(event: DragAndDropEvent) { dragHover = true }
+            override fun onExited(event: DragAndDropEvent)  { dragHover = false }
+            override fun onEnded(event: DragAndDropEvent)   { dragHover = false }
+            override fun onDrop(event: DragAndDropEvent): Boolean {
+                dragHover = false
+                val id = event.draggedProjectId() ?: return false
+                onStatusChange(id, status)
+                return true
+            }
+        }
+    }
+
     Column(
-        modifier = Modifier.width(240.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .then(
+                if (dragHover) Modifier.border(2.dp, status.statusTint, RoundedCornerShape(12.dp))
+                else Modifier
+            )
+            .dragAndDropTarget(shouldStartDragAndDrop = ::acceptsProjectDrag, target = dropTarget),
     ) {
         // Column header
         Surface(
-            color = status.columnHeaderColor,
-            shape = RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+            shape = RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp),
             modifier = Modifier.fillMaxWidth(),
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
             ) {
+                Icon(status.statusIcon, null, tint = status.statusTint, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(8.dp))
                 Text(
-                    text  = status.labelWithEmoji,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = status.columnHeaderContentColor,
+                    text  = status.statusLabel,
+                    style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.weight(1f),
                 )
-                // Count badge
                 Surface(
                     color = MaterialTheme.colorScheme.surface.copy(alpha = 0.7f),
                     shape = RoundedCornerShape(10.dp),
@@ -169,26 +355,29 @@ private fun ProjectColumn(
             }
         }
 
-        // Cards
+        // Cards — scrollable, full column height
         Surface(
             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
-            shape = RoundedCornerShape(bottomStart = 8.dp, bottomEnd = 8.dp),
-            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp),
+            modifier = Modifier.fillMaxWidth().weight(1f),
         ) {
-            Column(
+            LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.padding(8.dp),
+                contentPadding      = PaddingValues(8.dp),
+                modifier            = Modifier.fillMaxSize(),
             ) {
-                cards.forEach { card ->
+                items(cards, key = { it.progress.project.id }) { card ->
                     ProjectBoardCard(card = card, onProjectClick = onProjectClick, onStatusChange = onStatusChange)
                 }
                 if (cards.isEmpty()) {
-                    Text(
-                        text  = "No projects",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                        modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
-                    )
+                    item {
+                        Text(
+                            text  = "No projects — drop a card here",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                            modifier = Modifier.padding(vertical = 12.dp, horizontal = 4.dp),
+                        )
+                    }
                 }
             }
         }
@@ -204,12 +393,15 @@ private fun ProjectBoardCard(
     val project  = card.progress.project
     val progress = card.progress
     var menuExpanded by remember { mutableStateOf(false) }
+    val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
 
     Surface(
         onClick   = { onProjectClick(project.id) },
         shape     = RoundedCornerShape(12.dp),
         tonalElevation = 2.dp,
-        modifier  = Modifier.fillMaxWidth(),
+        modifier  = Modifier
+            .fillMaxWidth()
+            .projectDragSource(project.id, haptics),
     ) {
         Column(
             modifier = Modifier.padding(12.dp),
@@ -245,14 +437,12 @@ private fun ProjectBoardCard(
                     IconButton(onClick = { menuExpanded = true }, modifier = Modifier.size(24.dp)) {
                         Icon(Icons.Outlined.MoreVert, contentDescription = "Move", modifier = Modifier.size(16.dp))
                     }
-                    DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-                        ProjectStatus.entries.filter { it != project.status }.forEach { status ->
-                            DropdownMenuItem(
-                                text = { Text(status.labelWithEmoji) },
-                                onClick = { menuExpanded = false; onStatusChange(project.id, status) },
-                            )
-                        }
-                    }
+                    StatusMoveMenu(
+                        expanded  = menuExpanded,
+                        current   = project.status,
+                        onDismiss = { menuExpanded = false },
+                        onSelect  = { onStatusChange(project.id, it) },
+                    )
                 }
             }
             if (card.folderName != null) {
@@ -263,50 +453,183 @@ private fun ProjectBoardCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            project.dueDate?.let { dueDate ->
-                Spacer(Modifier.height(4.dp))
-                ProjectDeadlineBadge(dueDate = dueDate)
+            Spacer(Modifier.height(4.dp))
+            if (project.dueDate != null) {
+                ProjectDeadlineBadge(dueDate = project.dueDate!!)
+            } else {
+                Text(
+                    text  = "No deadline",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                )
             }
         }
     }
 }
 
-// ── List view ─────────────────────────────────────────────────────────────────
+@Composable
+private fun StatusMoveMenu(
+    expanded: Boolean,
+    current: ProjectStatus,
+    onDismiss: () -> Unit,
+    onSelect: (ProjectStatus) -> Unit,
+) {
+    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+        ProjectStatus.entries.filter { it != current }.forEach { status ->
+            DropdownMenuItem(
+                text        = { Text(status.statusLabel) },
+                leadingIcon = { Icon(status.statusIcon, null, tint = status.statusTint, modifier = Modifier.size(18.dp)) },
+                onClick     = { onDismiss(); onSelect(status) },
+            )
+        }
+    }
+}
+
+// ── List view — collapsible status sections ───────────────────────────────────
 
 @Composable
 private fun ListView(
     state: ProjectsUiState,
+    collapsedNames: Set<String>,
+    onToggleCollapsed: (ProjectStatus) -> Unit,
     onProjectClick: (String) -> Unit,
     onStatusChange: (String, ProjectStatus) -> Unit,
 ) {
+    // Children (nested lists/groups) render under their parent, never as top-level rows
+    val allCards = state.columns.values.flatten()
+    val childrenByParent = allCards
+        .filter { it.progress.project.parentProjectId != null }
+        .groupBy { it.progress.project.parentProjectId!! }
+
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        contentPadding      = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 88.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier            = Modifier.fillMaxSize(),
     ) {
         ProjectStatus.entries.forEach { status ->
-            val cards = state.columns[status] ?: emptyList()
-            item(key = "header_${status.name}") {
-                // Group header
+            val cards = (state.columns[status] ?: emptyList())
+                .filter { it.progress.project.parentProjectId == null }
+            item(key = "section_${status.name}") {
+                StatusSectionCard(
+                    status         = status,
+                    cards          = cards,
+                    childrenByParent = childrenByParent,
+                    isCollapsed    = status.name in collapsedNames,
+                    onToggle       = { onToggleCollapsed(status) },
+                    onProjectClick = onProjectClick,
+                    onStatusChange = onStatusChange,
+                )
+            }
+        }
+    }
+}
+
+/** One status group = one card: container + title row, then the project rows inside. */
+@Composable
+private fun StatusSectionCard(
+    status: ProjectStatus,
+    cards: List<ProjectsCard>,
+    childrenByParent: Map<String, List<ProjectsCard>>,
+    isCollapsed: Boolean,
+    onToggle: () -> Unit,
+    onProjectClick: (String) -> Unit,
+    onStatusChange: (String, ProjectStatus) -> Unit,
+) {
+    var dragHover by remember { mutableStateOf(false) }
+    val dropTarget = remember(status) {
+        object : DragAndDropTarget {
+            override fun onEntered(event: DragAndDropEvent) { dragHover = true }
+            override fun onExited(event: DragAndDropEvent)  { dragHover = false }
+            override fun onEnded(event: DragAndDropEvent)   { dragHover = false }
+            override fun onDrop(event: DragAndDropEvent): Boolean {
+                dragHover = false
+                val id = event.draggedProjectId() ?: return false
+                onStatusChange(id, status)
+                return true
+            }
+        }
+    }
+
+    Surface(
+        shape           = RoundedCornerShape(16.dp),
+        color           = MaterialTheme.colorScheme.surfaceVariant,
+        shadowElevation = 1.dp,
+        border          = if (dragHover) BorderStroke(2.dp, status.statusTint) else null,
+        modifier = Modifier
+            .fillMaxWidth()
+            .dragAndDropTarget(shouldStartDragAndDrop = ::acceptsProjectDrag, target = dropTarget),
+    ) {
+        Column(modifier = Modifier.padding(vertical = 6.dp)) {
+            // Title row
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onToggle)
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+            ) {
+                Icon(status.statusIcon, null, tint = status.statusTint, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text       = status.statusLabel,
+                    style      = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Spacer(Modifier.width(8.dp))
                 Surface(
-                    color = status.columnHeaderColor,
-                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.surface,
+                    shape = RoundedCornerShape(10.dp),
                 ) {
                     Text(
-                        text       = status.labelWithEmoji,
-                        style      = MaterialTheme.typography.labelMedium,
-                        color      = status.columnHeaderContentColor,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier   = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        text     = "${cards.size}",
+                        style    = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
                     )
                 }
-                HorizontalDivider()
-            }
-            items(cards, key = { "card_${it.progress.project.id}" }) { card ->
-                ProjectListRow(card = card, onProjectClick = onProjectClick, onStatusChange = onStatusChange)
-                HorizontalDivider(
-                    modifier  = Modifier.padding(start = 56.dp),
-                    color     = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                    thickness = 0.5.dp,
+                Spacer(Modifier.weight(1f))
+                Icon(
+                    imageVector        = Icons.Outlined.ExpandMore,
+                    contentDescription = if (isCollapsed) "Expand" else "Collapse",
+                    tint               = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier           = Modifier.size(20.dp).rotate(if (isCollapsed) -90f else 0f),
                 )
+            }
+
+            if (!isCollapsed && cards.isNotEmpty()) {
+                Spacer(Modifier.height(2.dp))
+
+                @Composable
+                fun projectWithChildren(card: ProjectsCard, level: Int) {
+                    ProjectListRow(card = card, onProjectClick = onProjectClick, onStatusChange = onStatusChange, indentLevel = level)
+                    childrenByParent[card.progress.project.id]?.forEach { child ->
+                        projectWithChildren(child, level + 1)
+                    }
+                }
+
+                val byFolder   = cards.groupBy { it.folderName }
+                byFolder[null].orEmpty().forEach { card -> projectWithChildren(card, 0) }
+                byFolder.entries.filter { it.key != null }.sortedBy { it.key }.forEach { (folder, folderCards) ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 2.dp),
+                    ) {
+                        Icon(
+                            Icons.Outlined.Folder, null,
+                            tint     = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            modifier = Modifier.size(14.dp),
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text  = folder!!,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    folderCards.forEach { card -> projectWithChildren(card, 1) }
+                }
+                Spacer(Modifier.height(4.dp))
             }
         }
     }
@@ -317,21 +640,25 @@ private fun ProjectListRow(
     card: ProjectsCard,
     onProjectClick: (String) -> Unit,
     onStatusChange: (String, ProjectStatus) -> Unit,
+    indentLevel: Int = 0,
 ) {
     val project  = card.progress.project
     val progress = card.progress
     var menuExpanded by remember { mutableStateOf(false) }
+    val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
 
     Surface(
         onClick  = { onProjectClick(project.id) },
-        modifier = Modifier.fillMaxWidth(),
-        color    = MaterialTheme.colorScheme.background,
+        modifier = Modifier
+            .fillMaxWidth()
+            .projectDragSource(project.id, haptics),
+        color    = Color.Transparent,
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(start = (12 + indentLevel * 20).dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
         ) {
             ProjectTypeIcon(type = project.type, colorHex = project.colorHex, ratio = progress.ratio, size = 16.dp, iconEmoji = project.iconEmoji)
             Spacer(Modifier.width(10.dp))
@@ -341,20 +668,6 @@ private fun ProjectListRow(
                 modifier = Modifier.weight(1f),
                 maxLines = 1,
             )
-            if (card.folderName != null) {
-                Spacer(Modifier.width(6.dp))
-                Surface(
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    shape = RoundedCornerShape(6.dp),
-                ) {
-                    Text(
-                        text     = card.folderName,
-                        style    = MaterialTheme.typography.labelSmall,
-                        color    = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                    )
-                }
-            }
             if (progress.totalCount > 0) {
                 Spacer(Modifier.width(6.dp))
                 Surface(
@@ -372,14 +685,12 @@ private fun ProjectListRow(
                 IconButton(onClick = { menuExpanded = true }, modifier = Modifier.size(32.dp)) {
                     Icon(Icons.Outlined.MoreVert, contentDescription = "Move", modifier = Modifier.size(18.dp))
                 }
-                DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-                    ProjectStatus.entries.filter { it != project.status }.forEach { status ->
-                        DropdownMenuItem(
-                            text = { Text(status.labelWithEmoji) },
-                            onClick = { menuExpanded = false; onStatusChange(project.id, status) },
-                        )
-                    }
-                }
+                StatusMoveMenu(
+                    expanded  = menuExpanded,
+                    current   = project.status,
+                    onDismiss = { menuExpanded = false },
+                    onSelect  = { onStatusChange(project.id, it) },
+                )
             }
         }
     }
@@ -469,38 +780,4 @@ private fun ProjectDeadlineBadge(dueDate: LocalDate) {
             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
         )
     }
-}
-
-// ── Status color + label helpers ──────────────────────────────────────────────
-
-private val ProjectStatus.columnHeaderColor: Color
-    @Composable get() {
-        val dark = isSystemInDarkTheme()
-        return when (this) {
-            ProjectStatus.NOT_STARTED -> MaterialTheme.colorScheme.surfaceVariant
-            ProjectStatus.IN_PROGRESS -> MaterialTheme.colorScheme.primaryContainer
-            ProjectStatus.WAITING     -> if (dark) Color(0xFF4D3A00) else Color(0xFFFFF3CD)
-            ProjectStatus.DONE        -> if (dark) Color(0xFF1A3D2A) else Color(0xFFD4EDDA)
-            ProjectStatus.PAUSED      -> if (dark) Color(0xFF3A3A3A) else Color(0xFFE0E0E0)
-        }
-    }
-
-private val ProjectStatus.columnHeaderContentColor: Color
-    @Composable get() {
-        val dark = isSystemInDarkTheme()
-        return when (this) {
-            ProjectStatus.NOT_STARTED -> MaterialTheme.colorScheme.onSurfaceVariant
-            ProjectStatus.IN_PROGRESS -> MaterialTheme.colorScheme.onPrimaryContainer
-            ProjectStatus.WAITING     -> if (dark) Color(0xFFFFE082) else Color(0xFF5D4200)
-            ProjectStatus.DONE        -> if (dark) Color(0xFF81C995) else Color(0xFF1B5E35)
-            ProjectStatus.PAUSED      -> if (dark) Color(0xFFBDBDBD) else Color(0xFF616161)
-        }
-    }
-
-private val ProjectStatus.labelWithEmoji: String get() = when (this) {
-    ProjectStatus.NOT_STARTED -> "\u2B1C Not Started"
-    ProjectStatus.IN_PROGRESS -> "\uD83D\uDD35 In Progress"
-    ProjectStatus.WAITING     -> "\uD83D\uDFE1 Waiting"
-    ProjectStatus.DONE        -> "\u2705 Done"
-    ProjectStatus.PAUSED      -> "\u23F8 Paused"
 }
