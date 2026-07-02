@@ -17,7 +17,7 @@ class CommentRepository(
     private val dao: CommentDao,
     private val actionLog: ActionLogRepository,
     private val syncDao: SyncDao,
-    private val syncthingWriter: LanSyncWriter,
+    private val lanSyncWriter: LanSyncWriter,
 ) {
 
     fun observeByTask(taskId: String): Flow<List<Comment>> =
@@ -28,7 +28,7 @@ class CommentRepository(
 
     suspend fun add(comment: Comment) {
         dao.insert(comment.toEntity())
-        syncthingWriter.writeComment(comment.toEntity())
+        lanSyncWriter.writeComment(comment.toEntity())
         actionLog.insert(
             ActionLog(
                 id         = "al_${System.currentTimeMillis()}_COMMENT_ADDED",
@@ -44,13 +44,13 @@ class CommentRepository(
     suspend fun edit(id: String, newContent: String) {
         val now = LocalDateTime.now()
         dao.updateContent(id, newContent, now.toString())
-        dao.getById(id)?.let { syncthingWriter.writeComment(it) }
+        dao.getById(id)?.let { lanSyncWriter.writeComment(it) }
     }
 
     suspend fun delete(id: String) {
         val now = LocalDateTime.now()
         syncDao.insertTombstone(DeletedEntityEntity("tomb_$id", "comments", id, now))
-        syncthingWriter.writeTombstone("comments", id, now)
+        lanSyncWriter.writeTombstone("comments", id, now)
         dao.delete(id)
     }
 }

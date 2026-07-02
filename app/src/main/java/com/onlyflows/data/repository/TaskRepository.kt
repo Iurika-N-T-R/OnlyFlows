@@ -27,14 +27,14 @@ class TaskRepository(
     private val checklistSectionDao: ChecklistSectionDao,
     private val actionLog: ActionLogRepository,
     private val syncDao: SyncDao,
-    private val syncthingWriter: LanSyncWriter,
+    private val lanSyncWriter: LanSyncWriter,
     private val onTaskMutated: suspend () -> Unit,
 ) {
 
     private suspend fun refreshWidgets() = onTaskMutated()
 
     private suspend fun syncWrite(id: String) {
-        taskDao.getById(id)?.let { syncthingWriter.writeTask(it) }
+        taskDao.getById(id)?.let { lanSyncWriter.writeTask(it) }
     }
 
     private suspend fun tombstone(id: String) {
@@ -47,7 +47,7 @@ class TaskRepository(
                 deletedAt  = now,
             )
         )
-        syncthingWriter.writeTombstone("tasks", id, now)
+        lanSyncWriter.writeTombstone("tasks", id, now)
     }
 
     private suspend fun log(type: ActionType, taskId: String, label: String, extra: String? = null) {
@@ -149,14 +149,14 @@ class TaskRepository(
     suspend fun insert(task: Task) {
         taskDao.insert(task.toEntity())
         checklistDao.insertAll(task.checklistItems.map { it.toEntity() })
-        syncthingWriter.writeTask(task.toEntity())
+        lanSyncWriter.writeTask(task.toEntity())
         log(ActionType.TASK_CREATED, task.id, task.title)
         refreshWidgets()
     }
 
     suspend fun update(task: Task) {
         taskDao.update(task.toEntity())
-        syncthingWriter.writeTask(task.toEntity())
+        lanSyncWriter.writeTask(task.toEntity())
         refreshWidgets()
     }
 
@@ -263,13 +263,13 @@ class TaskRepository(
             updatedAt      = LocalDateTime.now(),
         )
         taskDao.insert(nextTask.toEntity())
-        syncthingWriter.writeTask(nextTask.toEntity())
+        lanSyncWriter.writeTask(nextTask.toEntity())
         if (nextTask.checklistItems.isNotEmpty()) {
             val newItems = nextTask.checklistItems.mapIndexed { idx, item ->
                 item.copy(id = "cli_${System.currentTimeMillis()}_$idx", taskId = nextTask.id).toEntity()
             }
             checklistDao.insertAll(newItems)
-            newItems.forEach { syncthingWriter.writeChecklistItem(it) }
+            newItems.forEach { lanSyncWriter.writeChecklistItem(it) }
         }
         syncWrite(id)
     }
@@ -320,24 +320,24 @@ class TaskRepository(
 
     suspend fun addChecklistItem(item: ChecklistItem) {
         checklistDao.insert(item.toEntity())
-        syncthingWriter.writeChecklistItem(item.toEntity())
+        lanSyncWriter.writeChecklistItem(item.toEntity())
     }
 
     suspend fun toggleChecklistItem(id: String, completed: Boolean) {
         checklistDao.setCompleted(id, completed)
-        checklistDao.getById(id)?.let { syncthingWriter.writeChecklistItem(it) }
+        checklistDao.getById(id)?.let { lanSyncWriter.writeChecklistItem(it) }
     }
 
     suspend fun deleteChecklistItem(id: String) {
         val now = LocalDateTime.now()
         syncDao.insertTombstone(DeletedEntityEntity("tomb_$id", "checklist_items", id, now))
-        syncthingWriter.writeTombstone("checklist_items", id, now)
+        lanSyncWriter.writeTombstone("checklist_items", id, now)
         checklistDao.delete(id)
     }
 
     suspend fun updateChecklistItem(item: ChecklistItem) {
         checklistDao.update(item.toEntity())
-        syncthingWriter.writeChecklistItem(item.toEntity())
+        lanSyncWriter.writeChecklistItem(item.toEntity())
     }
 
     suspend fun getChecklistItemById(id: String): ChecklistItem? =
@@ -347,7 +347,7 @@ class TaskRepository(
         items.forEach { item ->
             val entity = item.toEntity()
             checklistDao.update(entity)
-            syncthingWriter.writeChecklistItem(entity)
+            lanSyncWriter.writeChecklistItem(entity)
         }
     }
 
@@ -357,19 +357,19 @@ class TaskRepository(
     suspend fun addChecklistSection(section: ChecklistSection) {
         val entity = section.toEntity()
         checklistSectionDao.insert(entity)
-        syncthingWriter.writeChecklistSection(entity)
+        lanSyncWriter.writeChecklistSection(entity)
     }
 
     suspend fun renameChecklistSection(section: ChecklistSection) {
         val entity = section.toEntity()
         checklistSectionDao.update(entity)
-        syncthingWriter.writeChecklistSection(entity)
+        lanSyncWriter.writeChecklistSection(entity)
     }
 
     suspend fun deleteChecklistSection(id: String) {
         val now = LocalDateTime.now()
         syncDao.insertTombstone(DeletedEntityEntity("tomb_$id", "checklist_sections", id, now))
-        syncthingWriter.writeTombstone("checklist_sections", id, now)
+        lanSyncWriter.writeTombstone("checklist_sections", id, now)
         checklistSectionDao.unassignItems(id)
         checklistSectionDao.delete(id)
     }
@@ -378,7 +378,7 @@ class TaskRepository(
         checklistDao.getById(itemId)?.let { entity ->
             val updated = entity.copy(sectionId = sectionId)
             checklistDao.update(updated)
-            syncthingWriter.writeChecklistItem(updated)
+            lanSyncWriter.writeChecklistItem(updated)
         }
     }
 

@@ -14,7 +14,7 @@ import java.time.LocalDateTime
 class SavedLocationRepository(
     private val dao: SavedLocationDao,
     private val syncDao: SyncDao,
-    private val syncthingWriter: LanSyncWriter,
+    private val lanSyncWriter: LanSyncWriter,
 ) {
 
     fun observeAll(): Flow<List<SavedLocation>> =
@@ -28,13 +28,13 @@ class SavedLocationRepository(
 
     suspend fun insert(location: SavedLocation) {
         dao.insert(location.toEntity())
-        syncthingWriter.writeSavedLocation(location.toEntity())
+        lanSyncWriter.writeSavedLocation(location.toEntity())
     }
 
     suspend fun delete(location: SavedLocation) {
         val now = LocalDateTime.now()
         syncDao.insertTombstone(DeletedEntityEntity("tomb_${location.id}", "saved_locations", location.id, now))
-        syncthingWriter.writeTombstone("saved_locations", location.id, now)
+        lanSyncWriter.writeTombstone("saved_locations", location.id, now)
         dao.delete(location.toEntity())
     }
 }

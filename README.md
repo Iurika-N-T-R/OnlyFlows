@@ -4,7 +4,7 @@
 
 Task & project manager — minimal, editorial, local-first
 
-Jetpack Compose × Room × Syncthing × WorkManager
+Jetpack Compose × Room × LAN Sync × WorkManager
 
 [![version](https://img.shields.io/badge/version-0.50.3-blue?style=flat-square)](https://github.com/Iurika-N-T-R/OnlyFlows/releases)
 [![kotlin](https://img.shields.io/badge/kotlin-2.1.0-7F52FF?style=flat-square&logo=kotlin&logoColor=white)](https://kotlinlang.org)
@@ -72,21 +72,16 @@ Jetpack Compose × Room × Syncthing × WorkManager
 - Quick start from multi-selection (long-press → More → "Start Timer")
 - Total displayed in ProjectDetailScreen (sum of all completed entries)
 
-### Syncthing Sync
-- Peer-to-peer sync via Syncthing (no cloud, no account)
-- Automatic import when files change (FileObserver, real-time)
-- Periodic background scan every 15 min via WorkManager (fallback)
+### LAN Sync
+- Peer-to-peer sync between devices on the local network (no cloud, no account)
+- Device discovery + pairing, delta exchange over LAN
 - Last-Write-Wins conflict resolution on `updatedAt` field
-- Tombstone-based delete propagation (`_meta/tombstones.json`)
-- Initial export when folder is first configured
-- Device info written to `_meta/device.json` at each start
+- Tombstone-based delete propagation
 - Force sync button in settings
-- Status indicator: FolderNotSet / WaitingToSync / Importing / Ready / Error
 
 ### Attachments
 - Add file attachments to tasks
-- Physical file copy to Syncthing folder for sync
-- Metadata JSON for each attachment
+- Metadata JSON for each attachment (metadata syncs; file transfer not yet supported over LAN sync)
 
 ### Tablet Support
 - Permanent sidebar on wide screens (`WindowWidthSizeClass.EXPANDED`)
@@ -101,7 +96,7 @@ Jetpack Compose × Room × Syncthing × WorkManager
 | Notifications | Sound, vibration, bypass DND |
 | Calendar | Local calendar integration |
 | Backup | Export / import |
-| Syncthing | Folder picker, sync status, force sync |
+| LAN Sync | Device pairing, sync status, force sync |
 | About | Version, stack, licenses |
 
 ---
@@ -112,24 +107,23 @@ Jetpack Compose × Room × Syncthing × WorkManager
 app/src/main/java/com/onlyflows/
 ├── data/
 │   ├── local/
-│   │   ├── AppDatabase.kt          Room v22, 14 entities, seed callback
+│   │   ├── AppDatabase.kt          Room DB, seed callback
 │   │   ├── Converters.kt           LocalDate / LocalDateTime / JSON
 │   │   ├── entity/                 TaskEntity, ProjectEntity, GoalEntity…
 │   │   └── dao/                    TaskDao, SyncDao, GoalDao…
-│   ├── repository/                 RepositoryImpl classes
-│   ├── syncthing/                  SyncthingWriter, Importer, ConflictResolver…
+│   ├── repository/                 Repository classes
+│   ├── lan/                        LanSyncCoordinator, LanSyncWriter, EntityJson…
 │   ├── notifications/              ReminderScheduler, DailyAlertScheduler, GeofenceManager
-│   ├── preferences/                AppPreferences, SyncthingPreferences…
+│   ├── preferences/                AppPreferences, NotificationPreferences…
 │   ├── calendar/                   CalendarRepository
 │   └── backup/                     BackupManager
 ├── domain/
 │   ├── model/Models.kt             Task, Project, Goal, TimeEntry, Reminder…
-│   ├── repository/                 Repository interfaces
 │   └── RecurrenceScheduler.kt      nextDueDate() pure function
 ├── ui/
 │   ├── screens/                    today / inbox / upcoming / anytime / someday /
 │   │                               projects / project / task / logbook / trash /
-│   │                               search / settings (+ syncthing)
+│   │                               search / settings (+ lan sync)
 │   ├── components/                 TaskItem, SelectionBar, TaskFilterBar…
 │   ├── overlays/                   AddTaskSheet, DatePicker, QuickFindPopup…
 │   ├── layout/                     AdaptiveAppLayout (phone + tablet)
@@ -164,7 +158,7 @@ app/src/main/java/com/onlyflows/
 | DI | AppContainer (manual injection) |
 | Notifications | AlarmManager (exact alarms) + BroadcastReceiver |
 | Background | WorkManager |
-| Sync | Syncthing (SAF + FileObserver + WorkManager) |
+| Sync | LAN sync (device discovery + delta exchange) |
 | Integration | CalendarProvider, FileProvider |
 
 ---
@@ -172,8 +166,7 @@ app/src/main/java/com/onlyflows/
 ## Docs
 
 - [docs/BUILD.md](docs/BUILD.md) — How to build from source
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — Full file & structure reference
-- [docs/SYNC.md](docs/SYNC.md) — How the Syncthing sync system works
+- [CLAUDE.md](CLAUDE.md) — Architecture & structure reference
 
 ---
 

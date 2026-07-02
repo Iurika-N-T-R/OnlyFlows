@@ -14,7 +14,7 @@ import java.time.LocalDateTime
 class NoteRepository(
     private val noteDao: NoteDao,
     private val syncDao: SyncDao,
-    private val syncthingWriter: LanSyncWriter,
+    private val lanSyncWriter: LanSyncWriter,
 ) {
     fun observeByProject(projectId: String): Flow<List<Note>> =
         noteDao.observeByProject(projectId).map { list -> list.map { it.toDomain() } }
@@ -23,18 +23,18 @@ class NoteRepository(
 
     suspend fun insert(note: Note) {
         noteDao.insert(note.toEntity())
-        syncthingWriter.writeNote(note.toEntity())
+        lanSyncWriter.writeNote(note.toEntity())
     }
 
     suspend fun update(note: Note) {
         noteDao.update(note.toEntity())
-        syncthingWriter.writeNote(note.toEntity())
+        lanSyncWriter.writeNote(note.toEntity())
     }
 
     suspend fun delete(id: String) {
         val now = LocalDateTime.now()
         syncDao.insertTombstone(DeletedEntityEntity("tomb_$id", "notes", id, now))
-        syncthingWriter.writeTombstone("notes", id, now)
+        lanSyncWriter.writeTombstone("notes", id, now)
         noteDao.delete(id)
     }
 }

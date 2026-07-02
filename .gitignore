@@ -28,3 +28,7 @@ Screenshot/
 
 # Transfer folder (contains keystore + sensitive setup info)
 _transfer/
+
+# JVM crash dumps
+hs_err_*.log
+replay_*.log

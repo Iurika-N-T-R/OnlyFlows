@@ -14,7 +14,7 @@ import java.time.LocalDateTime
 class ChecklistItemReminderRepository(
     private val dao: ChecklistItemReminderDao,
     private val syncDao: SyncDao,
-    private val syncthingWriter: LanSyncWriter,
+    private val lanSyncWriter: LanSyncWriter,
 ) {
 
     fun observeByItem(itemId: String): Flow<List<ChecklistItemReminder>> =
@@ -26,14 +26,14 @@ class ChecklistItemReminderRepository(
     suspend fun set(reminder: ChecklistItemReminder) {
         val entity = reminder.toEntity()
         dao.upsert(entity)
-        syncthingWriter.writeChecklistItemReminder(entity)
+        lanSyncWriter.writeChecklistItemReminder(entity)
     }
 
     suspend fun clear(itemId: String) {
         dao.getByItem(itemId).forEach { r ->
             val now = LocalDateTime.now()
             syncDao.insertTombstone(DeletedEntityEntity("tomb_${r.id}", "checklist_item_reminders", r.id, now))
-            syncthingWriter.writeTombstone("checklist_item_reminders", r.id, now)
+            lanSyncWriter.writeTombstone("checklist_item_reminders", r.id, now)
         }
         dao.deleteByItem(itemId)
     }

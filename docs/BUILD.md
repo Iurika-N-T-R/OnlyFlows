@@ -88,7 +88,7 @@ Or drag the APK onto an Android device / emulator.
 
 No API keys or secrets are required. OnlyFlows is fully local-first:
 - All data is stored in Room (SQLite) on the device
-- Sync is handled by Syncthing (optional, configured in Settings → Syncthing)
+- Sync is handled by the built-in LAN sync (optional, configured in Settings → LAN Sync)
 - No network permissions are required except `ACCESS_NETWORK_STATE` for the sync status monitor
 
 ---

@@ -34,13 +34,13 @@ class ProjectRepository(
     private val taskDao: TaskDao,
     private val actionLog: ActionLogRepository,
     private val syncDao: SyncDao,
-    private val syncthingWriter: LanSyncWriter,
+    private val lanSyncWriter: LanSyncWriter,
 ) {
 
     private suspend fun tombstone(id: String, type: String) {
         val now = LocalDateTime.now()
         syncDao.insertTombstone(DeletedEntityEntity("tomb_$id", type, id, now))
-        syncthingWriter.writeTombstone(type, id, now)
+        lanSyncWriter.writeTombstone(type, id, now)
     }
 
     private suspend fun log(type: ActionType, projectId: String, label: String, extra: String? = null) {
@@ -123,15 +123,15 @@ class ProjectRepository(
                 changedAt = LocalDateTime.now().toString(),
             )
         )
-        syncthingWriter.writeProject(project.toEntity())
-        project.sections.forEach { syncthingWriter.writeSection(it.toEntity()) }
+        lanSyncWriter.writeProject(project.toEntity())
+        project.sections.forEach { lanSyncWriter.writeSection(it.toEntity()) }
         log(ActionType.PROJECT_CREATED, project.id, project.title)
     }
 
     suspend fun update(project: Project) {
         val entity = project.copy(updatedAt = LocalDateTime.now()).toEntity()
         projectDao.update(entity)
-        syncthingWriter.writeProject(entity)
+        lanSyncWriter.writeProject(entity)
     }
 
     suspend fun delete(id: String) {
@@ -142,12 +142,12 @@ class ProjectRepository(
 
     suspend fun archive(id: String) {
         projectDao.archive(id, LocalDateTime.now().toString())
-        projectDao.getById(id)?.let { syncthingWriter.writeProject(it) }
+        projectDao.getById(id)?.let { lanSyncWriter.writeProject(it) }
     }
 
     suspend fun unarchive(id: String) {
         projectDao.unarchive(id, LocalDateTime.now().toString())
-        projectDao.getById(id)?.let { syncthingWriter.writeProject(it) }
+        projectDao.getById(id)?.let { lanSyncWriter.writeProject(it) }
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -172,20 +172,20 @@ class ProjectRepository(
                 changedAt = LocalDateTime.now().toString(),
             )
         )
-        projectDao.getById(id)?.let { syncthingWriter.writeProject(it) }
+        projectDao.getById(id)?.let { lanSyncWriter.writeProject(it) }
         log(ActionType.PROJECT_STATUS_CHANGED, id, id, extra = status.name)
     }
 
     suspend fun insertSection(section: Section) {
         sectionDao.insert(section.toEntity())
-        syncthingWriter.writeSection(section.toEntity())
+        lanSyncWriter.writeSection(section.toEntity())
         log(ActionType.SECTION_CREATED, section.id, section.title)
     }
 
     suspend fun updateSection(section: Section) {
         val entity = section.toEntity().copy(updatedAt = LocalDateTime.now())
         sectionDao.update(entity)
-        syncthingWriter.writeSection(entity)
+        lanSyncWriter.writeSection(entity)
     }
 
     suspend fun deleteSection(sectionId: String) {
@@ -203,7 +203,7 @@ class ProjectRepository(
 class FolderRepository(
     private val folderDao: FolderDao,
     private val syncDao: SyncDao,
-    private val syncthingWriter: LanSyncWriter,
+    private val lanSyncWriter: LanSyncWriter,
 ) {
 
     fun observeAll(): Flow<List<Folder>> =
@@ -211,18 +211,18 @@ class FolderRepository(
 
     suspend fun insert(folder: Folder) {
         folderDao.insert(folder.toEntity())
-        syncthingWriter.writeFolder(folder.toEntity())
+        lanSyncWriter.writeFolder(folder.toEntity())
     }
 
     suspend fun update(folder: Folder) {
         folderDao.update(folder.toEntity())
-        syncthingWriter.writeFolder(folder.toEntity())
+        lanSyncWriter.writeFolder(folder.toEntity())
     }
 
     suspend fun delete(id: String) {
         val now = LocalDateTime.now()
         syncDao.insertTombstone(DeletedEntityEntity("tomb_$id", "folders", id, now))
-        syncthingWriter.writeTombstone("folders", id, now)
+        lanSyncWriter.writeTombstone("folders", id, now)
         folderDao.delete(id)
     }
 }
@@ -230,7 +230,7 @@ class FolderRepository(
 class TagRepository(
     private val tagDao: TagDao,
     private val syncDao: SyncDao,
-    private val syncthingWriter: LanSyncWriter,
+    private val lanSyncWriter: LanSyncWriter,
 ) {
 
     fun observeAll(): Flow<List<Tag>> =
@@ -244,18 +244,18 @@ class TagRepository(
 
     suspend fun insert(tag: Tag) {
         tagDao.insert(tag.toEntity())
-        syncthingWriter.writeTag(tag.toEntity())
+        lanSyncWriter.writeTag(tag.toEntity())
     }
 
     suspend fun update(tag: Tag) {
         tagDao.update(tag.toEntity())
-        syncthingWriter.writeTag(tag.toEntity())
+        lanSyncWriter.writeTag(tag.toEntity())
     }
 
     suspend fun delete(id: String) {
         val now = LocalDateTime.now()
         syncDao.insertTombstone(DeletedEntityEntity("tomb_$id", "tags", id, now))
-        syncthingWriter.writeTombstone("tags", id, now)
+        lanSyncWriter.writeTombstone("tags", id, now)
         tagDao.delete(id)
     }
 
@@ -263,7 +263,7 @@ class TagRepository(
         val now = LocalDateTime.now()
         tagDao.getUnusedIds().forEach { id ->
             syncDao.insertTombstone(DeletedEntityEntity("tomb_$id", "tags", id, now))
-            syncthingWriter.writeTombstone("tags", id, now)
+            lanSyncWriter.writeTombstone("tags", id, now)
         }
         tagDao.deleteUnused()
     }

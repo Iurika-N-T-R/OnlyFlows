@@ -14,7 +14,7 @@ import java.time.LocalDateTime
 class GoalRepository(
     private val dao: GoalDao,
     private val syncDao: SyncDao,
-    private val syncthingWriter: LanSyncWriter,
+    private val lanSyncWriter: LanSyncWriter,
 ) {
 
     fun observeAll(): Flow<List<Goal>> =
@@ -28,35 +28,35 @@ class GoalRepository(
 
     suspend fun insert(goal: Goal) {
         dao.insert(goal.toEntity())
-        syncthingWriter.writeGoal(goal.toEntity())
+        lanSyncWriter.writeGoal(goal.toEntity())
     }
 
     suspend fun update(goal: Goal) {
         dao.update(goal.toEntity())
-        syncthingWriter.writeGoal(goal.toEntity())
+        lanSyncWriter.writeGoal(goal.toEntity())
     }
 
     suspend fun setProgress(id: String, count: Int) {
         dao.setProgress(id, count)
-        dao.getById(id)?.let { syncthingWriter.writeGoal(it) }
+        dao.getById(id)?.let { lanSyncWriter.writeGoal(it) }
     }
 
     suspend fun setCompleted(id: String, completed: Boolean) {
         dao.setCompleted(id, completed)
-        dao.getById(id)?.let { syncthingWriter.writeGoal(it) }
+        dao.getById(id)?.let { lanSyncWriter.writeGoal(it) }
     }
 
     suspend fun softDelete(id: String) {
         val now = LocalDateTime.now()
         dao.softDelete(id)
-        syncthingWriter.writeTombstone("goals", id, now)
+        lanSyncWriter.writeTombstone("goals", id, now)
         syncDao.insertTombstone(DeletedEntityEntity("tomb_$id", "goals", id, now))
     }
 
     suspend fun delete(id: String) {
         val now = LocalDateTime.now()
         syncDao.insertTombstone(DeletedEntityEntity("tomb_$id", "goals", id, now))
-        syncthingWriter.writeTombstone("goals", id, now)
+        lanSyncWriter.writeTombstone("goals", id, now)
         dao.delete(id)
     }
 }

@@ -29,8 +29,8 @@ OnlyFlows is a Jetpack Compose Android app (minSdk 26, targetSdk 35, Kotlin 2.1.
 UI (Compose Screens + ViewModels)
   ↕ StateFlow<UiState> / onEvent()
 Domain (Models + RecurrenceScheduler)
-  ↕ Repository interfaces
-Data (RepositoryImpl + Room DAOs + DataStore + SyncthingWriter)
+  ↕ Repositories
+Data (Repositories + Room DAOs + DataStore + LanSyncWriter)
   ↕
 Local DB (Room v30, 21 entities) + DataStore Preferences
 ```
@@ -39,15 +39,15 @@ Local DB (Room v30, 21 entities) + DataStore Preferences
 
 **UDF** — Each screen has a paired ViewModel exposing a single `StateFlow<UiState>` (immutable data class). The UI calls `viewModel.onEvent(Event)` for all interactions. Screens receive navigation as lambda callbacks; ViewModels never navigate.
 
-**Repository pattern** — ViewModels call repository interfaces (`domain/repository/`), never DAOs directly. Repository implementations (`data/repository/`) use `flatMapLatest` + `combine` to join Room entities and emit domain models as `Flow<T>`.
+**Repository pattern** — ViewModels call repositories (concrete classes in `data/repository/`, no interfaces), never DAOs directly. Repositories use `flatMapLatest` + `combine` to join Room entities and emit domain models as `Flow<T>`.
 
 **Room as source of truth** — All data is observed as `Flow<List<T>>`. No duplicate state in ViewModels; only transient UI state (e.g., `movingToCompletedIds` for animations).
 
 **Soft delete** — Every deletable entity has `deletedAt: LocalDateTime?`. All DAO queries filter `WHERE deletedAt IS NULL`. Never call `taskRepo.delete()` from user-facing delete actions — use `taskRepo.softDelete()`. Hard delete only for: ConvertToProject (removes original task) and EmptyTrash.
 
-**Syncthing sync** — Every repository impl receives `syncDao` + `syncthingWriter`. All writes call `syncthingWriter` after the Room DAO call. `SyncthingCoordinator` (declared first in AppContainer) is the central orchestrator.
+**LAN sync** — Every repository receives `syncDao` + `lanSyncWriter`. All writes call `lanSyncWriter` after the Room DAO call. `LanSyncCoordinator` (declared first in AppContainer) is the central orchestrator.
 
-**Manual DI via AppContainer** — `AppContainer.kt` manually constructs all dependencies in declaration order (Syncthing components first, then repos that depend on them). Access via `(application as OnlyFlowsApp).container`.
+**Manual DI via AppContainer** — `AppContainer.kt` manually constructs all dependencies in declaration order (LAN sync components first, then repos that depend on them). Access via `(application as OnlyFlowsApp).container`.
 
 ### Entry Points
 
@@ -73,29 +73,28 @@ Local DB (Room v30, 21 entities) + DataStore Preferences
   - Project screens: `projects` (Kanban + List), `project` (detail)
   - `task` (detail), `search` (QuickFind + DateResults)
   - `goals` (list + detail), `datetracker`, `rss` (local reader + article)
-  - `settings` (appearance, general, calendar, backup, notifications, syncthing, locations, tags, statistics, logs, about)
+  - `settings` (appearance, general, calendar, backup, notifications, lan sync, locations, tags, statistics, logs, about)
 - `ui/components/` — Reusable composables (`TaskItem`, `SwipeableTaskItem`, `SelectionBar`, `TaskFilterBar`, `EmptyState`, `AgendaCard`, …)
 - `ui/overlays/` — Modal bottom sheets (`AddTaskSheet`, `DatePickerModal`, `SmartMoveSheet`, `BulkMoreSheet`, `NoteEditorSheet`, `QuickFindOverlay`, `AddGoalSheet`, `GoalPickerSheet`, …)
 - `ui/layout/AdaptiveAppLayout.kt` — Phone: `ModalNavigationDrawer`; Tablet (`WindowWidthSizeClass.EXPANDED`): permanent sidebar in a `Row`
-- `ui/widget/` — Glance home screen widget (dark/light, recurrence-safe, Room Flow auto-refresh)
+- `ui/widget/` — RemoteViews home screen widget (`OnlyFlowsWidgetProvider`; dark/light, recurrence-safe, refreshed via `WidgetUpdater` on task mutations)
 
 ### Notifications & Background
 
 - `ReminderScheduler` — `AlarmManager` exact alarms; re-scheduled after boot via `BootReceiver`
 - `DailyAlertScheduler` / `GeofenceManager` — location-based and daily summary alerts
-- `WorkManager` — Backup export/import + Syncthing import worker
+- `WorkManager` — Backup export/import + RSS periodic sync
 - Two notification channels: sound channel + silent channel
 
-### Syncthing Sync
+### LAN Sync
 
-Files: `data/syncthing/`
+Files: `data/lan/`
 
-- `SyncthingWriter` — writes JSON files to the Syncthing folder after each mutation
-- `SyncthingImporter` — reads incoming JSON and upserts into Room
-- `SyncthingExporter` — full export on first setup
-- `SyncthingCoordinator` — orchestrates monitor + importer + conflict resolver
-- `SyncthingStatusMonitor` — watches Syncthing folder via `FileObserver`
-- `ConflictResolver` — handles last-write-wins conflict resolution
+- `LanSyncWriter` — repositories call it after each mutation; enqueues entity JSON on the coordinator
+- `LanSyncCoordinator` — orchestrates discovery, server, client; exchanges deltas with paired devices (last-write-wins on `updatedAt`)
+- `LanSyncServer` / `LanSyncClient` — HTTP-over-LAN transport between devices
+- `LanSyncDiscovery` — device discovery on the local network
+- `EntityJson.kt` — `toJson()` / `*EntityFromJson()` for every synced entity
 - `DeletedEntityEntity` — tombstone table used to propagate deletes across devices
 
 ### Recurrence
@@ -105,7 +104,7 @@ Files: `data/syncthing/`
 ### Goals System
 
 - `GoalsScreen` + `GoalDetailScreen` — track habits/goals with log entries
-- `GoalRepository` / `GoalLogRepository` — both sync via Syncthing
+- `GoalRepository` / `GoalLogRepository` — both sync via LAN sync
 - `GoalPickerSheet` — picker used in TaskDetail to link a task to a goal
 
 ### Other Features
@@ -122,8 +121,8 @@ Files: `data/syncthing/`
 2. Add field to `*Entity.kt`, update `toDomain()` + `toEntity()`
 3. **Bump `AppDatabase.version` by 1** (fallbackToDestructiveMigration wipes dev data — intentional)
 4. Add query to DAO
-5. Add method to repository interface + impl (include `syncthingWriter` call after DAO call)
-6. Add to `AppContainer` if new repo (after Syncthing components)
+5. Add method to the repository (include `lanSyncWriter` call after DAO call)
+6. Add to `AppContainer` if new repo (after LAN sync components)
 7. Add to UiState + Event sealed interface + `ViewModel.onEvent()`
 8. Wire in Screen composable
 
@@ -133,11 +132,10 @@ Files: `data/syncthing/`
 - **Inbox definition** — A task is in Inbox only if `projectId IS NULL AND scheduledGroup IS NULL`. Tasks with a project but no scheduledGroup go to Anytime (priority ≠ NONE) or Someday (priority = NONE).
 - **MetaRow trailing + value** — In `TaskDetailScreen`, both `value` and `trailing` render simultaneously — they are NOT mutually exclusive.
 - **ViewModel injection** — Always `AndroidViewModel(app: Application)`, access container via `(app as OnlyFlowsApp).container`.
-- **AppContainer declaration order** — Syncthing components must be declared before repositories because repos take `syncthingWriter` as a constructor parameter.
-- **Widget recurrence** — The Glance widget calls `completeRecurring()` not `setCompleted()` to correctly create the next occurrence.
+- **AppContainer declaration order** — LAN sync components must be declared before repositories because repos take `lanSyncWriter` as a constructor parameter.
+- **Widget recurrence** — The widget calls `completeRecurring()` not `setCompleted()` to correctly create the next occurrence.
 
 ## Important Files for Context
 
-- [doc.md](doc.md) — Detailed DAO methods, domain model fields (note: reflects DB v20; some sections are stale)
 - [Todo.md](Todo.md) — Planned and in-progress features
 - [CHANGELOG.md](CHANGELOG.md) — Version history (authoritative for what changed and when)

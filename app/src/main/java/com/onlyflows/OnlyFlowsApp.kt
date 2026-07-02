@@ -3,7 +3,6 @@ package com.onlyflows
 import android.app.Application
 import com.onlyflows.data.debug.AppLog
 import com.onlyflows.data.notifications.ReminderReceiver
-import com.onlyflows.data.syncthing.SyncthingImportWorker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -27,7 +26,8 @@ class OnlyFlowsApp : Application() {
         installUncaughtExceptionLogger()
         container = AppContainer(this)
         container.lanSyncCoordinator.start()
-        SyncthingImportWorker.schedule(this)
+        // Drop the periodic work left behind by the removed Syncthing import worker
+        androidx.work.WorkManager.getInstance(this).cancelUniqueWork("syncthing_periodic_import")
         // Schedule RSS sync with the saved interval (default 30 min)
         CoroutineScope(Dispatchers.IO).launch {
             val interval = container.appPreferences.rssRefreshIntervalMinutes.first()

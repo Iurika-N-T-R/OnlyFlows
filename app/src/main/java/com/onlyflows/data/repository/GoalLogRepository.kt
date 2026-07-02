@@ -14,7 +14,7 @@ import java.time.LocalDateTime
 class GoalLogRepository(
     private val dao: GoalLogDao,
     private val syncDao: SyncDao,
-    private val syncthingWriter: LanSyncWriter,
+    private val lanSyncWriter: LanSyncWriter,
 ) {
 
     fun observeByGoal(goalId: String): Flow<List<GoalLog>> =
@@ -22,18 +22,18 @@ class GoalLogRepository(
 
     suspend fun insert(log: GoalLog) {
         dao.insert(log.toEntity())
-        syncthingWriter.writeGoalLog(log.toEntity())
+        lanSyncWriter.writeGoalLog(log.toEntity())
     }
 
     suspend fun setStarred(id: String, starred: Boolean) {
         dao.setStarred(id, starred)
-        dao.getById(id)?.let { syncthingWriter.writeGoalLog(it) }
+        dao.getById(id)?.let { lanSyncWriter.writeGoalLog(it) }
     }
 
     suspend fun softDelete(id: String) {
         val now = LocalDateTime.now()
         dao.softDelete(id)
-        syncthingWriter.writeTombstone("goal_logs", id, now)
+        lanSyncWriter.writeTombstone("goal_logs", id, now)
         syncDao.insertTombstone(DeletedEntityEntity("tomb_$id", "goal_logs", id, now))
     }
 }

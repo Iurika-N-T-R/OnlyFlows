@@ -14,7 +14,7 @@ import java.time.LocalDateTime
 class DateTrackerRepository(
     private val dao: DateTrackerDao,
     private val syncDao: SyncDao,
-    private val syncthingWriter: LanSyncWriter,
+    private val lanSyncWriter: LanSyncWriter,
 ) {
 
     fun observeAll(): Flow<List<DateTracker>> =
@@ -26,19 +26,19 @@ class DateTrackerRepository(
     suspend fun insert(tracker: DateTracker) {
         val entity = tracker.toEntity()
         dao.insert(entity)
-        syncthingWriter.writeDateTracker(entity)
+        lanSyncWriter.writeDateTracker(entity)
     }
 
     suspend fun update(tracker: DateTracker) {
         val entity = tracker.toEntity()
         dao.update(entity)
-        syncthingWriter.writeDateTracker(entity)
+        lanSyncWriter.writeDateTracker(entity)
     }
 
     suspend fun delete(id: String) {
         val now = LocalDateTime.now()
         syncDao.insertTombstone(DeletedEntityEntity("tomb_$id", "date_trackers", id, now))
-        syncthingWriter.writeTombstone("date_trackers", id, now)
+        lanSyncWriter.writeTombstone("date_trackers", id, now)
         dao.softDelete(id)
     }
 }

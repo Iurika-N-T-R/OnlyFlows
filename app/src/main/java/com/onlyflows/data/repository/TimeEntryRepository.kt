@@ -18,7 +18,7 @@ class TimeEntryRepository(
     private val dao: TimeEntryDao,
     private val actionLog: ActionLogRepository,
     private val syncDao: SyncDao,
-    private val syncthingWriter: LanSyncWriter,
+    private val lanSyncWriter: LanSyncWriter,
 ) {
 
     private suspend fun log(type: ActionType, entryId: String, taskId: String, extra: String? = null) {
@@ -46,7 +46,7 @@ class TimeEntryRepository(
 
     suspend fun insert(entry: TimeEntry) {
         dao.insert(entry.toEntity())
-        syncthingWriter.writeTimeEntry(entry.toEntity())
+        lanSyncWriter.writeTimeEntry(entry.toEntity())
         log(ActionType.TIMER_STARTED, entry.id, entry.taskId)
     }
 
@@ -55,7 +55,7 @@ class TimeEntryRepository(
         val endedAt = LocalDateTime.now()
         val updated = entity.copy(endedAt = endedAt)
         dao.update(updated)
-        syncthingWriter.writeTimeEntry(updated)
+        lanSyncWriter.writeTimeEntry(updated)
         val duration = ChronoUnit.SECONDS.between(entity.startedAt, endedAt)
         log(ActionType.TIMER_STOPPED, id, entity.taskId, extra = "${duration}s")
     }
@@ -74,7 +74,7 @@ class TimeEntryRepository(
         val now = LocalDateTime.now()
         dao.getByTask(taskId).forEach { entry ->
             syncDao.insertTombstone(DeletedEntityEntity("tomb_${entry.id}", "time_entries", entry.id, now))
-            syncthingWriter.writeTombstone("time_entries", entry.id, now)
+            lanSyncWriter.writeTombstone("time_entries", entry.id, now)
         }
         dao.deleteByTask(taskId)
     }

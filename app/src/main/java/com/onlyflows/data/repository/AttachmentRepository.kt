@@ -15,7 +15,7 @@ import java.time.LocalDateTime
 class AttachmentRepository(
     private val dao: AttachmentDao,
     private val syncDao: SyncDao,
-    private val syncthingWriter: LanSyncWriter,
+    private val lanSyncWriter: LanSyncWriter,
 ) {
 
     fun observeByTask(taskId: String): Flow<List<Attachment>> =
@@ -24,19 +24,19 @@ class AttachmentRepository(
     suspend fun add(attachment: Attachment) {
         dao.insert(attachment.toEntity())
         runCatching {
-            syncthingWriter.copyAttachmentFile(
+            lanSyncWriter.copyAttachmentFile(
                 id        = attachment.id,
                 fileName  = attachment.fileName,
                 sourceUri = Uri.parse(attachment.uri),
             )
-            syncthingWriter.writeAttachmentMeta(attachment.toEntity())
+            lanSyncWriter.writeAttachmentMeta(attachment.toEntity())
         }
     }
 
     suspend fun delete(id: String) {
         val now = LocalDateTime.now()
         syncDao.insertTombstone(DeletedEntityEntity("tomb_$id", "attachments", id, now))
-        syncthingWriter.writeTombstone("attachments", id, now)
+        lanSyncWriter.writeTombstone("attachments", id, now)
         dao.delete(id)
     }
 
@@ -44,7 +44,7 @@ class AttachmentRepository(
         val now = LocalDateTime.now()
         dao.getByTask(taskId).forEach { attachment ->
             syncDao.insertTombstone(DeletedEntityEntity("tomb_${attachment.id}", "attachments", attachment.id, now))
-            syncthingWriter.writeTombstone("attachments", attachment.id, now)
+            lanSyncWriter.writeTombstone("attachments", attachment.id, now)
         }
         dao.deleteByTask(taskId)
     }

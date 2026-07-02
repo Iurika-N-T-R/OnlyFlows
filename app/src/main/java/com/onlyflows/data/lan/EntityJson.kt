@@ -1,4 +1,4 @@
-package com.onlyflows.data.syncthing
+package com.onlyflows.data.lan
 
 import com.onlyflows.data.local.entity.*
 import org.json.JSONArray

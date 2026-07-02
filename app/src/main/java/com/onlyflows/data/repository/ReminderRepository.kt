@@ -14,7 +14,7 @@ import java.time.LocalDateTime
 class ReminderRepository(
     private val dao: ReminderDao,
     private val syncDao: SyncDao,
-    private val syncthingWriter: LanSyncWriter,
+    private val lanSyncWriter: LanSyncWriter,
 ) {
 
     fun observeByTask(taskId: String): Flow<List<Reminder>> =
@@ -22,13 +22,13 @@ class ReminderRepository(
 
     suspend fun add(reminder: Reminder) {
         dao.insert(reminder.toEntity())
-        syncthingWriter.writeReminder(reminder.toEntity())
+        lanSyncWriter.writeReminder(reminder.toEntity())
     }
 
     suspend fun update(reminder: Reminder) {
         val entity = reminder.toEntity()
         dao.upsert(entity)
-        syncthingWriter.writeReminder(entity)
+        lanSyncWriter.writeReminder(entity)
     }
 
     suspend fun getById(id: String): Reminder? =
@@ -37,7 +37,7 @@ class ReminderRepository(
     suspend fun delete(id: String) {
         val now = LocalDateTime.now()
         syncDao.insertTombstone(DeletedEntityEntity("tomb_$id", "reminders", id, now))
-        syncthingWriter.writeTombstone("reminders", id, now)
+        lanSyncWriter.writeTombstone("reminders", id, now)
         dao.delete(id)
     }
 
@@ -45,7 +45,7 @@ class ReminderRepository(
         val now = LocalDateTime.now()
         dao.getByTask(taskId).forEach { reminder ->
             syncDao.insertTombstone(DeletedEntityEntity("tomb_${reminder.id}", "reminders", reminder.id, now))
-            syncthingWriter.writeTombstone("reminders", reminder.id, now)
+            lanSyncWriter.writeTombstone("reminders", reminder.id, now)
         }
         dao.deleteByTask(taskId)
     }

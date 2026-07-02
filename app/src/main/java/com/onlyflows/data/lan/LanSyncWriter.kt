@@ -1,7 +1,6 @@
 package com.onlyflows.data.lan
 
 import com.onlyflows.data.local.entity.*
-import com.onlyflows.data.syncthing.*
 import java.time.LocalDateTime
 
 class LanSyncWriter(private val coordinator: LanSyncCoordinator) {

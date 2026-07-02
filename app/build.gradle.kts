@@ -97,10 +97,7 @@ dependencies {
 
     // Adaptive layout (tablet)
     implementation(libs.androidx.adaptive)
-    implementation(libs.androidx.adaptive.layout)
-    implementation(libs.androidx.adaptive.navigation)
     implementation(libs.androidx.window)
-    implementation(libs.androidx.appcompat)
 
     // Drag-to-reorder
     implementation(libs.reorderable)

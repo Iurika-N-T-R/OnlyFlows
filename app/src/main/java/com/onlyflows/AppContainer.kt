@@ -60,7 +60,7 @@ class AppContainer(context: Context) {
         checklistSectionDao = db.checklistSectionDao(),
         actionLog           = actionLogRepository,
         syncDao             = syncDao,
-        syncthingWriter     = lanSyncWriter,
+        lanSyncWriter     = lanSyncWriter,
         onTaskMutated       = { com.onlyflows.ui.widget.WidgetUpdater.updateAll(context) },
     )
 
@@ -71,7 +71,7 @@ class AppContainer(context: Context) {
         taskDao         = db.taskDao(),
         actionLog       = actionLogRepository,
         syncDao         = syncDao,
-        syncthingWriter = lanSyncWriter,
+        lanSyncWriter = lanSyncWriter,
     )
 
     val goalRepository: GoalRepository       = GoalRepository(db.goalDao(), syncDao, lanSyncWriter)
@@ -80,25 +80,25 @@ class AppContainer(context: Context) {
     val folderRepository: FolderRepository = FolderRepository(
         folderDao       = db.folderDao(),
         syncDao         = syncDao,
-        syncthingWriter = lanSyncWriter,
+        lanSyncWriter = lanSyncWriter,
     )
 
     val tagRepository: TagRepository = TagRepository(
         tagDao          = db.tagDao(),
         syncDao         = syncDao,
-        syncthingWriter = lanSyncWriter,
+        lanSyncWriter = lanSyncWriter,
     )
 
     val noteRepository: NoteRepository = NoteRepository(
         noteDao         = db.noteDao(),
         syncDao         = syncDao,
-        syncthingWriter = lanSyncWriter,
+        lanSyncWriter = lanSyncWriter,
     )
 
     val savedLocationRepository: SavedLocationRepository = SavedLocationRepository(
         dao             = db.savedLocationDao(),
         syncDao         = syncDao,
-        syncthingWriter = lanSyncWriter,
+        lanSyncWriter = lanSyncWriter,
     )
 
     val notificationPreferences: NotificationPreferences = NotificationPreferences(context)
@@ -120,20 +120,20 @@ class AppContainer(context: Context) {
         dao             = db.timeEntryDao(),
         actionLog       = actionLogRepository,
         syncDao         = syncDao,
-        syncthingWriter = lanSyncWriter,
+        lanSyncWriter = lanSyncWriter,
     )
 
     val commentRepository: CommentRepository = CommentRepository(
         dao             = db.commentDao(),
         actionLog       = actionLogRepository,
         syncDao         = syncDao,
-        syncthingWriter = lanSyncWriter,
+        lanSyncWriter = lanSyncWriter,
     )
 
     val reminderRepository: ReminderRepository = ReminderRepository(
         dao             = db.reminderDao(),
         syncDao         = syncDao,
-        syncthingWriter = lanSyncWriter,
+        lanSyncWriter = lanSyncWriter,
     )
 
     val checklistItemReminderRepository: com.onlyflows.data.repository.ChecklistItemReminderRepository =
@@ -142,6 +142,6 @@ class AppContainer(context: Context) {
     val attachmentRepository: AttachmentRepository = AttachmentRepository(
         dao             = db.attachmentDao(),
         syncDao         = syncDao,
-        syncthingWriter = lanSyncWriter,
+        lanSyncWriter = lanSyncWriter,
     )
 }

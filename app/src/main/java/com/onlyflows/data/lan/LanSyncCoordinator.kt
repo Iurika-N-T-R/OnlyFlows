@@ -4,7 +4,6 @@ import android.content.Context
 import com.onlyflows.data.local.dao.PairedDeviceDao
 import com.onlyflows.data.local.dao.SyncDao
 import com.onlyflows.data.local.entity.*
-import com.onlyflows.data.syncthing.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
