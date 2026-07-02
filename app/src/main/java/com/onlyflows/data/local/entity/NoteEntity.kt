@@ -12,6 +12,8 @@ data class NoteEntity(
     @ColumnInfo(name = "project_id") val projectId: String,
     val title: String = "",
     val content: String = "",
+    val isPinned: Boolean = false,
+    val isArchived: Boolean = false,
     @ColumnInfo(name = "created_at") val createdAt: LocalDateTime = LocalDateTime.now(),
     @ColumnInfo(name = "updated_at") val updatedAt: LocalDateTime = LocalDateTime.now(),
 )
@@ -19,8 +21,10 @@ data class NoteEntity(
 fun NoteEntity.toDomain() = Note(
     id        = id,
     projectId = projectId,
-    title     = title,
-    content   = content,
+    title      = title,
+    content    = content,
+    isPinned   = isPinned,
+    isArchived = isArchived,
     createdAt = createdAt,
     updatedAt = updatedAt,
 )
@@ -28,8 +32,10 @@ fun NoteEntity.toDomain() = Note(
 fun Note.toEntity() = NoteEntity(
     id        = id,
     projectId = projectId,
-    title     = title,
-    content   = content,
+    title      = title,
+    content    = content,
+    isPinned   = isPinned,
+    isArchived = isArchived,
     createdAt = createdAt,
     updatedAt = updatedAt,
 )

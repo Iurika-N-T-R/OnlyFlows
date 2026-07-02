@@ -147,6 +147,7 @@ fun ProjectEntity.toJson(): JSONObject = JSONObject().apply {
     put("note", note)
     put("colorHex", colorHex)
     put("iconEmoji", iconEmoji)
+    putNullable("coverImage", coverImage)
     put("isCompleted", isCompleted)
     putNullable("folderId", folderId)
     putNullable("parentProjectId", parentProjectId)
@@ -166,6 +167,7 @@ fun projectEntityFromJson(j: JSONObject) = ProjectEntity(
     note            = j.optString("note", ""),
     colorHex        = j.optString("colorHex", "#4A90D9"),
     iconEmoji       = j.optString("iconEmoji", ""),
+    coverImage      = if (j.isNull("coverImage")) null else j.optString("coverImage"),
     isCompleted     = j.optBoolean("isCompleted", false),
     folderId        = if (j.isNull("folderId")) null else j.optString("folderId"),
     parentProjectId = if (j.isNull("parentProjectId")) null else j.optString("parentProjectId"),
@@ -236,17 +238,21 @@ fun NoteEntity.toJson(): JSONObject = JSONObject().apply {
     put("projectId", projectId)
     put("title", title)
     put("content", content)
+    put("isPinned", isPinned)
+    put("isArchived", isArchived)
     put("createdAt", createdAt.toString())
     put("updatedAt", updatedAt.toString())
 }
 
 fun noteEntityFromJson(j: JSONObject) = NoteEntity(
-    id        = j.getString("id"),
-    projectId = j.getString("projectId"),
-    title     = j.optString("title", ""),
-    content   = j.optString("content", ""),
-    createdAt = j.getLocalDateTime("createdAt"),
-    updatedAt = j.getLocalDateTime("updatedAt"),
+    id         = j.getString("id"),
+    projectId  = j.getString("projectId"),
+    title      = j.optString("title", ""),
+    content    = j.optString("content", ""),
+    isPinned   = j.optBoolean("isPinned", false),
+    isArchived = j.optBoolean("isArchived", false),
+    createdAt  = j.getLocalDateTime("createdAt"),
+    updatedAt  = j.getLocalDateTime("updatedAt"),
 )
 
 // ── CommentEntity ─────────────────────────────────────────────────────────────

@@ -1,8 +1,11 @@
 package com.onlyflows.ui.overlays
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
@@ -178,26 +181,28 @@ fun NoteEditorContent(
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
 
         if (isViewMode) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp, vertical = 16.dp),
-            ) {
-                if (title.isNotBlank()) {
-                    Text(
-                        text       = title,
-                        style      = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
+            // SelectionContainer → text in preview mode can be selected and copied
+            SelectionContainer(modifier = Modifier.fillMaxWidth().weight(1f)) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 20.dp, vertical = 16.dp),
+                ) {
+                    if (title.isNotBlank()) {
+                        Text(
+                            text       = title,
+                            style      = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Spacer(Modifier.height(12.dp))
+                    }
+                    MarkdownViewer(
+                        content          = contentFv.text,
+                        onCheckboxToggle = { lineIdx, checked -> toggleViewCheckbox(lineIdx, checked) },
                     )
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(32.dp))
                 }
-                MarkdownViewer(
-                    content          = contentFv.text,
-                    onCheckboxToggle = { lineIdx, checked -> toggleViewCheckbox(lineIdx, checked) },
-                )
-                Spacer(Modifier.height(32.dp))
             }
         } else {
             Column(
@@ -277,21 +282,44 @@ internal fun MarkdownViewer(
     onCheckboxToggle: (lineIndex: Int, nowChecked: Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val lines = content.lines()
     Column(modifier = modifier.fillMaxWidth()) {
-        content.lines().forEachIndexed { index, line ->
+        var i = 0
+        while (i < lines.size) {
+            val line = lines[i]
+            val checkboxMatch = Regex("""^(\s*)- \[([ xX])\]\s?(.*)""").matchEntire(line)
+            val bulletMatch   = if (checkboxMatch == null) Regex("""^(\s*)[-*+]\s+(.*)""").matchEntire(line) else null
+            val orderedMatch  = Regex("""^(\s*)(\d+)[.)]\s+(.*)""").matchEntire(line)
             when {
-                line.matches(Regex("^- \\[[ xX]\\].*")) -> {
-                    val checked     = line.matches(Regex("^- \\[[xX]\\].*"))
-                    val itemContent = line.removePrefix("- [x] ").removePrefix("- [X] ")
-                        .removePrefix("- [ ] ").removePrefix("- [x]")
-                        .removePrefix("- [X]").removePrefix("- [ ]").trimStart()
+                // Fenced code block ``` … ```
+                line.trimStart().startsWith("```") -> {
+                    val code = mutableListOf<String>()
+                    var j = i + 1
+                    while (j < lines.size && !lines[j].trimStart().startsWith("```")) { code.add(lines[j]); j++ }
+                    Surface(
+                        color    = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        shape    = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                    ) {
+                        Text(
+                            text     = code.joinToString("\n"),
+                            style    = MaterialTheme.typography.bodySmall.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace),
+                            modifier = Modifier.padding(12.dp),
+                        )
+                    }
+                    i = j + 1
+                    continue
+                }
+                checkboxMatch != null -> {
+                    val checked     = checkboxMatch.groupValues[2].equals("x", ignoreCase = true)
+                    val itemContent = checkboxMatch.groupValues[3]
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier          = Modifier.fillMaxWidth().padding(vertical = 2.dp),
                     ) {
                         Checkbox(
                             checked         = checked,
-                            onCheckedChange = { onCheckboxToggle(index, it) },
+                            onCheckedChange = { onCheckboxToggle(i, it) },
                             modifier        = Modifier.size(24.dp),
                         )
                         Spacer(Modifier.width(10.dp))
@@ -307,40 +335,131 @@ internal fun MarkdownViewer(
                         )
                     }
                 }
-                line.startsWith("### ") -> Text(
-                    text       = buildMarkdownAnnotatedString(line.removePrefix("### ")),
-                    style      = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier   = Modifier.padding(top = 10.dp, bottom = 2.dp),
-                )
-                line.startsWith("## ") -> Text(
-                    text       = buildMarkdownAnnotatedString(line.removePrefix("## ")),
-                    style      = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier   = Modifier.padding(top = 12.dp, bottom = 2.dp),
-                )
-                line.startsWith("# ") -> Text(
-                    text       = buildMarkdownAnnotatedString(line.removePrefix("# ")),
-                    style      = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    modifier   = Modifier.padding(top = 14.dp, bottom = 4.dp),
-                )
-                line.trimStart().startsWith("---") -> HorizontalDivider(
+                // Headings # … ###### (any depth)
+                Regex("""^(#{1,6})\s+(.*)""").matchEntire(line) != null -> {
+                    val m     = Regex("""^(#{1,6})\s+(.*)""").matchEntire(line)!!
+                    val level = m.groupValues[1].length
+                    val style = when (level) {
+                        1    -> MaterialTheme.typography.headlineSmall
+                        2    -> MaterialTheme.typography.titleLarge
+                        3    -> MaterialTheme.typography.titleMedium
+                        else -> MaterialTheme.typography.titleSmall
+                    }
+                    Text(
+                        text       = buildMarkdownAnnotatedString(m.groupValues[2]),
+                        style      = style,
+                        fontWeight = if (level == 1) FontWeight.Bold else FontWeight.SemiBold,
+                        modifier   = Modifier.padding(top = (16 - 2 * level).coerceAtLeast(6).dp, bottom = 2.dp),
+                    )
+                }
+                // Table |…|…| — consecutive pipe rows, first row = header, |---| separator dropped
+                line.trimStart().startsWith("|") && line.trimEnd().endsWith("|") -> {
+                    val tableLines = mutableListOf<String>()
+                    var j = i
+                    while (j < lines.size && lines[j].trimStart().startsWith("|")) { tableLines.add(lines[j].trim()); j++ }
+                    val rows = tableLines
+                        .map { it.removePrefix("|").removeSuffix("|").split("|").map { c -> c.trim() } }
+                        .filterNot { r -> r.all { c -> c.isNotEmpty() && c.all { ch -> ch == '-' || ch == ':' } } }
+                    val colCount = rows.maxOfOrNull { it.size } ?: 0
+                    if (colCount > 0) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 6.dp)
+                                .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant, androidx.compose.foundation.shape.RoundedCornerShape(8.dp)),
+                        ) {
+                            rows.forEachIndexed { r, row ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .then(if (r == 0) Modifier.background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)) else Modifier),
+                                ) {
+                                    repeat(colCount) { c ->
+                                        Text(
+                                            text       = buildMarkdownAnnotatedString(row.getOrElse(c) { "" }),
+                                            style      = MaterialTheme.typography.bodySmall,
+                                            fontWeight = if (r == 0) FontWeight.SemiBold else null,
+                                            modifier   = Modifier.weight(1f).padding(horizontal = 8.dp, vertical = 6.dp),
+                                        )
+                                    }
+                                }
+                                if (r < rows.lastIndex) HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
+                            }
+                        }
+                    }
+                    i = j
+                    continue
+                }
+                // Image ![alt](url) — placeholder (no network image loading in notes)
+                Regex("""^!\[([^\]]*)]\(([^)]+)\)\s*$""").matchEntire(line.trim()) != null -> {
+                    val alt = Regex("""^!\[([^\]]*)]\(([^)]+)\)\s*$""").matchEntire(line.trim())!!.groupValues[1]
+                    Text(
+                        text     = "🖼 " + alt.ifBlank { "Image" },
+                        style    = MaterialTheme.typography.bodyMedium.copy(fontStyle = androidx.compose.ui.text.font.FontStyle.Italic),
+                        color    = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(vertical = 4.dp),
+                    )
+                }
+                line.trimStart().startsWith("---") && line.trim().all { it == '-' } -> HorizontalDivider(
                     modifier = Modifier.padding(vertical = 8.dp),
                 )
-                line.matches(Regex("^[-*+] .*")) -> {
-                    val bulletContent = line.drop(2)
+                // Blockquote > …
+                line.startsWith(">") -> Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 2.dp)
+                        .height(intrinsicSize = androidx.compose.foundation.layout.IntrinsicSize.Min),
+                ) {
+                    Box(
+                        Modifier
+                            .width(3.dp)
+                            .fillMaxHeight()
+                            .background(MaterialTheme.colorScheme.outlineVariant),
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        text     = buildMarkdownAnnotatedString(line.removePrefix(">").trimStart()),
+                        style    = MaterialTheme.typography.bodyLarge,
+                        color    = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                // Numbered list 1. / 1)
+                orderedMatch != null -> {
+                    val indent = orderedMatch.groupValues[1].length / 2
                     Row(
                         verticalAlignment = Alignment.Top,
-                        modifier          = Modifier.fillMaxWidth().padding(vertical = 1.dp),
+                        modifier = Modifier.fillMaxWidth()
+                            .padding(start = (indent * 14).dp, top = 1.dp, bottom = 1.dp),
                     ) {
                         Text(
-                            text     = "•",
+                            text     = "${orderedMatch.groupValues[2]}.",
+                            style    = MaterialTheme.typography.bodyLarge,
+                            color    = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(end = 8.dp),
+                        )
+                        Text(
+                            text     = buildMarkdownAnnotatedString(orderedMatch.groupValues[3]),
+                            style    = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+                // Bullet list (supports nesting via leading spaces)
+                bulletMatch != null -> {
+                    val indent = bulletMatch.groupValues[1].length / 2
+                    Row(
+                        verticalAlignment = Alignment.Top,
+                        modifier = Modifier.fillMaxWidth()
+                            .padding(start = (indent * 14).dp, top = 1.dp, bottom = 1.dp),
+                    ) {
+                        Text(
+                            text     = if (indent == 0) "•" else "◦",
                             style    = MaterialTheme.typography.bodyLarge,
                             modifier = Modifier.padding(end = 8.dp, top = 2.dp),
                         )
                         Text(
-                            text     = buildMarkdownAnnotatedString(bulletContent),
+                            text     = buildMarkdownAnnotatedString(bulletMatch.groupValues[2]),
                             style    = MaterialTheme.typography.bodyLarge,
                             modifier = Modifier.weight(1f),
                         )
@@ -353,6 +472,7 @@ internal fun MarkdownViewer(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 1.dp),
                 )
             }
+            i++
         }
     }
 }

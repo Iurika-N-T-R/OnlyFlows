@@ -58,7 +58,7 @@ import com.onlyflows.data.local.entity.AttachmentEntity
         ChecklistSectionEntity::class,
         ChecklistItemReminderEntity::class,
     ],
-    version = 35,
+    version = 37,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -188,12 +188,19 @@ abstract class AppDatabase : RoomDatabase() {
                     )
                     db.execSQL("CREATE INDEX IF NOT EXISTS index_checklist_item_reminders_checklistItemId ON checklist_item_reminders(checklistItemId)")
                 }
+                val migration35to36 = Migration(35, 36) { db ->
+                    db.execSQL("ALTER TABLE projects ADD COLUMN coverImage TEXT")
+                }
+                val migration36to37 = Migration(36, 37) { db ->
+                    db.execSQL("ALTER TABLE notes ADD COLUMN isPinned INTEGER NOT NULL DEFAULT 0")
+                    db.execSQL("ALTER TABLE notes ADD COLUMN isArchived INTEGER NOT NULL DEFAULT 0")
+                }
                 Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "onlyflows.db",
                 )
-                .addMigrations(migration27to28, migration28to29, migration29to30, migration30to31, migration31to32, migration32to33, migration33to34, migration34to35)
+                .addMigrations(migration27to28, migration28to29, migration29to30, migration30to31, migration31to32, migration32to33, migration33to34, migration34to35, migration35to36, migration36to37)
                 .fallbackToDestructiveMigration()
                 .fallbackToDestructiveMigrationOnDowngrade()
                 .build()

@@ -1,18 +1,26 @@
 package com.onlyflows.ui.screens.project
 
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import kotlinx.coroutines.launch
@@ -37,9 +45,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -55,6 +67,8 @@ import com.onlyflows.domain.model.Tag
 import com.onlyflows.domain.model.Task
 import com.onlyflows.domain.model.TaskPriority
 import com.onlyflows.ui.components.EmptyState
+import com.onlyflows.ui.components.statusIcon
+import com.onlyflows.ui.components.statusTint
 import com.onlyflows.ui.components.FlowFab
 import com.onlyflows.ui.components.NoteCard
 import com.onlyflows.ui.components.SelectionBar
@@ -123,8 +137,21 @@ fun ProjectDetailScreen(
     var showProjectMenu     by remember { mutableStateOf(false) }
     var showEditProject     by remember { mutableStateOf(false) }
     var showAddSection        by remember { mutableStateOf(false) }
-    var showAddChildList      by remember { mutableStateOf(false) }
     var showReorderSections   by remember { mutableStateOf(false) }
+
+    // Cover picker for child list cards
+    var coverTargetListId by remember { mutableStateOf<String?>(null) }
+    val coverPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        val target = coverTargetListId
+        if (uri != null && target != null) viewModel.onEvent(ProjectDetailEvent.SetChildListCover(target, uri))
+        coverTargetListId = null
+    }
+    // Card grid columns: 2 on phones, 3 on tablet portrait, 4 on tablet landscape
+    val gridColumns = when {
+        LocalConfiguration.current.screenWidthDp >= 840 -> 4
+        LocalConfiguration.current.screenWidthDp >= 600 -> 3
+        else                                            -> 2
+    }
     val project = state.project
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val listState = rememberLazyListState()
@@ -361,7 +388,7 @@ fun ProjectDetailScreen(
                                 ProjectStatus.entries.forEach { s ->
                                     DropdownMenuItem(
                                         text        = { Text(s.label) },
-                                        leadingIcon = { Text(s.emoji) },
+                                        leadingIcon = { Icon(s.statusIcon, null, tint = s.statusTint, modifier = Modifier.size(18.dp)) },
                                         onClick     = {
                                             viewModel.onEvent(ProjectDetailEvent.UpdateStatus(s))
                                             showStatusMenu = false
@@ -399,57 +426,103 @@ fun ProjectDetailScreen(
             )
         }
 
-        val pagerState = rememberPagerState(initialPage = 0) { 3 }
+        // LIST projects get a Lists tab; NOTE projects a Groups tab. Page kinds below:
+        // 0 = child card grid (LIST/NOTE only), 1 = tasks/notes, 2 = archived, 3 = comments
+        val isNoteType   = project?.type == ProjectType.NOTE
+        val hasChildGrid = project?.type == ProjectType.LIST || isNoteType
+        val archivedCount = if (isNoteType) state.archivedNotes.size else state.archivedTasks.size
+        val tabTitles = buildList {
+            if (hasChildGrid) {
+                val label = if (isNoteType) "Groups" else "Lists"
+                add(label + if (state.childLists.isNotEmpty()) " (${state.childLists.size})" else "")
+            }
+            add(if (isNoteType) "Notes" else "Tasks")
+            add("Archived" + if (archivedCount > 0) " ($archivedCount)" else "")
+            add("Comments" + if (state.comments.isNotEmpty()) " (${state.comments.size})" else "")
+        }
+        val pagerState = rememberPagerState(initialPage = 0) { tabTitles.size }
         val pagerScope = rememberCoroutineScope()
 
-        TabRow(selectedTabIndex = pagerState.currentPage) {
-            Tab(
-                selected = pagerState.currentPage == 0,
-                onClick  = { pagerScope.launch { pagerState.animateScrollToPage(0) } },
-                text     = { Text(if (project?.type == ProjectType.NOTE) "Notes" else "Tasks") },
-            )
-            Tab(
-                selected = pagerState.currentPage == 1,
-                onClick  = { pagerScope.launch { pagerState.animateScrollToPage(1) } },
-                text     = { Text("Archived" + if (state.archivedTasks.isNotEmpty()) " (${state.archivedTasks.size})" else "") },
-            )
-            Tab(
-                selected = pagerState.currentPage == 2,
-                onClick  = { pagerScope.launch { pagerState.animateScrollToPage(2) } },
-                text     = { Text("Comments" + if (state.comments.isNotEmpty()) " (${state.comments.size})" else "") },
-            )
+        TabRow(selectedTabIndex = pagerState.currentPage.coerceAtMost(tabTitles.size - 1)) {
+            tabTitles.forEachIndexed { i, title ->
+                Tab(
+                    selected = pagerState.currentPage == i,
+                    onClick  = { pagerScope.launch { pagerState.animateScrollToPage(i) } },
+                    text     = { Text(title) },
+                )
+            }
         }
 
         HorizontalPager(
             state    = pagerState,
             modifier = Modifier.fillMaxSize(),
         ) { page ->
-        when (page) {
+        when (if (hasChildGrid) page else page + 1) {
 
+        // ── Lists / Groups tab — child card grid ──────────────────────────────
         0 -> LazyColumn(
-            state = listState,
             contentPadding = PaddingValues(
                 top    = 4.dp,
                 bottom = padding.calculateBottomPadding() + 88.dp,
             ),
-            modifier = Modifier.fillMaxSize().imePadding(),
+            modifier = Modifier.fillMaxSize(),
         ) {
-            // ── NOTE type: list of note cards ─────────────────────────────────
-            if (project != null && project.type == ProjectType.NOTE) {
-                if (!state.isLoading && state.notes.isEmpty()) {
-                    item(key = "notes_empty") {
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier.fillParentMaxWidth(),
-                        ) {
-                            EmptyState(
-                                emoji    = "📝",
-                                title    = "No notes",
-                                subtitle = "Appuyez sur + pour ajouter une note.",
+            // cells = child lists + trailing "add" slot (null)
+            val cells: List<Project?> = state.childLists + null
+            items(cells.chunked(gridColumns), key = { row -> "cardrow_" + row.joinToString("_") { it?.id ?: "add" } }) { row ->
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp),
+                ) {
+                    row.forEach { child ->
+                        if (child == null) {
+                            AddListCard(
+                                onCreate = { title -> viewModel.onEvent(ProjectDetailEvent.CreateChildList(title)) },
+                                modifier = Modifier.weight(1f),
+                            )
+                        } else {
+                            ChildListCard(
+                                list          = child,
+                                count         = if (child.type == ProjectType.NOTE) state.noteCountsByProject[child.id] ?: 0
+                                                else state.childListCounts[child.id] ?: 0,
+                                onClick       = { onListClick(child.id) },
+                                onSetCover    = {
+                                    coverTargetListId = child.id
+                                    coverPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                                },
+                                onRemoveCover = { viewModel.onEvent(ProjectDetailEvent.SetChildListCover(child.id, null)) },
+                                modifier      = Modifier.weight(1f),
                             )
                         }
                     }
-                } else {
+                    repeat(gridColumns - row.size) { Spacer(Modifier.weight(1f)) }
+                }
+            }
+        }
+
+        // ── Notes tab — masonry grid (NOTE type) ──────────────────────────────
+        1 -> if (isNoteType) {
+            if (!state.isLoading && state.notes.isEmpty()) {
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                    EmptyState(
+                        emoji    = "📝",
+                        title    = "No notes",
+                        subtitle = "Tap + to add a note.",
+                    )
+                }
+            } else {
+                LazyVerticalStaggeredGrid(
+                    columns             = StaggeredGridCells.Adaptive(minSize = 160.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalItemSpacing = 10.dp,
+                    contentPadding      = PaddingValues(
+                        start  = 12.dp,
+                        end    = 12.dp,
+                        top    = 8.dp,
+                        bottom = padding.calculateBottomPadding() + 88.dp,
+                    ),
+                    modifier = Modifier.fillMaxSize(),
+                ) {
                     items(state.notes, key = { "note_${it.id}" }) { note ->
                         NoteCard(
                             note     = note,
@@ -461,105 +534,26 @@ fun ProjectDetailScreen(
                                 if (onNoteSelected != null) onNoteSelected(note.id, projectId)
                                 else viewModel.onEvent(ProjectDetailEvent.OpenNoteEditor(note))
                             },
-                            onDelete = { viewModel.onEvent(ProjectDetailEvent.DeleteNoteItem(note.id)) },
-                            modifier = Modifier
-                                .padding(horizontal = 16.dp, vertical = 6.dp)
-                                .animateItem(),
-                        )
-                    }
-                }
-                return@LazyColumn   // skip filter bar + task list for NOTE type
-            }
-
-            // ── LIST type: child lists section ────────────────────────────────
-            if (project != null && project.type == ProjectType.LIST) {
-                if (state.childLists.isNotEmpty() || true) {
-                    item(key = "child_lists_header") {
-                        Text(
-                            text     = "Lists",
-                            style    = MaterialTheme.typography.labelMedium,
-                            color    = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(start = 20.dp, top = 8.dp, bottom = 4.dp),
-                        )
-                    }
-                }
-                items(state.childLists, key = { "child_${it.id}" }) { child ->
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onListClick(child.id) }
-                            .padding(horizontal = 20.dp, vertical = 10.dp),
-                    ) {
-                        val childColor = remember(child.colorHex) {
-                            try { Color(android.graphics.Color.parseColor(child.colorHex)) }
-                            catch (e: Exception) { Color(0xFF4A90D9) }
-                        }
-                        if (child.iconEmoji.isNotBlank()) {
-                            Text(child.iconEmoji, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.size(18.dp))
-                        } else {
-                            Icon(Icons.Outlined.FormatListBulleted, null, tint = childColor, modifier = Modifier.size(18.dp))
-                        }
-                        Spacer(Modifier.width(12.dp))
-                        Text(child.title, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                        Icon(Icons.Outlined.ArrowDropDown, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
-                    }
-                    HorizontalDivider(modifier = Modifier.padding(start = 50.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
-                }
-                item(key = "add_child_list") {
-                    var childTitle by remember { mutableStateOf("") }
-                    if (showAddChildList) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
-                        ) {
-                            androidx.compose.foundation.text.BasicTextField(
-                                value         = childTitle,
-                                onValueChange = { childTitle = it },
-                                textStyle     = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
-                                cursorBrush   = SolidColor(MaterialTheme.colorScheme.primary),
-                                singleLine    = true,
-                                modifier      = Modifier.weight(1f),
-                                decorationBox = { inner ->
-                                    if (childTitle.isEmpty()) Text("New list name…", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
-                                    inner()
-                                },
-                            )
-                            IconButton(onClick = {
-                                if (childTitle.isNotBlank()) {
-                                    viewModel.onEvent(ProjectDetailEvent.CreateChildList(childTitle.trim()))
-                                    childTitle = ""
-                                    showAddChildList = false
-                                }
-                            }) {
-                                Icon(Icons.Outlined.Add, null, tint = MaterialTheme.colorScheme.primary)
-                            }
-                        }
-                    } else {
-                        TextButton(
-                            onClick  = { showAddChildList = true },
-                            modifier = Modifier.padding(start = 12.dp),
-                        ) {
-                            Icon(Icons.Outlined.Add, null, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text("Add list", style = MaterialTheme.typography.labelMedium)
-                        }
-                    }
-                }
-                if (state.childLists.isNotEmpty()) {
-                    item(key = "tasks_divider") {
-                        HorizontalDivider(modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant)
-                        Text(
-                            text     = "Tasks",
-                            style    = MaterialTheme.typography.labelMedium,
-                            color    = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(start = 20.dp, bottom = 4.dp),
+                            onDelete        = { viewModel.onEvent(ProjectDetailEvent.DeleteNoteItem(note.id)) },
+                            onTogglePin     = { viewModel.onEvent(ProjectDetailEvent.TogglePinNote(note)) },
+                            onArchive       = { viewModel.onEvent(ProjectDetailEvent.SetNoteArchived(note, true)) },
+                            contentMaxLines = 10,
+                            compact         = true,
+                            modifier        = Modifier.animateItem(),
                         )
                     }
                 }
             }
-
-
+        }
+        // ── Tasks tab ─────────────────────────────────────────────────────────
+        else LazyColumn(
+            state = listState,
+            contentPadding = PaddingValues(
+                top    = 4.dp,
+                bottom = padding.calculateBottomPadding() + 88.dp,
+            ),
+            modifier = Modifier.fillMaxSize().imePadding(),
+        ) {
             // Empty state when project has no tasks at all
             if (!state.isLoading && localItems.none { it is PdItem.TaskRow }) {
                 item(key = "empty_state") {
@@ -662,8 +656,46 @@ fun ProjectDetailScreen(
 
         }
 
-        // ── Archived tab ──────────────────────────────────────────────────────
-        1 -> LazyColumn(
+        // ── Archived tab (NOTE projects: masonry of archived notes) ──────────
+        2 -> if (isNoteType) {
+            if (state.archivedNotes.isEmpty()) {
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                    EmptyState(
+                        emoji    = "🗂️",
+                        title    = "No archived notes",
+                        subtitle = "Archived notes land here.",
+                    )
+                }
+            } else {
+                LazyVerticalStaggeredGrid(
+                    columns             = StaggeredGridCells.Adaptive(minSize = 160.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalItemSpacing = 10.dp,
+                    contentPadding      = PaddingValues(
+                        start  = 12.dp,
+                        end    = 12.dp,
+                        top    = 8.dp,
+                        bottom = padding.calculateBottomPadding() + 88.dp,
+                    ),
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    items(state.archivedNotes, key = { "archived_note_${it.id}" }) { note ->
+                        NoteCard(
+                            note            = note,
+                            onClick         = { viewModel.onEvent(ProjectDetailEvent.OpenNoteViewer(note)) },
+                            onEdit          = { viewModel.onEvent(ProjectDetailEvent.OpenNoteEditor(note)) },
+                            onDelete        = { viewModel.onEvent(ProjectDetailEvent.DeleteNoteItem(note.id)) },
+                            onTogglePin     = { viewModel.onEvent(ProjectDetailEvent.TogglePinNote(note)) },
+                            onArchive       = { viewModel.onEvent(ProjectDetailEvent.SetNoteArchived(note, false)) },
+                            contentMaxLines = 10,
+                            compact         = true,
+                            modifier        = Modifier.animateItem(),
+                        )
+                    }
+                }
+            }
+        }
+        else LazyColumn(
             contentPadding = PaddingValues(
                 top    = 4.dp,
                 bottom = padding.calculateBottomPadding() + 88.dp,
@@ -931,14 +963,6 @@ private val ProjectStatus.label: String get() = when (this) {
     ProjectStatus.PAUSED      -> "Paused"
 }
 
-private val ProjectStatus.emoji: String get() = when (this) {
-    ProjectStatus.NOT_STARTED -> "\u2B1C"
-    ProjectStatus.IN_PROGRESS -> "\uD83D\uDD35"
-    ProjectStatus.WAITING     -> "\uD83D\uDFE1"
-    ProjectStatus.DONE        -> "\u2705"
-    ProjectStatus.PAUSED      -> "\u23F8"
-}
-
 private val ProjectStatus.chipColor: Color @Composable get() = when (this) {
     ProjectStatus.NOT_STARTED -> MaterialTheme.colorScheme.surfaceVariant
     ProjectStatus.IN_PROGRESS -> MaterialTheme.colorScheme.primaryContainer
@@ -966,7 +990,7 @@ private fun ProjectStatusChip(status: ProjectStatus, onClick: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
         ) {
-            Text(status.emoji, style = MaterialTheme.typography.labelSmall)
+            Icon(status.statusIcon, null, tint = status.chipTextColor, modifier = Modifier.size(14.dp))
             Spacer(Modifier.width(5.dp))
             Text(
                 text       = status.label,
@@ -1429,4 +1453,162 @@ private fun formatProjectDuration(totalSeconds: Long): String {
     val h = totalSeconds / 3600
     val m = (totalSeconds % 3600) / 60
     return if (h > 0) "${h}h ${m}m" else "${m}m"
+}
+
+// ── Child list cards (LIST-type projects) ─────────────────────────────────────
+
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+private fun ChildListCard(
+    list: Project,
+    count: Int,
+    onClick: () -> Unit,
+    onSetCover: () -> Unit,
+    onRemoveCover: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var showMenu by remember { mutableStateOf(false) }
+    val listColor = remember(list.colorHex) {
+        runCatching { Color(android.graphics.Color.parseColor(list.colorHex)) }.getOrDefault(Color(0xFF4A90D9))
+    }
+    val cover = remember(list.coverImage) {
+        list.coverImage?.let {
+            runCatching {
+                val bytes = android.util.Base64.decode(it, android.util.Base64.NO_WRAP)
+                android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+            }.getOrNull()
+        }
+    }
+
+    Box(modifier = modifier) {
+        Surface(
+            shape  = RoundedCornerShape(14.dp),
+            color  = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+            border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(14.dp))
+                .combinedClickable(onClick = onClick, onLongClick = { showMenu = true }),
+        ) {
+            Column {
+                // Cover — image if set, otherwise tinted block with the list icon/emoji
+                Box(modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f)) {
+                    if (cover != null) {
+                        Image(
+                            bitmap             = cover,
+                            contentDescription = null,
+                            contentScale       = ContentScale.Crop,
+                            modifier           = Modifier.fillMaxSize(),
+                        )
+                    } else {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.fillMaxSize().background(listColor.copy(alpha = 0.14f)),
+                        ) {
+                            if (list.iconEmoji.isNotBlank()) {
+                                Text(list.iconEmoji, style = MaterialTheme.typography.headlineMedium)
+                            } else {
+                                Icon(Icons.Outlined.FormatListBulleted, null, tint = listColor, modifier = Modifier.size(28.dp))
+                            }
+                        }
+                    }
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                ) {
+                    Text(
+                        text       = list.title,
+                        style      = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color      = MaterialTheme.colorScheme.onSurface,
+                        maxLines   = 1,
+                        overflow   = TextOverflow.Ellipsis,
+                        modifier   = Modifier.weight(1f),
+                    )
+                    if (count > 0) {
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text  = "$count",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        )
+                    }
+                }
+            }
+        }
+        DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+            DropdownMenuItem(
+                text    = { Text(if (list.coverImage == null) "Set cover" else "Change cover") },
+                onClick = { showMenu = false; onSetCover() },
+            )
+            if (list.coverImage != null) {
+                DropdownMenuItem(
+                    text    = { Text("Remove cover") },
+                    onClick = { showMenu = false; onRemoveCover() },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AddListCard(
+    onCreate: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var showDialog by remember { mutableStateOf(false) }
+
+    Surface(
+        shape  = RoundedCornerShape(14.dp),
+        color  = Color.Transparent,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .clickable { showDialog = true },
+    ) {
+        Column {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f),
+            ) {
+                Icon(
+                    imageVector        = Icons.Outlined.Add,
+                    contentDescription = "Add list",
+                    tint               = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    modifier           = Modifier.size(36.dp),
+                )
+            }
+            Text(
+                text     = "Add list",
+                style    = MaterialTheme.typography.bodyMedium,
+                color    = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+            )
+        }
+    }
+
+    if (showDialog) {
+        var title by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showDialog = false },
+            title = { Text("New list") },
+            text  = {
+                OutlinedTextField(
+                    value         = title,
+                    onValueChange = { title = it },
+                    singleLine    = true,
+                    placeholder   = { Text("List name") },
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = title.isNotBlank(),
+                    onClick = { onCreate(title.trim()); showDialog = false },
+                ) { Text("Create") }
+            },
+            dismissButton = { TextButton(onClick = { showDialog = false }) { Text("Cancel") } },
+        )
+    }
 }

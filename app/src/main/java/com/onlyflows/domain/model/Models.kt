@@ -176,6 +176,8 @@ data class Project(
     val note: String = "",
     val colorHex: String = "#4A90D9",
     val iconEmoji: String = "",
+    // Card cover, base64-encoded downscaled JPEG — stored inline so it syncs with the entity
+    val coverImage: String? = null,
     val isCompleted: Boolean = false,
     val folderId: String? = null,           // null = standalone project
     val parentProjectId: String? = null,    // non-null for nested lists
@@ -306,6 +308,8 @@ data class Note(
     val projectId: String,
     val title: String = "",
     val content: String = "",
+    val isPinned: Boolean = false,
+    val isArchived: Boolean = false,
     val createdAt: LocalDateTime = LocalDateTime.now(),
     val updatedAt: LocalDateTime = LocalDateTime.now(),
 )

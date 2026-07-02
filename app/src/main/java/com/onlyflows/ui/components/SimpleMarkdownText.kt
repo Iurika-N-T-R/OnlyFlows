@@ -51,8 +51,8 @@ fun buildMarkdownAnnotatedString(input: String): AnnotatedString = buildAnnotate
     lines.forEachIndexed { index, rawLine ->
         val line = rawLine.trimEnd()
 
-        // Heading: # / ## / ###
-        val headingMatch = Regex("""^(#{1,3})\s+(.*)""").matchEntire(line)
+        // Heading: # … ######
+        val headingMatch = Regex("""^(#{1,6})\s+(.*)""").matchEntire(line)
         if (headingMatch != null) {
             val level   = headingMatch.groupValues[1].length
             val content = headingMatch.groupValues[2]
@@ -76,19 +76,37 @@ fun buildMarkdownAnnotatedString(input: String): AnnotatedString = buildAnnotate
 }
 
 private fun AnnotatedString.Builder.appendInlineMarkdown(text: String) {
-    // Tokenise inline spans: **bold**, __bold__, *italic*, _italic_, ~~strike~~, `code`
-    val pattern = Regex("""(\*\*|__|\*|_|~~|`)(.+?)\1""")
+    // Tokenise inline spans: ***bolditalic***, **bold**, __bold__, *italic*, _italic_,
+    // ~~strike~~, `code`, [text](url)
+    val pattern = Regex("""(\*\*\*|___)(.+?)\1|(\*\*|__|\*|_|~~|`)(.+?)\3|\[([^\]]+)]\(([^)]+)\)""")
     var cursor  = 0
     for (match in pattern.findAll(text)) {
         // Append literal text before this match
         if (match.range.first > cursor) append(text.substring(cursor, match.range.first))
-        val marker  = match.groupValues[1]
-        val content = match.groupValues[2]
-        when (marker) {
-            "**", "__" -> withStyle(SpanStyle(fontWeight = FontWeight.Bold))  { append(content) }
-            "*",  "_"  -> withStyle(SpanStyle(fontStyle  = FontStyle.Italic)) { append(content) }
-            "~~"       -> withStyle(SpanStyle(textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough)) { append(content) }
-            "`"        -> withStyle(SpanStyle(fontWeight = FontWeight.Medium, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)) { append(content) }
+        val tripleContent = match.groupValues[2]
+        val marker        = match.groupValues[3]
+        val content       = match.groupValues[4]
+        when {
+            match.groupValues[1].isNotEmpty() ->
+                withStyle(SpanStyle(fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic)) { append(tripleContent) }
+            marker == "**" || marker == "__" ->
+                withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(content) }
+            marker == "*" || marker == "_" ->
+                withStyle(SpanStyle(fontStyle = FontStyle.Italic)) { append(content) }
+            marker == "~~" ->
+                withStyle(SpanStyle(textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough)) { append(content) }
+            marker == "`" ->
+                withStyle(SpanStyle(fontWeight = FontWeight.Medium, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)) { append(content) }
+            // [text](url) — show the label styled as a link (URL kept as annotation)
+            else -> {
+                val label = match.groupValues[5]
+                val url   = match.groupValues[6]
+                pushStringAnnotation(tag = "URL", annotation = url)
+                withStyle(SpanStyle(color = Color(0xFF4A90D9), textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline)) {
+                    append(label)
+                }
+                pop()
+            }
         }
         cursor = match.range.last + 1
     }

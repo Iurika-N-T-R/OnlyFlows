@@ -19,6 +19,13 @@ class NoteRepository(
     fun observeByProject(projectId: String): Flow<List<Note>> =
         noteDao.observeByProject(projectId).map { list -> list.map { it.toDomain() } }
 
+    fun observeArchivedByProject(projectId: String): Flow<List<Note>> =
+        noteDao.observeArchivedByProject(projectId).map { list -> list.map { it.toDomain() } }
+
+    /** Active (non-archived) note count per projectId — for group cards */
+    fun observeCountsByProject(): Flow<Map<String, Int>> =
+        noteDao.observeCountsByProject().map { list -> list.associate { it.projectId to it.total } }
+
     suspend fun getById(id: String): Note? = noteDao.getById(id)?.toDomain()
 
     suspend fun insert(note: Note) {

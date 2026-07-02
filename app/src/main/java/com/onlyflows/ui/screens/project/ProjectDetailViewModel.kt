@@ -39,6 +39,8 @@ data class ProjectDetailUiState(
     val tags: List<Tag>                          = emptyList(),
     val allProjects: List<Project>               = emptyList(),
     val childLists: List<Project>                = emptyList(),
+    /** taskCount per projectId — used for the item count on child list cards */
+    val childListCounts: Map<String, Int>        = emptyMap(),
     val selectedTaskIds: Set<String>             = emptySet(),
     val movingToCompletedIds: Set<String>        = emptySet(),
     val showAddTask: Boolean                     = false,
@@ -53,6 +55,9 @@ data class ProjectDetailUiState(
     val isAddingNote: Boolean                    = false,
     val noteViewMode: Boolean                    = false,
     val archivedTasks: List<Task>                = emptyList(),
+    val archivedNotes: List<Note>                = emptyList(),
+    /** active note count per projectId — for NOTE-group cards */
+    val noteCountsByProject: Map<String, Int>    = emptyMap(),
     val totalCompletedSeconds: Long              = 0L,   // sum of finished entries (from DB)
     val activeProjectEntry: com.onlyflows.domain.model.TimeEntry? = null, // running entry if any
     val totalTrackedSeconds: Long                = 0L,   // display value = completed + elapsed (ticked)
@@ -97,6 +102,8 @@ sealed interface ProjectDetailEvent {
     data class ArchiveSelected(val ids: Set<String>)                           : ProjectDetailEvent
     data class UnarchiveTask(val taskId: String)                               : ProjectDetailEvent
     data class CreateChildList(val title: String)                             : ProjectDetailEvent
+    /** uri == null clears the cover */
+    data class SetChildListCover(val childId: String, val uri: android.net.Uri?) : ProjectDetailEvent
     data class UpdateNote(val note: String)                                   : ProjectDetailEvent
     // ── Note-list CRUD (NOTE-type projects) ──
     data object ShowNewNoteEditor                                             : ProjectDetailEvent
@@ -105,6 +112,8 @@ sealed interface ProjectDetailEvent {
     data object HideNoteEditor                                                : ProjectDetailEvent
     data class  SaveNote(val id: String?, val title: String, val content: String) : ProjectDetailEvent
     data class  DeleteNoteItem(val noteId: String)                           : ProjectDetailEvent
+    data class  TogglePinNote(val note: Note)                                : ProjectDetailEvent
+    data class  SetNoteArchived(val note: Note, val archived: Boolean)       : ProjectDetailEvent
     data class AddComment(val content: String)                               : ProjectDetailEvent
     data class EditComment(val id: String, val content: String)             : ProjectDetailEvent
     data class DeleteComment(val id: String)                                 : ProjectDetailEvent
@@ -189,6 +198,16 @@ class ProjectDetailViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
         viewModelScope.launch {
+            taskRepo.observeAllProjectProgress().collectLatest { progress ->
+                _uiState.update { it.copy(childListCounts = progress.associate { p -> p.projectId to p.total }) }
+            }
+        }
+        viewModelScope.launch {
+            noteRepo.observeCountsByProject().collectLatest { counts ->
+                _uiState.update { it.copy(noteCountsByProject = counts) }
+            }
+        }
+        viewModelScope.launch {
             val projectAndChildrenFlow = combine(
                 projectRepo.observeById(projectId),
                 projectRepo.observeChildren(projectId),
@@ -207,7 +226,8 @@ class ProjectDetailViewModel(app: Application) : AndroidViewModel(app) {
             val noteAndArchiveFlow = combine(
                 noteRepo.observeByProject(projectId),
                 taskRepo.observeArchivedByProject(projectId),
-            ) { notes, archived -> Pair(notes, archived) }
+                noteRepo.observeArchivedByProject(projectId),
+            ) { notes, archived, archivedNotes -> Triple(notes, archived, archivedNotes) }
 
             @Suppress("UNCHECKED_CAST")
             combine(coreFlow, noteAndArchiveFlow) { packed, noteAndArchive ->
@@ -218,8 +238,9 @@ class ProjectDetailViewModel(app: Application) : AndroidViewModel(app) {
                 val tags        = packed[2] as List<Tag>
                 val statusLog   = packed[3] as List<StatusLogEntry>
                 val allProjects = packed[4] as List<Project>
-                val notes       = noteAndArchive.first
-                val archived    = noteAndArchive.second
+                val notes         = noteAndArchive.first
+                val archived      = noteAndArchive.second
+                val archivedNotes = noteAndArchive.third
 
                 ProjectDetailUiState(
                     project        = project,
@@ -230,6 +251,7 @@ class ProjectDetailViewModel(app: Application) : AndroidViewModel(app) {
                     childLists     = childLists,
                     notes          = notes,
                     archivedTasks  = archived,
+                    archivedNotes  = archivedNotes,
                     isLoading      = false,
                 )
             }.collect { newState ->
@@ -250,6 +272,8 @@ class ProjectDetailViewModel(app: Application) : AndroidViewModel(app) {
                         totalTrackedSeconds   = state.totalTrackedSeconds,
                         // Preserve state managed by independent coroutines
                         comments              = state.comments,
+                        childListCounts       = state.childListCounts,
+                        noteCountsByProject   = state.noteCountsByProject,
                         collapsedSectionIds   = state.collapsedSectionIds,
                         hideCompleted         = state.hideCompleted,
                     )
@@ -420,10 +444,23 @@ class ProjectDetailViewModel(app: Application) : AndroidViewModel(app) {
                     id              = "project_${System.currentTimeMillis()}",
                     title           = event.title,
                     colorHex        = project.colorHex,
-                    type            = ProjectType.LIST,
+                    // NOTE projects group notes: their children are NOTE projects too
+                    type            = if (project.type == ProjectType.NOTE) ProjectType.NOTE else ProjectType.LIST,
                     parentProjectId = project.id,
                 )
                 projectRepo.insert(child)
+            }
+            is ProjectDetailEvent.TogglePinNote -> viewModelScope.launch {
+                noteRepo.update(event.note.copy(isPinned = !event.note.isPinned, updatedAt = LocalDateTime.now()))
+            }
+            is ProjectDetailEvent.SetNoteArchived -> viewModelScope.launch {
+                noteRepo.update(event.note.copy(isArchived = event.archived, updatedAt = LocalDateTime.now()))
+            }
+            is ProjectDetailEvent.SetChildListCover -> viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                val child = _uiState.value.childLists.find { it.id == event.childId } ?: return@launch
+                val b64 = event.uri?.let { encodeCoverImage(it) }
+                if (event.uri != null && b64 == null) return@launch   // decode failed, keep current cover
+                projectRepo.update(child.copy(coverImage = b64, updatedAt = LocalDateTime.now()))
             }
             // ── Note-list events ──────────────────────────────────────────────
             is ProjectDetailEvent.ShowNewNoteEditor -> _uiState.update { it.copy(isAddingNote = true, editingNote = null, noteViewMode = false) }
@@ -571,6 +608,28 @@ class ProjectDetailViewModel(app: Application) : AndroidViewModel(app) {
             _uiState.update { it.copy(selectedTaskIds = emptySet()) }
         }
     }
+
+    /** Downscale to ~600px wide and re-encode as JPEG so the cover stays small enough
+     *  to live inline in the entity — and therefore syncs like any other field. */
+    private fun encodeCoverImage(uri: android.net.Uri): String? = runCatching {
+        val resolver = getApplication<Application>().contentResolver
+        val maxW = 600
+        // Read bounds first, then decode sampled to avoid loading a full-size photo in memory
+        val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        resolver.openInputStream(uri)?.use { android.graphics.BitmapFactory.decodeStream(it, null, bounds) }
+        var sample = 1
+        while (bounds.outWidth / (sample * 2) >= maxW) sample *= 2
+        val opts = android.graphics.BitmapFactory.Options().apply { inSampleSize = sample }
+        val decoded = resolver.openInputStream(uri)?.use { android.graphics.BitmapFactory.decodeStream(it, null, opts) }
+            ?: return null
+        val scaled = if (decoded.width > maxW) {
+            val h = (decoded.height * maxW.toFloat() / decoded.width).toInt()
+            android.graphics.Bitmap.createScaledBitmap(decoded, maxW, h, true)
+        } else decoded
+        val out = java.io.ByteArrayOutputStream()
+        scaled.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, out)
+        android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
+    }.getOrNull()
 
     fun forceSync() = coordinator.forceSync()
 }
