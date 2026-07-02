@@ -19,6 +19,9 @@ interface CommentDao {
     @Query("SELECT * FROM comments WHERE taskId = :taskId ORDER BY createdAt DESC")
     fun observeByTask(taskId: String): Flow<List<CommentEntity>>
 
+    @Query("SELECT * FROM comments WHERE taskId = :taskId ORDER BY createdAt ASC")
+    suspend fun getByTask(taskId: String): List<CommentEntity>
+
     @Query("SELECT * FROM comments WHERE projectId = :projectId ORDER BY createdAt DESC")
     fun observeByProject(projectId: String): Flow<List<CommentEntity>>
 

@@ -58,9 +58,10 @@ class AppContainer(context: Context) {
         taskDao             = db.taskDao(),
         checklistDao        = db.checklistItemDao(),
         checklistSectionDao = db.checklistSectionDao(),
+        commentDao          = db.commentDao(),
         actionLog           = actionLogRepository,
         syncDao             = syncDao,
-        lanSyncWriter     = lanSyncWriter,
+        lanSyncWriter       = lanSyncWriter,
         onTaskMutated       = { com.onlyflows.ui.widget.WidgetUpdater.updateAll(context) },
     )
 

@@ -2,9 +2,11 @@ package com.onlyflows.data.repository
 
 import com.onlyflows.data.local.dao.ChecklistItemDao
 import com.onlyflows.data.local.dao.ChecklistSectionDao
+import com.onlyflows.data.local.dao.CommentDao
 import com.onlyflows.data.local.dao.SyncDao
 import com.onlyflows.data.local.dao.TaskDao
 import com.onlyflows.data.lan.LanSyncWriter
+import com.onlyflows.data.local.entity.CommentEntity
 import com.onlyflows.data.local.entity.DeletedEntityEntity
 import com.onlyflows.data.local.entity.TaskWithChecklistItems
 import com.onlyflows.data.local.entity.toDomain
@@ -25,6 +27,7 @@ class TaskRepository(
     private val taskDao: TaskDao,
     private val checklistDao: ChecklistItemDao,
     private val checklistSectionDao: ChecklistSectionDao,
+    private val commentDao: CommentDao,
     private val actionLog: ActionLogRepository,
     private val syncDao: SyncDao,
     private val lanSyncWriter: LanSyncWriter,
@@ -48,6 +51,30 @@ class TaskRepository(
             )
         )
         lanSyncWriter.writeTombstone("tasks", id, now)
+    }
+
+    /** Recurring tasks keep a tracking log as comments: each completion/abandon adds an auto
+     *  comment "🔁 <status> — <date>", and the full comment history is copied onto the next
+     *  occurrence so it persists across occurrences and syncs like any other comment. */
+    private suspend fun addRecurrenceLogComment(taskId: String, status: String) {
+        val now = LocalDateTime.now()
+        val comment = CommentEntity(
+            id        = "cmt_${System.currentTimeMillis()}_rec",
+            taskId    = taskId,
+            content   = "🔁 $status — ${LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy"))}",
+            createdAt = now,
+            updatedAt = now,
+        )
+        commentDao.insert(comment)
+        lanSyncWriter.writeComment(comment)
+    }
+
+    private suspend fun copyCommentsToNextOccurrence(fromTaskId: String, toTaskId: String) {
+        commentDao.getByTask(fromTaskId).forEachIndexed { idx, c ->
+            val copy = c.copy(id = "cmt_${System.currentTimeMillis()}_$idx", taskId = toTaskId)
+            commentDao.insert(copy)
+            lanSyncWriter.writeComment(copy)
+        }
     }
 
     private suspend fun log(type: ActionType, taskId: String, label: String, extra: String? = null) {
@@ -134,6 +161,7 @@ class TaskRepository(
     suspend fun setScheduledGroup(id: String, group: com.onlyflows.domain.model.TaskGroup?) {
         taskDao.setScheduledGroup(id, group?.name, LocalDateTime.now().toString())
         syncWrite(id)
+        refreshWidgets()
     }
 
     fun search(query: String): Flow<List<Task>> =
@@ -173,6 +201,7 @@ class TaskRepository(
         val label = taskDao.getById(id)?.title ?: id
         syncWrite(id)
         log(if (archived) ActionType.TASK_ARCHIVED else ActionType.TASK_RESTORED, id, label)
+        refreshWidgets()
     }
 
     suspend fun completeRecurring(id: String) {
@@ -197,7 +226,14 @@ class TaskRepository(
             rule         = rule,
             completedOn  = LocalDate.now(),
             currentDue   = task.dueDate,
-        ) ?: return
+        )
+        if (nextDue == null) {
+            // recurrence ended — keep the tracking log on the final occurrence
+            addRecurrenceLogComment(id, "Done")
+            syncWrite(id)
+            refreshWidgets()
+            return
+        }
 
         // 3 — insert fresh occurrence (reset completion + checklist)
         val nextTask = task.copy(
@@ -217,8 +253,12 @@ class TaskRepository(
                 }
             )
         }
+        // 4 — tracking log lives on the new occurrence (history + this completion)
+        copyCommentsToNextOccurrence(fromTaskId = id, toTaskId = nextTask.id)
+        addRecurrenceLogComment(nextTask.id, "Done")
         syncWrite(id)
         syncWrite(nextTask.id)
+        refreshWidgets()
     }
 
     suspend fun abandonTask(id: String) {
@@ -226,6 +266,7 @@ class TaskRepository(
         val label = taskDao.getById(id)?.title ?: id
         syncWrite(id)
         log(ActionType.TASK_ABANDONED, id, label)
+        refreshWidgets()
     }
 
     suspend fun abandonRecurring(id: String) {
@@ -249,7 +290,14 @@ class TaskRepository(
             rule        = rule,
             completedOn = LocalDate.now(),
             currentDue  = task.dueDate,
-        ) ?: return
+        )
+        if (nextDue == null) {
+            // recurrence ended — keep the tracking log on the final occurrence
+            addRecurrenceLogComment(id, "Abandoned")
+            syncWrite(id)
+            refreshWidgets()
+            return
+        }
 
         // 3 — insert fresh occurrence (reset completion + checklist)
         val nextTask = task.copy(
@@ -271,12 +319,17 @@ class TaskRepository(
             checklistDao.insertAll(newItems)
             newItems.forEach { lanSyncWriter.writeChecklistItem(it) }
         }
+        // 4 — tracking log lives on the new occurrence (history + this abandon)
+        copyCommentsToNextOccurrence(fromTaskId = id, toTaskId = nextTask.id)
+        addRecurrenceLogComment(nextTask.id, "Abandoned")
         syncWrite(id)
+        refreshWidgets()
     }
 
     suspend fun setStarred(id: String, starred: Boolean) {
         taskDao.setStarred(id, starred, LocalDateTime.now().toString())
         syncWrite(id)
+        refreshWidgets()
     }
 
     suspend fun moveTask(id: String, projectId: String?, sectionId: String?) {
@@ -284,16 +337,19 @@ class TaskRepository(
         val label = taskDao.getById(id)?.title ?: id
         syncWrite(id)
         log(ActionType.TASK_MOVED, id, label, extra = projectId ?: "inbox")
+        refreshWidgets()
     }
 
     suspend fun delete(id: String) {
         tombstone(id)
         taskDao.delete(id)
+        refreshWidgets()
     }
 
     suspend fun deleteAll(ids: List<String>) {
         ids.forEach { tombstone(it) }
         taskDao.deleteAll(ids)
+        refreshWidgets()
     }
 
     suspend fun softDelete(id: String) {
@@ -301,6 +357,7 @@ class TaskRepository(
         taskDao.softDelete(id, LocalDateTime.now().toString())
         syncWrite(id)
         log(ActionType.TASK_DELETED, id, label)
+        refreshWidgets()
     }
 
     fun observeTrash(): Flow<List<Task>> =
@@ -311,11 +368,13 @@ class TaskRepository(
         syncWrite(id)
         val label = taskDao.getById(id)?.title ?: id
         log(ActionType.TASK_RESTORED, id, label)
+        refreshWidgets()
     }
 
     suspend fun emptyTrash() {
         taskDao.getTrashIds().forEach { tombstone(it) }
         taskDao.emptyTrash()
+        refreshWidgets()
     }
 
     suspend fun addChecklistItem(item: ChecklistItem) {
@@ -326,6 +385,7 @@ class TaskRepository(
     suspend fun toggleChecklistItem(id: String, completed: Boolean) {
         checklistDao.setCompleted(id, completed)
         checklistDao.getById(id)?.let { lanSyncWriter.writeChecklistItem(it) }
+        refreshWidgets()
     }
 
     suspend fun deleteChecklistItem(id: String) {
@@ -387,6 +447,7 @@ class TaskRepository(
             taskDao.updateSortOrder(id, index)
         }
         idsInOrder.forEach { syncWrite(it) }
+        refreshWidgets()
     }
 
     fun observeInboxCount(): Flow<Int>   = taskDao.observeInboxCount()
