@@ -106,6 +106,8 @@ dependencies {
     implementation(libs.androidx.work.runtime.ktx)
 
     implementation(libs.androidx.documentfile)
+    // play-services-location drags in fragment 1.1.0; activity-result APIs need >= 1.3.0
+    implementation(libs.androidx.fragment)
 
     // Location + Geofencing
     implementation(libs.play.services.location)
