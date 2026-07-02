@@ -5,6 +5,25 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.65.0] — 2026-07-02 · Journal des récurrentes + widget fiable + grand nettoyage
+
+### Ajouté
+
+- **Journal de suivi des tâches récurrentes** : à chaque complétion/abandon, un commentaire automatique « 🔁 Done — 2 Jul 2026 » (ou Abandoned) est ajouté. L'historique complet des commentaires est copié sur la nouvelle occurrence — le journal reste donc visible sur la tâche vivante, et se synchronise comme n'importe quel commentaire. Fin de récurrence : le journal reste sur la dernière occurrence archivée.
+- **Icônes de propriétés dans les listes** : goal, impact, difficulté, date de début, commentaires et suivi du temps sont maintenant visibles sur les lignes de tâches (avant : uniquement dans le détail). Le badge de date affiche la plage horaire début–fin.
+
+### Corrigé
+
+- **Widget — rafraîchissement** : le widget se met à jour après *toutes* les mutations (récurrente complétée, déplacement, suppression, corbeille, étoile, réordonnancement, checklist…) et pas seulement création/édition/complétion simple. Rebind des listes ajouté pour les appareils < Android 12.
+- **Widget — détails** : la ligne détail affiche projet, tags et indicateurs de propriétés, plus seulement « date · heure »; visible aussi pour les tâches sans date.
+- **Sync** : la dernière complétion/abandon d'une récurrence arrivée à son terme n'était jamais synchronisée (return prématuré).
+
+### Supprimé / Technique
+
+- Suppression du stack Syncthing mort (~1 000 lignes, remplacé par LAN sync depuis longtemps), du worker no-op replanifié toutes les 15 min, des docs obsolètes (doc.md, docs/SYNC.md, docs/ARCHITECTURE.md) et des logs JVM traqués (~46 000 lignes).
+- Dépendances retirées : appcompat, adaptive-layout, adaptive-navigation.
+- Renommages : fichiers `*RepositoryImpl.kt` → `*Repository.kt`, paramètre `syncthingWriter` → `lanSyncWriter`; MockData réduit à l'usage réel des previews.
+
 ## [0.61.0] — 2026-06-30 · App Wear OS (montre) + pont téléphone
 
 ### Ajouté
