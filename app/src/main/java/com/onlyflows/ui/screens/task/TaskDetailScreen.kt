@@ -341,7 +341,7 @@ fun TaskDetailScreen(
                 Tab(
                     selected = pagerState.currentPage == 2,
                     onClick  = { pagerScope.launch { pagerState.animateScrollToPage(2) } },
-                    text     = { Text("Commentaires" + if (state.comments.isNotEmpty()) " (${state.comments.size})" else "") },
+                    text     = { Text("Comments" + if (state.comments.isNotEmpty()) " (${state.comments.size})" else "") },
                 )
             }
 

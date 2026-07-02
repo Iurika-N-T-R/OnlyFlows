@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
@@ -66,6 +67,11 @@ fun TaskItem(
     val taskTags = tags.filter { it.id in task.tagIds }
     val hasExpandable = !task.isCompleted && task.checklistItems.isNotEmpty()
     val haptic = LocalHapticFeedback.current
+    // Height of the title's first line — badges/icons center on it (aligned with the
+    // checkbox) instead of the whole title block, which looks off when the title wraps.
+    val firstLineHeight = with(LocalDensity.current) {
+        MaterialTheme.typography.bodyLarge.lineHeight.toDp()
+    }
 
     var expanded by remember(task.id) { mutableStateOf(false) }
 
@@ -121,9 +127,10 @@ fun TaskItem(
         // ── Main content ──────────────────────────────────────────────────────
         Column(modifier = Modifier.weight(1f)) {
 
-            // Title row — center so badges/icons line up with the title's text, not its tall line box
+            // Title row — top aligned; badges/icons wrapped in first-line-height boxes so
+            // they stay on the checkbox line even when the title wraps to 2 lines
             Row(
-                verticalAlignment = Alignment.CenterVertically,
+                verticalAlignment = Alignment.Top,
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 // Checklist progress badge "done/total"
@@ -131,26 +138,30 @@ fun TaskItem(
                     val done    = task.checklistItems.count { it.isCompleted }
                     val total   = task.checklistItems.size
                     val allDone = done == total
-                    Surface(
-                        color  = if (allDone) checkboxColor.copy(alpha = 0.15f)
-                                 else         MaterialTheme.colorScheme.surfaceVariant,
-                        shape  = RoundedCornerShape(5.dp),
-                        modifier = Modifier.padding(end = 7.dp),
-                    ) {
-                        Text(
-                            text       = "$done/$total",
-                            style      = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color      = if (allDone) checkboxColor
-                                         else         MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier   = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
-                        )
+                    Box(contentAlignment = Alignment.Center, modifier = Modifier.height(firstLineHeight)) {
+                        Surface(
+                            color  = if (allDone) checkboxColor.copy(alpha = 0.15f)
+                                     else         MaterialTheme.colorScheme.surfaceVariant,
+                            shape  = RoundedCornerShape(5.dp),
+                            modifier = Modifier.padding(end = 7.dp),
+                        ) {
+                            Text(
+                                text       = "$done/$total",
+                                style      = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color      = if (allDone) checkboxColor
+                                             else         MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier   = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
+                            )
+                        }
                     }
                 }
 
                 // Deadline badge — inline before title
                 if (task.dueDate != null && !task.isCompleted) {
-                    DateBadge(date = task.dueDate!!, dueTime = task.dueTime, endTime = task.endTime)
+                    Box(contentAlignment = Alignment.Center, modifier = Modifier.height(firstLineHeight)) {
+                        DateBadge(date = task.dueDate!!, dueTime = task.dueTime, endTime = task.endTime)
+                    }
                     Spacer(Modifier.width(6.dp))
                 }
 
@@ -170,6 +181,7 @@ fun TaskItem(
 
                 // Indicator icons — only when collapsed and not completed
                 if (!task.isCompleted && !expanded) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.height(firstLineHeight)) {
                     val iconTint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
                     if (task.hasNote || task.note.isNotBlank()) {
                         Spacer(Modifier.width(5.dp))
@@ -211,6 +223,7 @@ fun TaskItem(
                         Spacer(Modifier.width(3.dp))
                         Icon(Icons.Outlined.Lock, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f), modifier = Modifier.size(12.dp))
                     }
+                    }
                 }
 
                 // Edit icon — only when expanded
@@ -219,7 +232,8 @@ fun TaskItem(
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
-                            .size(26.dp)
+                            .height(firstLineHeight)
+                            .width(26.dp)
                             .clip(RoundedCornerShape(6.dp))
                             .clickable(onClick = { onEditClick(task.id) }),
                     ) {
@@ -298,7 +312,9 @@ fun TaskItem(
         // ── Right: selection circle OR star + date ────────────────────────────
         Spacer(Modifier.width(10.dp))
         if (isSelectionMode) {
-            SelectionCircle(isSelected = isSelected, accentColor = checkboxColor)
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.height(firstLineHeight)) {
+                SelectionCircle(isSelected = isSelected, accentColor = checkboxColor)
+            }
         } else {
             val hasRight = !task.isCompleted &&
                 (task.isStarred || task.priority != TaskPriority.NONE ||
@@ -307,6 +323,7 @@ fun TaskItem(
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.height(firstLineHeight),
                 ) {
                     if (task.impact != TaskImpact.NONE && !task.isCompleted) {
                         val impactTint = when (task.impact) {

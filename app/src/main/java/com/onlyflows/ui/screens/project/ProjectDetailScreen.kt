@@ -13,6 +13,9 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
@@ -51,7 +54,6 @@ import com.onlyflows.domain.model.StatusLogEntry
 import com.onlyflows.domain.model.Tag
 import com.onlyflows.domain.model.Task
 import com.onlyflows.domain.model.TaskPriority
-import com.onlyflows.ui.components.CompletedSectionHeader
 import com.onlyflows.ui.components.EmptyState
 import com.onlyflows.ui.components.FlowFab
 import com.onlyflows.ui.components.NoteCard
@@ -117,14 +119,12 @@ fun ProjectDetailScreen(
     BackHandler(enabled = state.selectedTaskIds.isNotEmpty()) {
         viewModel.onEvent(ProjectDetailEvent.ClearSelection)
     }
-    var showCommentsSheet    by remember { mutableStateOf(false) }
     var showStatusMenu       by remember { mutableStateOf(false) }
     var showProjectMenu     by remember { mutableStateOf(false) }
     var showEditProject     by remember { mutableStateOf(false) }
     var showAddSection        by remember { mutableStateOf(false) }
     var showAddChildList      by remember { mutableStateOf(false) }
     var showReorderSections   by remember { mutableStateOf(false) }
-    var archivedSectionExpanded by remember { mutableStateOf(false) }
     val project = state.project
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val listState = rememberLazyListState()
@@ -336,66 +336,104 @@ fun ProjectDetailScreen(
             modifier     = Modifier.fillMaxSize(),
         ) {
 
-        LazyColumn(
+        Column(modifier = Modifier.fillMaxSize().padding(top = padding.calculateTopPadding())) {
+
+        // Project info header (status, countdown, note) — fixed above the tabs
+        if (project != null) {
+            Column(
+                modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 12.dp),
+            ) {
+                // Status chip + deadline badge inline
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    if (project.type == ProjectType.PROJECT) {
+                        Box {
+                            ProjectStatusChip(
+                                status  = project.status,
+                                onClick = { showStatusMenu = true },
+                            )
+                            DropdownMenu(
+                                expanded         = showStatusMenu,
+                                onDismissRequest = { showStatusMenu = false },
+                            ) {
+                                ProjectStatus.entries.forEach { s ->
+                                    DropdownMenuItem(
+                                        text        = { Text(s.label) },
+                                        leadingIcon = { Text(s.emoji) },
+                                        onClick     = {
+                                            viewModel.onEvent(ProjectDetailEvent.UpdateStatus(s))
+                                            showStatusMenu = false
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    project.dueDate?.let { due ->
+                        DeadlineBadge(dueDate = due, createdAt = project.createdAt.toLocalDate())
+                    }
+                }
+                // Note/description
+                if (project.note.isNotBlank()) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text      = project.note,
+                        style     = MaterialTheme.typography.bodyMedium,
+                        color     = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 20.sp,
+                    )
+                }
+            }
+        }
+
+        // Filter bar — fixed between info and tabs
+        if (project != null && project.type != ProjectType.NOTE && availableTags.isNotEmpty()) {
+            TaskFilterBar(
+                availableTags        = availableTags,
+                activeTagFilter      = state.activeTagFilter,
+                activePriorityFilter = state.activePriorityFilter,
+                onToggleTag          = { viewModel.onEvent(ProjectDetailEvent.ToggleTagFilter(it)) },
+                onSetPriority        = { viewModel.onEvent(ProjectDetailEvent.SetPriorityFilter(it)) },
+            )
+        }
+
+        val pagerState = rememberPagerState(initialPage = 0) { 3 }
+        val pagerScope = rememberCoroutineScope()
+
+        TabRow(selectedTabIndex = pagerState.currentPage) {
+            Tab(
+                selected = pagerState.currentPage == 0,
+                onClick  = { pagerScope.launch { pagerState.animateScrollToPage(0) } },
+                text     = { Text(if (project?.type == ProjectType.NOTE) "Notes" else "Tasks") },
+            )
+            Tab(
+                selected = pagerState.currentPage == 1,
+                onClick  = { pagerScope.launch { pagerState.animateScrollToPage(1) } },
+                text     = { Text("Archived" + if (state.archivedTasks.isNotEmpty()) " (${state.archivedTasks.size})" else "") },
+            )
+            Tab(
+                selected = pagerState.currentPage == 2,
+                onClick  = { pagerScope.launch { pagerState.animateScrollToPage(2) } },
+                text     = { Text("Comments" + if (state.comments.isNotEmpty()) " (${state.comments.size})" else "") },
+            )
+        }
+
+        HorizontalPager(
+            state    = pagerState,
+            modifier = Modifier.fillMaxSize(),
+        ) { page ->
+        when (page) {
+
+        0 -> LazyColumn(
             state = listState,
             contentPadding = PaddingValues(
-                top    = padding.calculateTopPadding() + 4.dp,
+                top    = 4.dp,
                 bottom = padding.calculateBottomPadding() + 88.dp,
             ),
             modifier = Modifier.fillMaxSize().imePadding(),
         ) {
-            // Project info header (status, countdown, note) — always visible in scroll body
-            if (project != null) {
-                item(key = "project_info") {
-                    Column(
-                        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 12.dp),
-                    ) {
-                        // Status chip + deadline badge inline
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            if (project.type == ProjectType.PROJECT) {
-                                Box {
-                                    ProjectStatusChip(
-                                        status  = project.status,
-                                        onClick = { showStatusMenu = true },
-                                    )
-                                    DropdownMenu(
-                                        expanded         = showStatusMenu,
-                                        onDismissRequest = { showStatusMenu = false },
-                                    ) {
-                                        ProjectStatus.entries.forEach { s ->
-                                            DropdownMenuItem(
-                                                text        = { Text(s.label) },
-                                                leadingIcon = { Text(s.emoji) },
-                                                onClick     = {
-                                                    viewModel.onEvent(ProjectDetailEvent.UpdateStatus(s))
-                                                    showStatusMenu = false
-                                                },
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                            project.dueDate?.let { due ->
-                                DeadlineBadge(dueDate = due, createdAt = project.createdAt.toLocalDate())
-                            }
-                        }
-                        // Note/description
-                        if (project.note.isNotBlank()) {
-                            Spacer(Modifier.height(8.dp))
-                            Text(
-                                text      = project.note,
-                                style     = MaterialTheme.typography.bodyMedium,
-                                color     = MaterialTheme.colorScheme.onSurfaceVariant,
-                                lineHeight = 20.sp,
-                            )
-                        }
-                    }
-                }
-            }
-
             // ── NOTE type: list of note cards ─────────────────────────────────
             if (project != null && project.type == ProjectType.NOTE) {
                 if (!state.isLoading && state.notes.isEmpty()) {
@@ -522,18 +560,6 @@ fun ProjectDetailScreen(
             }
 
 
-            if (project != null && availableTags.isNotEmpty()) {
-                item(key = "filter_bar") {
-                    TaskFilterBar(
-                        availableTags        = availableTags,
-                        activeTagFilter      = state.activeTagFilter,
-                        activePriorityFilter = state.activePriorityFilter,
-                        onToggleTag          = { viewModel.onEvent(ProjectDetailEvent.ToggleTagFilter(it)) },
-                        onSetPriority        = { viewModel.onEvent(ProjectDetailEvent.SetPriorityFilter(it)) },
-                    )
-                }
-            }
-
             // Empty state when project has no tasks at all
             if (!state.isLoading && localItems.none { it is PdItem.TaskRow }) {
                 item(key = "empty_state") {
@@ -634,69 +660,115 @@ fun ProjectDetailScreen(
                 }
             }
 
-            // ── Archived section ──────────────────────────────────────────────
-            if (state.archivedTasks.isNotEmpty()) {
-                item(key = "archived_header") {
-                    CompletedSectionHeader(
-                        count    = state.archivedTasks.size,
-                        expanded = archivedSectionExpanded,
-                        onToggle = { archivedSectionExpanded = !archivedSectionExpanded },
-                        label    = "Archived",
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
-                }
-                if (archivedSectionExpanded) {
-                    items(state.archivedTasks, key = { "archived_${it.id}" }) { task ->
-                        TaskItem(
-                            task            = task,
-                            tags            = state.tags,
-                            checkboxColor   = projectColor,
-                            onToggleComplete      = {},
-                            onToggleChecklistItem = { _, _ -> },
-                            onEditClick     = {},
-                            onLongClick     = {},
-                        )
-                        Row(
-                            horizontalArrangement = Arrangement.End,
-                            modifier = Modifier.fillMaxWidth().padding(end = 16.dp),
-                        ) {
-                            TextButton(onClick = { viewModel.onEvent(ProjectDetailEvent.UnarchiveTask(task.id)) }) {
-                                Text("Restore", style = MaterialTheme.typography.labelSmall)
-                            }
-                        }
-                        HorizontalDivider(
-                            modifier  = Modifier.padding(start = 56.dp, end = 20.dp),
-                            color     = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
-                            thickness = 0.5.dp,
+        }
+
+        // ── Archived tab ──────────────────────────────────────────────────────
+        1 -> LazyColumn(
+            contentPadding = PaddingValues(
+                top    = 4.dp,
+                bottom = padding.calculateBottomPadding() + 88.dp,
+            ),
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            if (state.archivedTasks.isEmpty()) {
+                item(key = "archived_empty") {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier.fillParentMaxWidth().padding(top = 48.dp),
+                    ) {
+                        EmptyState(
+                            emoji    = "🗂️",
+                            title    = "No archived tasks",
+                            subtitle = "Abandoned and archived tasks land here.",
                         )
                     }
                 }
-            }
-
-            // Comments
-            item(key = "comments") {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
-                com.onlyflows.ui.components.CommentsSection(
-                    comments    = state.comments,
-                    onAdd       = { viewModel.onEvent(ProjectDetailEvent.AddComment(it)) },
-                    onEdit      = { id, content -> viewModel.onEvent(ProjectDetailEvent.EditComment(id, content)) },
-                    onDelete    = { viewModel.onEvent(ProjectDetailEvent.DeleteComment(it)) },
-                    onOpenSheet = { showCommentsSheet = true },
-                )
+            } else {
+                items(state.archivedTasks, key = { "archived_${it.id}" }) { task ->
+                    TaskItem(
+                        task            = task,
+                        tags            = state.tags,
+                        checkboxColor   = projectColor,
+                        onToggleComplete      = {},
+                        onToggleChecklistItem = { _, _ -> },
+                        onEditClick     = {},
+                        onLongClick     = {},
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.End,
+                        modifier = Modifier.fillMaxWidth().padding(end = 16.dp),
+                    ) {
+                        TextButton(onClick = { viewModel.onEvent(ProjectDetailEvent.UnarchiveTask(task.id)) }) {
+                            Text("Restore", style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                    HorizontalDivider(
+                        modifier  = Modifier.padding(start = 56.dp, end = 20.dp),
+                        color     = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
+                        thickness = 0.5.dp,
+                    )
+                }
             }
         }
 
-        } // end PullToRefreshBox
-    }
+        // ── Comments tab — message-style layout, input pinned at the bottom ──
+        else -> {
+            var draft     by remember { mutableStateOf("") }
+            var editingId by remember { mutableStateOf<String?>(null) }
+            var editDraft by remember { mutableStateOf("") }
 
-    if (showCommentsSheet) {
-        com.onlyflows.ui.overlays.CommentsBottomSheet(
-            comments  = state.comments,
-            onAdd     = { viewModel.onEvent(ProjectDetailEvent.AddComment(it)) },
-            onEdit    = { id, content -> viewModel.onEvent(ProjectDetailEvent.EditComment(id, content)) },
-            onDelete  = { viewModel.onEvent(ProjectDetailEvent.DeleteComment(it)) },
-            onDismiss = { showCommentsSheet = false },
-        )
+            Column(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(
+                    reverseLayout  = true,
+                    contentPadding = PaddingValues(top = 8.dp, bottom = 8.dp),
+                    modifier       = Modifier.weight(1f).fillMaxWidth(),
+                ) {
+                    if (state.comments.isEmpty()) {
+                        item(key = "empty") {
+                            Text(
+                                "No comments",
+                                style    = MaterialTheme.typography.bodyMedium,
+                                color    = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+                            )
+                        }
+                    } else {
+                        items(state.comments, key = { it.id }) { comment ->
+                            if (editingId == comment.id) {
+                                com.onlyflows.ui.components.CommentEditRow(
+                                    initial   = editDraft,
+                                    onConfirm = { content -> viewModel.onEvent(ProjectDetailEvent.EditComment(comment.id, content)); editingId = null },
+                                    onCancel  = { editingId = null },
+                                )
+                            } else {
+                                com.onlyflows.ui.components.CommentRow(
+                                    comment  = comment,
+                                    onEdit   = { editingId = comment.id; editDraft = comment.content },
+                                    onDelete = { viewModel.onEvent(ProjectDetailEvent.DeleteComment(comment.id)) },
+                                )
+                            }
+                        }
+                    }
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+                com.onlyflows.ui.components.CommentInput(
+                    draft    = draft,
+                    onChange = { draft = it },
+                    onSend   = { viewModel.onEvent(ProjectDetailEvent.AddComment(draft)); draft = "" },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .imePadding()
+                        .padding(vertical = 10.dp, horizontal = 4.dp)
+                        .padding(bottom = padding.calculateBottomPadding()),
+                )
+            }
+        }
+        }
+        } // end HorizontalPager
+
+        } // end Column
+
+        } // end PullToRefreshBox
     }
 
     if (state.showAddTask) {
