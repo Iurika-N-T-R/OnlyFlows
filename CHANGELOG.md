@@ -5,6 +5,24 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.66.0] — 2026-07-02 · Listes en cartes + notes v2 + kanban recentré
+
+### Ajouté
+
+- **Vue projet en onglets** partout : Tasks/Lists/Notes · Archived (n) · Comments (n) — infos et filtre fixés au-dessus, commentaires en panneau messagerie avec saisie en bas.
+- **Listes de listes en cartes** : grille adaptative (2 colonnes téléphone, 3/4 tablette), **couverture d'image synchronisée** (stockée dans l'entité, redimensionnée ~600 px), compteur d'items par carte, carte « + » pour créer une liste (appui long sur une carte → définir/retirer la couverture).
+- **Notes v2** : groupes de notes (cartes, comme les listes), épingler (tri en tête + icône), archiver/restaurer (onglet Archived), affichage **masonry** (2 colonnes mobile, adaptatif tablette).
+- **Markdown complet dans les notes** : blocs de code ```, listes numérotées, citations >, puces imbriquées, liens, titres #–######, ***gras italique***, tableaux, sélection/copie du texte en mode lecture.
+- **Écran Projects repensé** : kanban recentré (colonne active au milieu, voisines visibles sur les bords), glisser-déposer des cartes entre statuts (vibration à la prise), échéance sur chaque carte (« No deadline » sinon), vue liste en cartes de statut repliables avec hiérarchie dossier → projet → sous-listes, rangée de stats (compteur par statut), commutateur Board/List flottant en bas, **icônes de statut** (fin des emojis), vue/colonne/repli **persistants**.
+
+### Corrigé
+
+- Alignement des badges/icônes sur la première ligne du titre (ligne de la checkbox) quand le titre passe sur 2 lignes.
+- Menu ⋮ des notes aligné en haut de la carte, pas centré.
+- Base : migrations 35→37 non destructives (couverture, épingle/archive de note) — données conservées.
+
+---
+
 ## [0.65.0] — 2026-07-02 · Journal des récurrentes + widget fiable + grand nettoyage
 
 ### Ajouté
