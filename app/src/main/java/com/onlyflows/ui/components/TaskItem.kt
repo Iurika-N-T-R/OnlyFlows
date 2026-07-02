@@ -18,6 +18,8 @@ import androidx.compose.material.icons.outlined.*
 import androidx.compose.ui.res.painterResource
 import com.onlyflows.R
 import com.onlyflows.domain.model.TaskPriority
+import com.onlyflows.domain.model.TaskDifficulty
+import com.onlyflows.domain.model.TaskImpact
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -148,7 +150,7 @@ fun TaskItem(
 
                 // Deadline badge — inline before title
                 if (task.dueDate != null && !task.isCompleted) {
-                    DateBadge(date = task.dueDate!!, dueTime = task.dueTime)
+                    DateBadge(date = task.dueDate!!, dueTime = task.dueTime, endTime = task.endTime)
                     Spacer(Modifier.width(6.dp))
                 }
 
@@ -188,6 +190,22 @@ fun TaskItem(
                     if (task.hasAttachments) {
                         Spacer(Modifier.width(3.dp))
                         Icon(Icons.Outlined.Attachment, null, tint = iconTint, modifier = Modifier.size(13.dp))
+                    }
+                    if (task.goalIds.isNotEmpty()) {
+                        Spacer(Modifier.width(3.dp))
+                        Icon(Icons.Outlined.TrackChanges, null, tint = iconTint, modifier = Modifier.size(13.dp))
+                    }
+                    if (task.startDate != null) {
+                        Spacer(Modifier.width(3.dp))
+                        Icon(Icons.Outlined.PlayArrow, null, tint = iconTint, modifier = Modifier.size(13.dp))
+                    }
+                    if (task.hasComments) {
+                        Spacer(Modifier.width(3.dp))
+                        Icon(Icons.Outlined.ChatBubbleOutline, null, tint = iconTint, modifier = Modifier.size(12.dp))
+                    }
+                    if (task.hasTimeEntries) {
+                        Spacer(Modifier.width(3.dp))
+                        Icon(Icons.Outlined.Timer, null, tint = iconTint, modifier = Modifier.size(13.dp))
                     }
                     if (task.dependsOnTaskId != null) {
                         Spacer(Modifier.width(3.dp))
@@ -282,12 +300,31 @@ fun TaskItem(
         if (isSelectionMode) {
             SelectionCircle(isSelected = isSelected, accentColor = checkboxColor)
         } else {
-            val hasRight = (task.isStarred && !task.isCompleted) || (task.priority != TaskPriority.NONE && !task.isCompleted)
+            val hasRight = !task.isCompleted &&
+                (task.isStarred || task.priority != TaskPriority.NONE ||
+                 task.impact != TaskImpact.NONE || task.difficulty != TaskDifficulty.NONE)
             if (hasRight) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
+                    if (task.impact != TaskImpact.NONE && !task.isCompleted) {
+                        val impactTint = when (task.impact) {
+                            TaskImpact.HIGH -> Color(0xFFDC3545)
+                            TaskImpact.LOW  -> Color(0xFF4A90D9)
+                            TaskImpact.NONE -> Color.Transparent
+                        }
+                        Icon(Icons.Outlined.Bolt, "Impact", tint = impactTint, modifier = Modifier.size(14.dp))
+                    }
+                    if (task.difficulty != TaskDifficulty.NONE && !task.isCompleted) {
+                        val difficultyTint = when (task.difficulty) {
+                            TaskDifficulty.HARD   -> Color(0xFFDC3545)
+                            TaskDifficulty.MEDIUM -> Color(0xFFFF8800)
+                            TaskDifficulty.EASY   -> Color(0xFF4A90D9)
+                            TaskDifficulty.NONE   -> Color.Transparent
+                        }
+                        Icon(Icons.Outlined.FitnessCenter, "Difficulty", tint = difficultyTint, modifier = Modifier.size(13.dp))
+                    }
                     if (task.priority != TaskPriority.NONE && !task.isCompleted) {
                         val flagTint = when (task.priority) {
                             TaskPriority.HIGH   -> Color(0xFFDC3545)
@@ -467,7 +504,7 @@ fun TaskCheckbox(
 // ── Date badge ────────────────────────────────────────────────────────────────
 
 @Composable
-fun DateBadge(date: LocalDate, dueTime: java.time.LocalTime? = null, modifier: Modifier = Modifier) {
+fun DateBadge(date: LocalDate, dueTime: java.time.LocalTime? = null, endTime: java.time.LocalTime? = null, modifier: Modifier = Modifier) {
     val today     = LocalDate.now()
     val daysUntil = ChronoUnit.DAYS.between(today, date).toInt()
 
@@ -479,7 +516,10 @@ fun DateBadge(date: LocalDate, dueTime: java.time.LocalTime? = null, modifier: M
     }
     val use24h   = com.onlyflows.ui.theme.LocalUse24hFormat.current
     val timePat  = if (use24h) "HH:mm" else "hh:mm a"
-    val timeText = dueTime?.format(DateTimeFormatter.ofPattern(timePat))
+    val timeText = dueTime?.let { start ->
+        val s = start.format(DateTimeFormatter.ofPattern(timePat))
+        endTime?.let { e -> "$s–${e.format(DateTimeFormatter.ofPattern(timePat))}" } ?: s
+    }
     val text = if (timeText != null) "$dateText $timeText" else dateText
 
     val fc = MaterialTheme.flowColors

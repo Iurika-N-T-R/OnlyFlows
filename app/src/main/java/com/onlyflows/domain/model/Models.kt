@@ -103,6 +103,9 @@ data class Task(
     val sortOrder: Int = 0,
     val hasNote: Boolean = false,
     val hasChecklist: Boolean = false,
+    // Derived from relations at query time (TaskWithChecklistItems) — not stored on the entity
+    val hasComments: Boolean = false,
+    val hasTimeEntries: Boolean = false,
     val recurrenceDoneCount: Int = 0,
     val recurrenceAbandonedCount: Int = 0,
     val checklistItems: List<ChecklistItem> = emptyList(),

@@ -30,16 +30,21 @@ class OnlyFlowsWidgetProvider : AppWidgetProvider() {
 
     override fun onUpdate(context: Context, mgr: AppWidgetManager, ids: IntArray) {
         ids.forEach { id ->
-            runCatching { mgr.updateAppWidget(id, buildWidget(context, id)) }
-                .onFailure { Log.e("OnlyFlowsWidget", "build failed for $id", it) }
+            runCatching {
+                mgr.updateAppWidget(id, buildWidget(context, id))
+                // Pre-S RemoteViewsCompat collections only re-read items after an explicit notify
+                mgr.notifyAppWidgetViewDataChanged(id, R.id.widget_list)
+            }.onFailure { Log.e("OnlyFlowsWidget", "build failed for $id", it) }
         }
     }
 
     override fun onAppWidgetOptionsChanged(
         context: Context, mgr: AppWidgetManager, id: Int, newOptions: Bundle,
     ) {
-        runCatching { mgr.updateAppWidget(id, buildWidget(context, id)) }
-            .onFailure { Log.e("OnlyFlowsWidget", "options change failed for $id", it) }
+        runCatching {
+            mgr.updateAppWidget(id, buildWidget(context, id))
+            mgr.notifyAppWidgetViewDataChanged(id, R.id.widget_list)
+        }.onFailure { Log.e("OnlyFlowsWidget", "options change failed for $id", it) }
     }
 
     override fun onDeleted(context: Context, ids: IntArray) {
@@ -75,6 +80,10 @@ private fun buildWidget(context: Context, id: Int): RemoteViews {
 
     val tasks = runBlocking { loadTasks(db.taskDao(), prefs) }
     val label = runBlocking { resolveLabel(db, prefs) }
+    val projectNames = runBlocking { db.projectDao().observeActiveProjectsAndLists().first() }
+        .associate { it.id to it.title }
+    val tagNames = runBlocking { db.tagDao().observeAll().first() }
+        .associate { it.id to it.name }
 
     val rv = RemoteViews(context.packageName, R.layout.widget_scrollable).apply {
         setInt(R.id.widget_root,  "setBackgroundColor", c.bg)
@@ -95,18 +104,24 @@ private fun buildWidget(context: Context, id: Int): RemoteViews {
 
     RemoteViewsCompat.setRemoteAdapter(
         context = context, remoteViews = rv, appWidgetId = id,
-        viewId = R.id.widget_list, items = buildItems(context, tasks, prefs.showDetails, c),
+        viewId = R.id.widget_list, items = buildItems(context, tasks, prefs.showDetails, c, projectNames, tagNames),
     )
     return rv
 }
 
-private fun buildItems(context: Context, tasks: List<TaskEntity>, showDetails: Boolean, c: WColors): RemoteCollectionItems {
+private fun buildItems(
+    context: Context, tasks: List<TaskEntity>, showDetails: Boolean, c: WColors,
+    projectNames: Map<String, String>, tagNames: Map<String, String>,
+): RemoteCollectionItems {
     val b = RemoteCollectionItems.Builder().setHasStableIds(true).setViewTypeCount(1)
-    tasks.forEach { t -> b.addItem(t.id.hashCode().toLong(), buildRow(context, t, showDetails, c)) }
+    tasks.forEach { t -> b.addItem(t.id.hashCode().toLong(), buildRow(context, t, showDetails, c, projectNames, tagNames)) }
     return b.build()
 }
 
-private fun buildRow(context: Context, t: TaskEntity, showDetails: Boolean, c: WColors): RemoteViews {
+private fun buildRow(
+    context: Context, t: TaskEntity, showDetails: Boolean, c: WColors,
+    projectNames: Map<String, String>, tagNames: Map<String, String>,
+): RemoteViews {
     val overdue = !t.isCompleted && t.dueDate?.isBefore(LocalDate.now()) == true
     return RemoteViews(context.packageName, R.layout.widget_row).apply {
         setTextViewText(R.id.widget_text, t.title)
@@ -114,7 +129,7 @@ private fun buildRow(context: Context, t: TaskEntity, showDetails: Boolean, c: W
         setImageViewResource(R.id.widget_checkbox, if (t.isCompleted) R.drawable.ic_task_checkmark else R.drawable.ic_task_unchecked)
         setInt(R.id.widget_checkbox, "setColorFilter", c.accent)
 
-        val meta = if (showDetails) buildMeta(t) else null
+        val meta = if (showDetails) buildMeta(t, projectNames, tagNames) else null
         if (meta != null) {
             setTextViewText(R.id.widget_meta, meta)
             setTextColor(R.id.widget_meta, if (overdue) c.overdue else c.text2)
@@ -163,11 +178,28 @@ private suspend fun resolveLabel(db: AppDatabase, prefs: WidgetPrefs): String = 
 private val dateFmt = DateTimeFormatter.ofPattern("d MMM", Locale.getDefault())
 private val timeFmt = DateTimeFormatter.ofPattern("HH:mm", Locale.getDefault())
 
-private fun buildMeta(t: TaskEntity): String? {
-    val date = t.dueDate ?: return null
-    val d = date.format(dateFmt)
-    val tt = t.dueTime?.format(timeFmt)
-    return if (tt != null) "$d · $tt" else d
+private fun buildMeta(t: TaskEntity, projectNames: Map<String, String>, tagNames: Map<String, String>): String? {
+    val dateTime = t.dueDate?.let { d ->
+        val tt = t.dueTime?.format(timeFmt)
+        if (tt != null) "${d.format(dateFmt)} $tt" else d.format(dateFmt)
+    }
+    val indicators = buildString {
+        if (t.isStarred) append("★")
+        if (t.priority != "NONE") append("⚑")
+        if (t.hasNote || t.note.isNotBlank()) append("≡")
+        if (t.hasChecklist) append("☑")
+        if (t.recurrenceJson != null) append("↻")
+        if (t.hasReminders) append("🔔")
+        if (t.hasAttachments) append("📎")
+        if (t.dependsOnTaskId != null) append("🔒")
+    }
+    val parts = listOfNotNull(
+        dateTime,
+        projectNames[t.projectId],
+        t.tagIds.mapNotNull { tagNames[it] }.takeIf { it.isNotEmpty() }?.joinToString(" ") { "#$it" },
+        indicators.takeIf { it.isNotEmpty() },
+    )
+    return if (parts.isEmpty()) null else parts.joinToString(" · ")
 }
 
 // ── PendingIntents ──────────────────────────────────────────────────────────
