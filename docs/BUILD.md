@@ -40,8 +40,11 @@ export JAVA_HOME="/c/Program Files/Android/Android Studio/jbr"
 
 Output: `app/build/outputs/apk/release/app-release.apk`
 
-> **Note:** The release build requires a signing key. If you don't have one, use the debug build
-> or configure a keystore in `app/build.gradle.kts` under `signingConfigs`.
+> **Note:** The release build requires a signing key. The signing config reads four Gradle
+> properties — `KEYSTORE_PATH`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD` — via
+> `project.findProperty()` (set them in `~/.gradle/gradle.properties` or as
+> `ORG_GRADLE_PROJECT_*` environment variables, never in the repo). If you don't have a
+> keystore, use the debug build.
 
 ### Full build (all variants)
 

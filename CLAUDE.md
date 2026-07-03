@@ -32,7 +32,7 @@ Domain (Models + RecurrenceScheduler)
   ↕ Repositories
 Data (Repositories + Room DAOs + DataStore + LanSyncWriter)
   ↕
-Local DB (Room v30, 21 entities) + DataStore Preferences
+Local DB (Room v38, 24 entities) + DataStore Preferences
 ```
 
 ### Key Patterns
@@ -59,12 +59,12 @@ Local DB (Room v30, 21 entities) + DataStore Preferences
 
 ### Data Layer
 
-- [AppDatabase.kt](app/src/main/java/com/onlyflows/data/local/AppDatabase.kt) — Room DB (v30, 21 entities, `fallbackToDestructiveMigration`, seed callback)
+- [AppDatabase.kt](app/src/main/java/com/onlyflows/data/local/AppDatabase.kt) — Room DB (v38, 24 entities, **non-destructive `Migration` objects since v27**, seed callback)
 - [Models.kt](app/src/main/java/com/onlyflows/domain/model/Models.kt) — Core domain models: `Task`, `Project`, `Section`, `Tag`, `Reminder`, `TimeEntry`, `Comment`, enums
 - [Goal.kt](app/src/main/java/com/onlyflows/domain/model/Goal.kt) / [GoalLog.kt](app/src/main/java/com/onlyflows/domain/model/GoalLog.kt) — Goals system domain models
 - [Converters.kt](app/src/main/java/com/onlyflows/data/local/Converters.kt) — Room TypeConverters for `LocalDate`, `LocalDateTime`, `LocalTime`, JSON
 
-**DB entities (21):** TaskEntity, ChecklistItemEntity, ProjectEntity, SectionEntity, TagEntity, FolderEntity, StatusLogEntity, NoteEntity, TimeEntryEntity, CommentEntity, ReminderEntity, AttachmentEntity, ActionLogEntity, SavedLocationEntity, SyncMetaEntity, DeletedEntityEntity, GoalEntity, GoalLogEntity, DateTrackerEntity, RssFeedEntity, RssArticleEntity
+**DB entities (24):** TaskEntity, ChecklistItemEntity, ChecklistSectionEntity, ChecklistItemReminderEntity, ProjectEntity, SectionEntity, TagEntity, FolderEntity, StatusLogEntity, NoteEntity, TimeEntryEntity, CommentEntity, ReminderEntity, AttachmentEntity, ActionLogEntity, SavedLocationEntity, SyncMetaEntity, DeletedEntityEntity, PairedDeviceEntity, GoalEntity, GoalLogEntity, DateTrackerEntity, RssFeedEntity, RssArticleEntity
 
 ### UI Structure
 
@@ -77,12 +77,15 @@ Local DB (Room v30, 21 entities) + DataStore Preferences
 - `ui/components/` — Reusable composables (`TaskItem`, `SwipeableTaskItem`, `SelectionBar`, `TaskFilterBar`, `EmptyState`, `AgendaCard`, …)
 - `ui/overlays/` — Modal bottom sheets (`AddTaskSheet`, `DatePickerModal`, `SmartMoveSheet`, `BulkMoreSheet`, `NoteEditorSheet`, `QuickFindOverlay`, `AddGoalSheet`, `GoalPickerSheet`, …)
 - `ui/layout/AdaptiveAppLayout.kt` — Phone: `ModalNavigationDrawer`; Tablet (`WindowWidthSizeClass.EXPANDED`): permanent sidebar in a `Row`
-- `ui/widget/` — RemoteViews home screen widget (`OnlyFlowsWidgetProvider`; dark/light, recurrence-safe, refreshed via `WidgetUpdater` on task mutations)
+- `ui/widget/` — RemoteViews home screen widget (`OnlyFlowsWidgetProvider`; dark/light, recurrence-safe, refreshed via `WidgetUpdater` on task mutations, after LAN sync deltas, and by a ~10 s self-chaining alarm)
 
 ### Notifications & Background
 
-- `ReminderScheduler` — `AlarmManager` exact alarms; re-scheduled after boot via `BootReceiver`
-- `DailyAlertScheduler` / `GeofenceManager` — location-based and daily summary alerts
+- `ReminderScheduler` — `AlarmManager` exact alarms (task reminders, checklist item reminders, imminence alerts); re-scheduled after boot via `BootReceiver`
+- `ReminderReceiver` — shows reminder notifications (Complete / Snooze actions); self-reschedules DAILY/WEEKLY reminders
+- `ImminenceReceiver` — pre-due-date alert N minutes before due time (configurable lead, alarm id `imm_<taskId>`)
+- **Recurring tasks carry reminders**: `TaskRepository.completeRecurring()` moves reminder rows onto the next occurrence (shifted by the due-date delta) and re-arms the imminence alert
+- `DailyAlertScheduler` / `GeofenceManager` — daily summary + weekly recap, and location-based alerts (geofences keyed by location id)
 - `WorkManager` — Backup export/import + RSS periodic sync
 - Two notification channels: sound channel + silent channel
 
@@ -106,6 +109,8 @@ Files: `data/lan/`
 - `GoalsScreen` + `GoalDetailScreen` — track habits/goals with log entries
 - `GoalRepository` / `GoalLogRepository` — both sync via LAN sync
 - `GoalPickerSheet` — picker used in TaskDetail to link a task to a goal
+- **Frequencies with periodic reset** — ONCE / DAILY / WEEKLY / MONTHLY / YEARLY; `periodStart` column + `currentPeriodStart()` (Goal.kt); `GoalRepository.rolloverIfExpired()` resets counter/completed at period rollover, checked on goal screens open and before each task-linked increment
+- **Task-linked progress lives in `TaskRepository.applyGoalProgress()`** — called from `setCompleted()`/`completeRecurring()`, so every completion path (lists, detail, widget, notification, checklist auto-complete) counts; do NOT re-add goal logic in ViewModels
 
 ### Other Features
 
@@ -119,7 +124,7 @@ Files: `data/lan/`
 
 1. Add field to `Models.kt` domain model
 2. Add field to `*Entity.kt`, update `toDomain()` + `toEntity()`
-3. **Bump `AppDatabase.version` by 1** (fallbackToDestructiveMigration wipes dev data — intentional)
+3. **Bump `AppDatabase.version` by 1 AND add a `Migration(n, n+1)`** in `AppDatabase.getInstance()` + register it in `.addMigrations(...)` — migrations are non-destructive since v27; never rely on fallbackToDestructiveMigration
 4. Add query to DAO
 5. Add method to the repository (include `lanSyncWriter` call after DAO call)
 6. Add to `AppContainer` if new repo (after LAN sync components)
@@ -133,7 +138,8 @@ Files: `data/lan/`
 - **MetaRow trailing + value** — In `TaskDetailScreen`, both `value` and `trailing` render simultaneously — they are NOT mutually exclusive.
 - **ViewModel injection** — Always `AndroidViewModel(app: Application)`, access container via `(app as OnlyFlowsApp).container`.
 - **AppContainer declaration order** — LAN sync components must be declared before repositories because repos take `lanSyncWriter` as a constructor parameter.
-- **Widget recurrence** — The widget calls `completeRecurring()` not `setCompleted()` to correctly create the next occurrence.
+- **Recurrence-aware completion** — Callers without a domain `Task` (widget, notification action) use `taskRepo.complete(id)`, which dispatches to `completeRecurring()`/`setCompleted()`. `completeRecurring()` also enforces the `endCount` occurrence limit, moves reminders + imminence alert onto the next occurrence, and applies goal progress — never bypass it with a raw `setCompleted(id, true)` on a recurring task.
+- **Widget refresh** — Widgets refresh on task mutations (`WidgetUpdater` via `onTaskMutated`), after LAN sync `applyDelta`, and via a self-chaining ~10 s inexact alarm in `OnlyFlowsWidgetProvider`.
 
 ## Important Files for Context
 

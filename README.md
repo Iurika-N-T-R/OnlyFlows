@@ -6,7 +6,7 @@ Task & project manager — minimal, editorial, local-first
 
 Jetpack Compose × Room × LAN Sync × WorkManager
 
-[![version](https://img.shields.io/badge/version-0.50.3-blue?style=flat-square)](https://github.com/Iurika-N-T-R/OnlyFlows/releases)
+[![version](https://img.shields.io/badge/version-0.68.0-blue?style=flat-square)](https://github.com/Iurika-N-T-R/OnlyFlows/releases)
 [![kotlin](https://img.shields.io/badge/kotlin-2.1.0-7F52FF?style=flat-square&logo=kotlin&logoColor=white)](https://kotlinlang.org)
 [![android](https://img.shields.io/badge/android-8.0%2B-3DDC84?style=flat-square&logo=android&logoColor=white)](https://developer.android.com)
 [![minSdk](https://img.shields.io/badge/minSdk-26-green?style=flat-square)](https://developer.android.com/about/versions/oreo)
@@ -19,14 +19,16 @@ Jetpack Compose × Room × LAN Sync × WorkManager
 ## Features
 
 ### Tasks
-- Quick creation via AddTaskSheet (title, priority, project/section, date)
-- Full task detail: note, checklist, start date, due date (with time slot), priority, tags, recurrence, dependencies, reminders, attachments, comments, time tracker
+- Quick creation via AddTaskSheet (title, priority, project/section, date, checklist)
+- Full task detail: note, checklist (with sections + per-item reminders), start date, due date (with time slot), priority, difficulty, impact, tags, recurrence, dependencies, reminders, attachments, comments, time tracker, linked goals
 - Complete via swipe or toggle; auto-complete at 100% checklist (800 ms delay)
-- Full recurrence: HOURLY / DAILY / WEEKLY / MONTHLY / YEARLY / WEEKDAYS, basis COMPLETION_DATE / DUE_DATE / SPECIFIC_DATE, skip weekends option
+- Full recurrence: HOURLY / DAILY / WEEKLY / MONTHLY / YEARLY / WEEKDAYS, basis COMPLETION_DATE / DUE_DATE / SPECIFIC_DATE, skip weekends, end date / occurrence limit (enforced on every completion path)
+- Recurring task journal: each completion/abandon adds an auto comment ("🔁 Done — 3 Jul 2026"); full history carried onto each new occurrence
+- Reminders follow recurring tasks: completing an occurrence moves its reminders (and imminence alert) onto the next one, shifted with the due date
 - Task dependencies (`dependsOnTaskId`) with lock badge and "blocked by" section
 - Convert Task → Project (checklist items → project tasks)
 - Soft delete (Trash) with restore
-- Multi-selection (long-press): Move, Delete, More (Star / Priority / Tag / Schedule / **Start Timer**)
+- Multi-selection (long-press): Move, Delete, More (Star / Priority / Tag / Schedule / Start Timer)
 
 ### Views
 | View | Description |
@@ -36,52 +38,64 @@ Jetpack Compose × Room × LAN Sync × WorkManager
 | **Inbox** | Unprocessed tasks (no project, no planned group) |
 | **Anytime** | Project tasks without date + priority, or explicitly moved here |
 | **Someday** | Project tasks without date without priority, or explicitly moved here |
-| **Projects** | Kanban (4-column board) + list toggle |
-| **Project Detail** | Sections, drag-to-reorder, tag/priority filters, pie chart, total time, notes, comments |
+| **Projects** | Centered kanban (active column in the middle, neighbours peeking) with drag & drop between statuses, per-status stat row, status icons; collapsible status-card list view with folder → project → sub-list hierarchy; Board/List switch; view/column/collapse state persisted |
+| **Project Detail** | Tabs Tasks/Lists/Notes · Archived (n) · Comments (n); sections, drag-to-reorder, tag/priority filters, pie chart, total time; comments as a messaging panel |
 | **Task Detail** | Full edit screen |
-| **Logbook** | Archived projects |
+| **Logbook** | Archived tasks & projects + action journal |
 | **Trash** | Soft-deleted tasks with restore |
-| **QuickFind** | Real-time search + natural date parsing FR/EN |
+| **QuickFind** | Real-time search + natural date parsing FR/EN + date-range results |
 
 ### Goals
-- Create goals with target value, unit, and deadline
-- Track progress via goal log entries
-- Link tasks to goals
-- Goal card UI with progress indicator
-- Filter action log by goal tag
+- Five frequencies: **ONCE, DAILY, WEEKLY, MONTHLY, YEARLY** — periodic goals reset their counter at each period rollover (midnight / Monday / 1st of month / Jan 1); ONCE never resets
+- Link tasks to goals: completing a linked task auto-increments the goal from **every** completion path (lists, task detail, widget, notification action, checklist auto-complete, recurring occurrences); un-completing decrements
+- Target count, emoji, color, tags, optional deadline; auto-completed at target
+- Status: NOT_STARTED / ON_TRACK / AT_RISK (pace vs. deadline) / COMPLETED, with filter chips
+- Journal per goal (log entries with notes), goal picker in task detail
 
-### Projects
-- Types: PROJECT, LIST, NOTE
-- Statuses: NOT_STARTED / IN_PROGRESS / WAITING / DONE (auto-DONE at 100%)
-- **Archive / Unarchive** — long-press any LIST, NOTE or PROJECT in the sidebar → Archive; collapsible "Archived" section with one-tap restore
-- Sections with drag-to-reorder, deadline with colored countdown
-- Total tracked time (sum of all task TimeEntries)
-- Status change history (`StatusLogEntry`)
-- Inline editable notes, comment timeline, child lists (sub-projects)
+### Projects, Lists & Notes
+- Types: PROJECT, LIST, NOTE, organized in folders with child lists (sub-projects)
+- Statuses: NOT_STARTED / IN_PROGRESS / WAITING / DONE (auto-DONE at 100%) with status change history
+- Lists of lists as card grids (adaptive 2–4 columns) with synced image covers and item counters
+- **Notes v2**: note groups as cards, pin, archive/restore, masonry layout, full Markdown (code blocks, tables, nested lists, quotes, links, headings)
+- Archive / Unarchive from the sidebar; collapsible "Archived" section with one-tap restore
+- Sections with drag-to-reorder, deadline with colored countdown, total tracked time
 
 ### Reminders & Notifications
-- Multiple reminders per task (exact AlarmManager, Doze exemption)
+- Multiple reminders per task (exact AlarmManager alarms, Doze exemption); one-shot or self-recurring DAILY/WEEKLY
+- Imminence alert N minutes before due time (configurable lead, default 30 min)
+- Checklist item reminders (one-shot, per item)
+- Daily agenda alerts at fixed times (configurable days Mon–Sun) + weekly recap
+- Geofence-based alerts (GPS offline, named saved locations)
+- Notification actions: Complete (recurrence-aware) / Snooze 15 min
 - Separate sound/silent channels, bypass DND, configurable vibration
 - Auto-reschedule on reboot (BootReceiver)
-- Daily alert at fixed times (configurable days Mon–Sun)
-- Geofence-based alerts (GPS offline, named saved locations)
+
+### Home Screen Widget
+- Classic RemoteViews scrollable list — dark/light theme, per-widget filter (Today / Inbox / Anytime / Upcoming / Someday / Project / All)
+- Complete tasks from the widget (recurrence-aware), tap to open, quick-add button
+- Task metadata row (date, project, tags, indicators), overdue in red
+- Auto-refresh: instant on any in-app mutation or LAN sync delta + ~10 s self-chaining alarm
 
 ### Time Tracking
-- Start / Pause / Stop per task in TaskDetailScreen
-- Real-time ticker (1-second updates)
+- Start / Pause / Stop per task in TaskDetailScreen, real-time ticker
 - Quick start from multi-selection (long-press → More → "Start Timer")
 - Total displayed in ProjectDetailScreen (sum of all completed entries)
 
 ### LAN Sync
 - Peer-to-peer sync between devices on the local network (no cloud, no account)
-- Device discovery + pairing, delta exchange over LAN
-- Last-Write-Wins conflict resolution on `updatedAt` field
-- Tombstone-based delete propagation
+- Device discovery + pairing, delta exchange over LAN (HTTP)
+- Last-Write-Wins conflict resolution on `updatedAt`, tombstone-based delete propagation
+- Everything syncs: tasks, checklists, projects, notes, comments, reminders, goals + logs, date trackers, time entries, tags, folders, locations
 - Force sync button in settings
 
-### Attachments
-- Add file attachments to tasks
-- Metadata JSON for each attachment (metadata syncs; file transfer not yet supported over LAN sync)
+### More
+- **DateTracker** — custom date anniversaries / countdowns
+- **RSS Reader** — local reader (Atom + RSS), no WebView, background sync via WorkManager
+- **Statistics** — task completion stats screen
+- **QuoteCard** — offline quotes in sidebar and project screens
+- **AppLog** — in-app debug log viewer
+- **Attachments** — file attachments per task (metadata syncs; file transfer over LAN not yet supported)
+- **Backup** — export / import via WorkManager
 
 ### Tablet Support
 - Permanent sidebar on wide screens (`WindowWidthSizeClass.EXPANDED`)
@@ -91,41 +105,52 @@ Jetpack Compose × Room × LAN Sync × WorkManager
 ### Settings
 | Screen | Options |
 |---|---|
-| General | 24h/12h time format, clickable URLs in notes, text size |
+| General | 24h/12h time format, clickable URLs in notes, text size, sidebar sections |
 | Appearance | Dark / Light / System theme |
-| Notifications | Sound, vibration, bypass DND |
+| Notifications | Sound, vibration, bypass DND, imminence lead, daily alerts, weekly recap |
 | Calendar | Local calendar integration |
 | Backup | Export / import |
 | LAN Sync | Device pairing, sync status, force sync |
+| Locations | Saved locations for geofence reminders |
+| Tags | Tags manager |
+| Statistics | Completion stats |
+| Logs | In-app debug log |
 | About | Version, stack, licenses |
 
 ---
 
 ## Architecture
 
+Clean Architecture with strict Unidirectional Data Flow (UDF).
+
 ```
 app/src/main/java/com/onlyflows/
 ├── data/
 │   ├── local/
-│   │   ├── AppDatabase.kt          Room DB, seed callback
-│   │   ├── Converters.kt           LocalDate / LocalDateTime / JSON
-│   │   ├── entity/                 TaskEntity, ProjectEntity, GoalEntity…
+│   │   ├── AppDatabase.kt          Room DB (v38, 24 entities), non-destructive migrations
+│   │   ├── Converters.kt           LocalDate / LocalDateTime / LocalTime / JSON
+│   │   ├── entity/                 TaskEntity, ProjectEntity, GoalEntity, RssFeedEntity…
 │   │   └── dao/                    TaskDao, SyncDao, GoalDao…
-│   ├── repository/                 Repository classes
+│   ├── repository/                 Repository classes (no interfaces, Flow-based)
 │   ├── lan/                        LanSyncCoordinator, LanSyncWriter, EntityJson…
-│   ├── notifications/              ReminderScheduler, DailyAlertScheduler, GeofenceManager
+│   ├── notifications/              ReminderScheduler, DailyAlertScheduler, GeofenceManager,
+│   │                               ReminderReceiver, ImminenceReceiver, BootReceiver
 │   ├── preferences/                AppPreferences, NotificationPreferences…
 │   ├── calendar/                   CalendarRepository
-│   └── backup/                     BackupManager
+│   ├── backup/                     BackupManager
+│   └── debug/                      AppLog
 ├── domain/
-│   ├── model/Models.kt             Task, Project, Goal, TimeEntry, Reminder…
+│   ├── model/Models.kt             Task, Project, Section, Tag, Reminder, TimeEntry…
+│   ├── model/Goal.kt · GoalLog.kt  Goals system (frequencies, period rollover)
 │   └── RecurrenceScheduler.kt      nextDueDate() pure function
 ├── ui/
 │   ├── screens/                    today / inbox / upcoming / anytime / someday /
-│   │                               projects / project / task / logbook / trash /
-│   │                               search / settings (+ lan sync)
-│   ├── components/                 TaskItem, SelectionBar, TaskFilterBar…
-│   ├── overlays/                   AddTaskSheet, DatePicker, QuickFindPopup…
+│   │                               projects / project / task / logbook / trash / search /
+│   │                               goals / datetracker / rss / settings (11 sub-screens)
+│   ├── components/                 TaskItem, SwipeableTaskItem, SelectionBar, AgendaCard…
+│   ├── overlays/                   AddTaskSheet, SmartMoveSheet, NoteEditorSheet,
+│   │                               QuickFindOverlay, AddGoalSheet, GoalPickerSheet…
+│   ├── widget/                     OnlyFlowsWidgetProvider, WidgetUpdater, quick-add & config
 │   ├── layout/                     AdaptiveAppLayout (phone + tablet)
 │   ├── navigation/                 AppNavigation, Screen
 │   └── theme/                      Color tokens, typography, Material 3
@@ -135,12 +160,13 @@ app/src/main/java/com/onlyflows/
 ```
 
 **Key patterns:**
-- **Strict UDF** — immutable `data class UiState`, explicit `sealed interface Event`, no side-effects in composables
+- **Strict UDF** — one immutable `StateFlow<UiState>` per screen, `sealed interface Event` + `onEvent()`, no side-effects in composables
 - **No navigation in ViewModels** — screens receive navigation lambdas; VMs expose `StateFlow` only
 - **Room as source of truth** — UI observes `Flow<List<T>>`; no duplicated local state except visual transitions
+- **Business rules live in repositories** — goal progress, recurrence occurrence limit, reminder carry-over all sit in `TaskRepository`, so every caller (screens, widget, notifications) behaves identically
 - **Systematic soft delete** — `deletedAt: LocalDateTime?` on all deletable entities; all DAO queries filter `WHERE deletedAt IS NULL`
-- **Strict repository pattern** — ViewModels never access DAOs directly
-- **Manual injection** — `AppContainer` wires all dependencies; ViewModels retrieve via `(app as OnlyFlowsApp).container`
+- **Strict repository pattern** — ViewModels never access DAOs directly; every write also feeds `LanSyncWriter`
+- **Manual injection** — `AppContainer` wires all dependencies (LAN sync components first); ViewModels retrieve via `(app as OnlyFlowsApp).container`
 
 ---
 
@@ -150,16 +176,19 @@ app/src/main/java/com/onlyflows/
 |---|---|
 | UI | Jetpack Compose + Material Design 3 |
 | State | ViewModel + StateFlow (strict UDF) |
-| Persistence | Room v2.6.1 — local-first SQLite |
+| Persistence | Room 2.6.1 — local-first SQLite (schema v38, 24 entities) |
 | Preferences | DataStore Preferences |
-| Navigation | Navigation Compose (type-safe routes) |
+| Navigation | Navigation Compose |
 | Drag & Drop | sh.calvin.reorderable |
 | Async | Kotlin Coroutines + Flow |
 | DI | AppContainer (manual injection) |
-| Notifications | AlarmManager (exact alarms) + BroadcastReceiver |
-| Background | WorkManager |
-| Sync | LAN sync (device discovery + delta exchange) |
+| Notifications | AlarmManager (exact alarms) + BroadcastReceiver + geofences |
+| Widget | Classic RemoteViews collection (RemoteViewsCompat) |
+| Background | WorkManager (backup, RSS sync) |
+| Sync | LAN sync (device discovery + HTTP delta exchange) |
 | Integration | CalendarProvider, FileProvider |
+
+Kotlin 2.1.0 · AGP 8.7.3 · minSdk 26 · targetSdk 35
 
 ---
 
@@ -167,6 +196,7 @@ app/src/main/java/com/onlyflows/
 
 - [docs/BUILD.md](docs/BUILD.md) — How to build from source
 - [CLAUDE.md](CLAUDE.md) — Architecture & structure reference
+- [BRIEF.md](BRIEF.md) — Project brief (goals, users, scope)
 
 ---
 
