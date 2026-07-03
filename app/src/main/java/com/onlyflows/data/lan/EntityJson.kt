@@ -382,6 +382,7 @@ fun GoalEntity.toJson(): JSONObject = JSONObject().apply {
     put("isCompleted", isCompleted)
     putNullable("deadline", deadline)
     put("tagsJson", tagsJson)
+    putNullable("periodStart", periodStart)
     put("createdAt", createdAt.toString())
     put("updatedAt", updatedAt.toString())
     putNullable("deletedAt", deletedAt)
@@ -400,6 +401,7 @@ fun goalEntityFromJson(j: JSONObject) = GoalEntity(
     isCompleted  = j.optBoolean("isCompleted", false),
     deadline     = j.getLocalDateOrNull("deadline"),
     tagsJson     = j.optString("tagsJson", ""),
+    periodStart  = j.getLocalDateOrNull("periodStart"),
     createdAt    = j.getLocalDateTime("createdAt"),
     updatedAt    = j.getLocalDateTime("updatedAt"),
     deletedAt    = j.getLocalDateTimeOrNull("deletedAt"),

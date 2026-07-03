@@ -233,7 +233,7 @@ class ReminderReceiver : BroadcastReceiver() {
         val repo = (context.applicationContext as OnlyFlowsApp).container.taskRepository
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                repo.setCompleted(taskId, true)
+                repo.complete(taskId)
                 Log.d(TAG, "Task $taskId marked completed via notification action")
             } finally {
                 pendingResult.finish()

@@ -19,6 +19,15 @@ interface GoalDao {
     @Query("SELECT * FROM goals WHERE id = :id LIMIT 1")
     suspend fun getById(id: String): GoalEntity?
 
+    @Query("SELECT * FROM goals WHERE deletedAt IS NULL")
+    suspend fun getAll(): List<GoalEntity>
+
+    @Query("UPDATE goals SET periodStart = :start, updatedAt = :now WHERE id = :id")
+    suspend fun anchorPeriod(id: String, start: java.time.LocalDate, now: java.time.LocalDateTime = java.time.LocalDateTime.now())
+
+    @Query("UPDATE goals SET currentCount = 0, isCompleted = 0, periodStart = :start, updatedAt = :now WHERE id = :id")
+    suspend fun resetPeriod(id: String, start: java.time.LocalDate, now: java.time.LocalDateTime = java.time.LocalDateTime.now())
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(goal: GoalEntity)
 

@@ -1,5 +1,6 @@
 package com.onlyflows.ui.widget
 
+import android.app.AlarmManager
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
@@ -25,6 +26,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 private const val MAX_ITEMS = 100
+private const val REFRESH_INTERVAL_MS = 10_000L
 
 class OnlyFlowsWidgetProvider : AppWidgetProvider() {
 
@@ -36,6 +38,41 @@ class OnlyFlowsWidgetProvider : AppWidgetProvider() {
                 mgr.notifyAppWidgetViewDataChanged(id, R.id.widget_list)
             }.onFailure { Log.e("OnlyFlowsWidget", "build failed for $id", it) }
         }
+        scheduleNextRefresh(context)
+    }
+
+    override fun onDisabled(context: Context) {
+        alarmManager(context).cancel(refreshPI(context, IntArray(0)))
+    }
+
+    companion object {
+        /** Self-chaining auto-refresh: each update schedules the next one ~10s later.
+         *  ponytail: AlarmManager.set() is inexact and deferred in Doze — fine, nobody
+         *  looks at the widget with the screen off; avoids burning the exact-alarm budget
+         *  that task reminders need. */
+        fun scheduleNextRefresh(context: Context) {
+            val ids = AppWidgetManager.getInstance(context)
+                ?.getAppWidgetIds(ComponentName(context, OnlyFlowsWidgetProvider::class.java))
+                ?: return
+            if (ids.isEmpty()) return
+            alarmManager(context).set(
+                AlarmManager.RTC,
+                System.currentTimeMillis() + REFRESH_INTERVAL_MS,
+                refreshPI(context, ids),
+            )
+        }
+
+        private fun alarmManager(context: Context) =
+            context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+
+        private fun refreshPI(context: Context, ids: IntArray): PendingIntent =
+            PendingIntent.getBroadcast(
+                context, 0,
+                Intent(context, OnlyFlowsWidgetProvider::class.java)
+                    .setAction(AppWidgetManager.ACTION_APPWIDGET_UPDATE)
+                    .putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+            )
     }
 
     override fun onAppWidgetOptionsChanged(

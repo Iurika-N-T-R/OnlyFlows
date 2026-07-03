@@ -22,10 +22,22 @@ data class Goal(
     val isCompleted: Boolean = false,
     val deadline: LocalDate? = null,
     val tags: List<String> = emptyList(),
+    /** Start of the period currentCount belongs to; null = not yet anchored (pre-v38 goals). */
+    val periodStart: LocalDate? = null,
     val createdAt: LocalDateTime = LocalDateTime.now(),
     val updatedAt: LocalDateTime = LocalDateTime.now(),
     val deletedAt: LocalDateTime? = null,
 )
+
+/** Start of the current period for a frequency — null for ONCE (never resets). */
+fun currentPeriodStart(frequency: GoalFrequency, today: LocalDate = LocalDate.now()): LocalDate? =
+    when (frequency) {
+        GoalFrequency.ONCE    -> null
+        GoalFrequency.DAILY   -> today
+        GoalFrequency.WEEKLY  -> today.with(java.time.DayOfWeek.MONDAY)
+        GoalFrequency.MONTHLY -> today.withDayOfMonth(1)
+        GoalFrequency.YEARLY  -> today.withDayOfYear(1)
+    }
 
 fun Goal.computeStatus(): GoalStatus = when {
     isCompleted -> GoalStatus.COMPLETED

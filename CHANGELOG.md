@@ -5,6 +5,22 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.67.0] — 2026-07-03 · Objectifs périodiques + objectifs fiables partout + widget auto-refresh
+
+### Ajouté
+
+- **Réinitialisation périodique des objectifs** : la fréquence (DAILY/WEEKLY/MONTHLY/YEARLY) n'était qu'un libellé — un objectif quotidien atteint restait complété pour toujours. Nouveau champ `periodStart` (migration 37→38, non destructive, synchronisé) : le compteur et l'état complété se réinitialisent au changement de période (minuit / lundi / 1er du mois / 1er janvier), vérifié à l'ouverture des écrans Goals et avant chaque incrément lié à une tâche. ONCE ne se réinitialise jamais ; les objectifs existants sont ancrés sur la période courante sans perte de compteur.
+
+### Corrigé
+
+- **Progression des objectifs sur tous les chemins de complétion** : la mise à jour des objectifs liés vivait uniquement dans l'écran de détail de tâche. Compléter depuis Today/Inbox/Anytime/Someday/Upcoming/Projet, le widget, une notification, l'auto-complétion par checklist ou une **tâche récurrente** ne comptait pas. La logique est déplacée dans `TaskRepository` (`setCompleted` + `completeRecurring`) — chaque complétion incrémente, chaque dé-complétion décrémente, avec garde anti double-comptage sur les appels idempotents.
+- **Action « Done » d'une notification sur une tâche récurrente** : marquait la tâche complétée sans créer l'occurrence suivante ni journaliser. Le widget et les notifications passent maintenant par un `complete()` unique du repository qui respecte la récurrence.
+- **Limite d'occurrences (endCount) respectée partout** : le contrôle vivait uniquement dans l'écran de détail — compléter une récurrente limitée depuis une liste, le widget ou une notification créait une occurrence au-delà de la limite. Déplacé dans `completeRecurring()` ; la dernière occurrence est maintenant archivée avec son journal « Done » quel que soit l'écran.
+- **Widget : rafraîchissement automatique** (~10 s, alarme auto-chaînée inexacte) — couvre le passage de date (retards) et tout chemin sans événement.
+- **Widget : rafraîchi après réception d'un delta LAN sync** — les écritures distantes contournent les repositories et ne déclenchaient jamais la mise à jour du widget.
+
+---
+
 ## [0.66.0] — 2026-07-02 · Listes en cartes + notes v2 + kanban recentré
 
 ### Ajouté

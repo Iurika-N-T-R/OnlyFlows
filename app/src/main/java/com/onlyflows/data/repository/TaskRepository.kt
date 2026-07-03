@@ -28,6 +28,7 @@ class TaskRepository(
     private val checklistDao: ChecklistItemDao,
     private val checklistSectionDao: ChecklistSectionDao,
     private val commentDao: CommentDao,
+    private val goalRepo: GoalRepository,
     private val actionLog: ActionLogRepository,
     private val syncDao: SyncDao,
     private val lanSyncWriter: LanSyncWriter,
@@ -74,6 +75,23 @@ class TaskRepository(
             val copy = c.copy(id = "cmt_${System.currentTimeMillis()}_$idx", taskId = toTaskId)
             commentDao.insert(copy)
             lanSyncWriter.writeComment(copy)
+        }
+    }
+
+    /** Auto-advance goals linked to a task. Lives here (not in a ViewModel) so every completion
+     *  path counts: list screens, task detail, widget, notification action, checklist auto-complete
+     *  and recurring occurrences. */
+    private suspend fun applyGoalProgress(taskId: String, completing: Boolean) {
+        val goalIds = taskDao.getById(taskId)?.goalIds ?: return
+        goalIds.forEach { goalId ->
+            val stored = goalRepo.getById(goalId) ?: return@forEach
+            if (stored.deletedAt != null) return@forEach
+            val goal = goalRepo.rolloverIfExpired(stored)
+            val next = if (completing) (goal.currentCount + 1).coerceAtMost(goal.targetCount)
+                       else (goal.currentCount - 1).coerceAtLeast(0)
+            goalRepo.setProgress(goalId, next)
+            if (next >= goal.targetCount) goalRepo.setCompleted(goalId, true)
+            else if (!completing) goalRepo.setCompleted(goalId, false)
         }
     }
 
@@ -189,7 +207,10 @@ class TaskRepository(
     }
 
     suspend fun setCompleted(id: String, completed: Boolean) {
+        val wasCompleted = taskDao.getById(id)?.isCompleted
         taskDao.setCompleted(id, completed, LocalDateTime.now().toString())
+        // Guard against idempotent calls (e.g. bulk-complete on an already completed task)
+        if (wasCompleted != null && wasCompleted != completed) applyGoalProgress(id, completed)
         val label = taskDao.getById(id)?.title ?: id
         syncWrite(id)
         log(if (completed) ActionType.TASK_COMPLETED else ActionType.TASK_UNCOMPLETED, id, label)
@@ -202,6 +223,12 @@ class TaskRepository(
         syncWrite(id)
         log(if (archived) ActionType.TASK_ARCHIVED else ActionType.TASK_RESTORED, id, label)
         refreshWidgets()
+    }
+
+    /** Complete respecting recurrence — for callers without a domain Task (widget, notifications). */
+    suspend fun complete(id: String) {
+        if (taskDao.getById(id)?.recurrenceJson != null) completeRecurring(id)
+        else setCompleted(id, true)
     }
 
     suspend fun completeRecurring(id: String) {
@@ -220,9 +247,12 @@ class TaskRepository(
                 updatedAt            = LocalDateTime.now(),
             )
         )
+        applyGoalProgress(id, completing = true)
 
-        // 2 — compute next due date
-        val nextDue = nextDueDate(
+        // 2 — compute next due date (checked here, not in ViewModels, so endCount holds on
+        //     every completion path: lists, widget, notifications, checklist auto-complete)
+        val endCountReached = rule.endCount != null && (entity.recurrenceDoneCount + 1) >= rule.endCount
+        val nextDue = if (endCountReached) null else nextDueDate(
             rule         = rule,
             completedOn  = LocalDate.now(),
             currentDue   = task.dueDate,

@@ -6,7 +6,6 @@ import androidx.activity.ComponentActivity
 import androidx.lifecycle.lifecycleScope
 import com.onlyflows.MainActivity
 import com.onlyflows.OnlyFlowsApp
-import com.onlyflows.data.local.AppDatabase
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 
@@ -23,12 +22,8 @@ class WidgetClickActivity : ComponentActivity() {
                 val completed = intent.getBooleanExtra(EXTRA_COMPLETED, true)
                 if (!taskId.isNullOrEmpty()) {
                     lifecycleScope.launch(NonCancellable) {
-                        val entity = AppDatabase.getInstance(applicationContext).taskDao().getById(taskId)
-                        when {
-                            !completed                       -> container.taskRepository.setCompleted(taskId, false)
-                            entity?.recurrenceJson != null   -> container.taskRepository.completeRecurring(taskId)
-                            else                             -> container.taskRepository.setCompleted(taskId, true)
-                        }
+                        if (completed) container.taskRepository.complete(taskId)
+                        else container.taskRepository.setCompleted(taskId, false)
                     }
                 }
                 finish()

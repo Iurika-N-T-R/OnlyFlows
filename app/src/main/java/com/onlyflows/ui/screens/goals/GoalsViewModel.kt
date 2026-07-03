@@ -58,6 +58,11 @@ class GoalsViewModel(app: Application) : AndroidViewModel(app) {
 
     private val repo: GoalRepository = (app as OnlyFlowsApp).container.goalRepository
 
+    init {
+        // Reset periodic goals (DAILY/WEEKLY/…) whose period rolled over since last visit
+        viewModelScope.launch { repo.rolloverExpiredPeriods() }
+    }
+
     private val _showAddGoal = MutableStateFlow(false)
     private val _filter = MutableStateFlow(GoalFilter.ALL)
 

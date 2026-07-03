@@ -54,11 +54,16 @@ class AppContainer(context: Context) {
     val actionLogRepository: ActionLogRepository        = ActionLogRepository(db.actionLogDao())
     val geofenceManager: GeofenceManager                = GeofenceManager(context)
 
+    // Declared before taskRepository (constructor dependency)
+    val goalRepository: GoalRepository       = GoalRepository(db.goalDao(), syncDao, lanSyncWriter)
+    val goalLogRepository: GoalLogRepository = GoalLogRepository(db.goalLogDao(), syncDao, lanSyncWriter)
+
     val taskRepository: TaskRepository = TaskRepository(
         taskDao             = db.taskDao(),
         checklistDao        = db.checklistItemDao(),
         checklistSectionDao = db.checklistSectionDao(),
         commentDao          = db.commentDao(),
+        goalRepo            = goalRepository,
         actionLog           = actionLogRepository,
         syncDao             = syncDao,
         lanSyncWriter       = lanSyncWriter,
@@ -74,9 +79,6 @@ class AppContainer(context: Context) {
         syncDao         = syncDao,
         lanSyncWriter = lanSyncWriter,
     )
-
-    val goalRepository: GoalRepository       = GoalRepository(db.goalDao(), syncDao, lanSyncWriter)
-    val goalLogRepository: GoalLogRepository = GoalLogRepository(db.goalLogDao(), syncDao, lanSyncWriter)
 
     val folderRepository: FolderRepository = FolderRepository(
         folderDao       = db.folderDao(),

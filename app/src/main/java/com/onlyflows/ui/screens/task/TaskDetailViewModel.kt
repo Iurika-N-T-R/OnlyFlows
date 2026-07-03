@@ -503,24 +503,11 @@ class TaskDetailViewModel(app: Application) : AndroidViewModel(app) {
                     reminderRepo.deleteByTask(task.id)
                     taskRepo.update(task.copy(hasReminders = false, updatedAt = LocalDateTime.now()))
                 }
-                val endCountReached = completing
-                    && task.recurrence?.endCount != null
-                    && (task.recurrenceDoneCount + 1) >= task.recurrence.endCount
-                if (completing && task.recurrence != null && !endCountReached) {
+                // endCount + linked-goal progress are handled inside TaskRepository (all completion paths)
+                if (completing && task.recurrence != null) {
                     taskRepo.completeRecurring(task.id)
                 } else {
                     taskRepo.setCompleted(task.id, completing)
-                }
-                // Auto-update linked goal progress
-                task.goalIds.forEach { goalId ->
-                    val goal = _uiState.value.allGoals.find { it.id == goalId } ?: return@forEach
-                    val next = if (completing)
-                        (goal.currentCount + 1).coerceAtMost(goal.targetCount)
-                    else
-                        (goal.currentCount - 1).coerceAtLeast(0)
-                    goalRepo.setProgress(goalId, next)
-                    if (next >= goal.targetCount) goalRepo.setCompleted(goalId, true)
-                    else if (!completing) goalRepo.setCompleted(goalId, false)
                 }
             }
             TaskDetailEvent.Delete -> viewModelScope.launch {

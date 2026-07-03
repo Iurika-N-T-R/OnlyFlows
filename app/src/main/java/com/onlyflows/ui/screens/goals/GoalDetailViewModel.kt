@@ -55,6 +55,11 @@ class GoalDetailViewModel(
     private val goalRepo: GoalRepository = (app as OnlyFlowsApp).container.goalRepository
     private val logRepo: GoalLogRepository = (app as OnlyFlowsApp).container.goalLogRepository
 
+    init {
+        // Reset this goal's period if it rolled over since last visit
+        viewModelScope.launch { goalRepo.getById(goalId)?.let { goalRepo.rolloverIfExpired(it) } }
+    }
+
     private val _commentDraft = MutableStateFlow("")
     private val _showAddLog = MutableStateFlow(false)
 

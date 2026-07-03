@@ -290,6 +290,8 @@ class LanSyncCoordinator(
         delta.forEachArray("goals")          { o -> upsertIfNewer(o, "goals", "updatedAt", syncDao::getGoalUpdatedAt) { syncDao.upsertGoal(goalEntityFromJson(o)) } }
         delta.forEachArray("goalLogs")       { o -> upsertIfNewer(o, "goal_logs", "loggedAt", syncDao::getGoalLogLoggedAt) { syncDao.upsertGoalLog(goalLogEntityFromJson(o)) } }
         delta.forEachArray("dateTrackers")   { o -> upsertIfNewer(o, "date_trackers", "updatedAt", syncDao::getDateTrackerCreatedAt) { syncDao.upsertDateTracker(dateTrackerEntityFromJson(o)) } }
+        // Remote deltas bypass the repositories, so refresh widgets explicitly
+        com.onlyflows.ui.widget.WidgetUpdater.updateAll(context)
     }
 
     // Write only if not tombstoned and incoming is strictly newer than local — last-write-wins,
