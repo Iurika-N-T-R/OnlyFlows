@@ -6,6 +6,8 @@ import com.onlyflows.data.local.dao.CommentDao
 import com.onlyflows.data.local.dao.SyncDao
 import com.onlyflows.data.local.dao.TaskDao
 import com.onlyflows.data.lan.LanSyncWriter
+import com.onlyflows.data.notifications.ReminderScheduler
+import com.onlyflows.data.preferences.NotificationPreferences
 import com.onlyflows.data.local.entity.CommentEntity
 import com.onlyflows.data.local.entity.DeletedEntityEntity
 import com.onlyflows.data.local.entity.TaskWithChecklistItems
@@ -18,7 +20,9 @@ import com.onlyflows.domain.model.ChecklistSection
 import com.onlyflows.domain.model.Task
 import com.onlyflows.domain.nextDueDate
 import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import java.time.LocalDateTime
@@ -29,6 +33,9 @@ class TaskRepository(
     private val checklistSectionDao: ChecklistSectionDao,
     private val commentDao: CommentDao,
     private val goalRepo: GoalRepository,
+    private val reminderRepo: ReminderRepository,
+    private val reminderScheduler: ReminderScheduler,
+    private val notificationPreferences: NotificationPreferences,
     private val actionLog: ActionLogRepository,
     private val syncDao: SyncDao,
     private val lanSyncWriter: LanSyncWriter,
@@ -76,6 +83,58 @@ class TaskRepository(
             commentDao.insert(copy)
             lanSyncWriter.writeComment(copy)
         }
+    }
+
+    /** Recurring tasks: carry reminders onto the next occurrence, shifted by the due-date delta
+     *  (a 09:00 reminder stays 09:00 relative to the new due date). Location reminders keep
+     *  firing as-is — geofences are registered per location id, only the row moves. */
+    private suspend fun moveRemindersToNextOccurrence(oldTaskId: String, oldDue: LocalDate?, next: Task) {
+        val reminders = reminderRepo.getByTask(oldTaskId)
+        if (reminders.isEmpty()) return
+        val nextDue   = next.dueDate
+        val shiftDays = if (oldDue != null && nextDue != null) ChronoUnit.DAYS.between(oldDue, nextDue) else null
+        reminders.forEachIndexed { idx, r ->
+            reminderScheduler.cancelByReminderId(r.id)
+            val newAt = when {
+                shiftDays != null -> r.scheduledAt.plusDays(shiftDays)
+                nextDue != null   -> nextDue.atTime(r.scheduledAt.toLocalTime())
+                else              -> r.scheduledAt
+            }
+            val moved = r.copy(
+                id          = "rem_${System.currentTimeMillis()}_$idx",
+                taskId      = next.id,
+                scheduledAt = newAt,
+                updatedAt   = LocalDateTime.now(),
+            )
+            reminderRepo.add(moved)
+            if (moved.locationId == null) {
+                reminderScheduler.schedule(
+                    reminderId     = moved.id,
+                    taskId         = next.id,
+                    title          = next.title,
+                    note           = next.note.takeIf { it.isNotBlank() },
+                    at             = newAt,
+                    recurrenceType = moved.recurrenceType,
+                )
+            }
+        }
+        reminderRepo.deleteByTask(oldTaskId)
+    }
+
+    /** Recurrence ended (or task done for good): cancel every pending alarm and drop the rows. */
+    private suspend fun clearReminders(taskId: String) {
+        reminderRepo.getByTask(taskId).forEach { reminderScheduler.cancelByReminderId(it.id) }
+        reminderScheduler.cancelImminence("imm_$taskId")
+        reminderRepo.deleteByTask(taskId)
+    }
+
+    /** Move the pre-due-date imminence alert onto the next occurrence (same id scheme as BootReceiver). */
+    private suspend fun rearmImminence(oldTaskId: String, next: Task) {
+        reminderScheduler.cancelImminence("imm_$oldTaskId")
+        val due  = next.dueDate ?: return
+        val time = next.dueTime ?: return
+        val lead = notificationPreferences.imminenceLeadMinutes.first()
+        reminderScheduler.scheduleImminence("imm_${next.id}", next.id, next.title, due.atTime(time).minusMinutes(lead.toLong()))
     }
 
     /** Auto-advance goals linked to a task. Lives here (not in a ViewModel) so every completion
@@ -259,6 +318,7 @@ class TaskRepository(
         )
         if (nextDue == null) {
             // recurrence ended — keep the tracking log on the final occurrence
+            clearReminders(id)
             addRecurrenceLogComment(id, "Done")
             syncWrite(id)
             refreshWidgets()
@@ -283,7 +343,10 @@ class TaskRepository(
                 }
             )
         }
-        // 4 — tracking log lives on the new occurrence (history + this completion)
+        // 4 — reminders + imminence alert follow the task onto the new occurrence
+        moveRemindersToNextOccurrence(oldTaskId = id, oldDue = task.dueDate, next = nextTask)
+        rearmImminence(oldTaskId = id, next = nextTask)
+        // 5 — tracking log lives on the new occurrence (history + this completion)
         copyCommentsToNextOccurrence(fromTaskId = id, toTaskId = nextTask.id)
         addRecurrenceLogComment(nextTask.id, "Done")
         syncWrite(id)
@@ -323,6 +386,7 @@ class TaskRepository(
         )
         if (nextDue == null) {
             // recurrence ended — keep the tracking log on the final occurrence
+            clearReminders(id)
             addRecurrenceLogComment(id, "Abandoned")
             syncWrite(id)
             refreshWidgets()
@@ -349,7 +413,10 @@ class TaskRepository(
             checklistDao.insertAll(newItems)
             newItems.forEach { lanSyncWriter.writeChecklistItem(it) }
         }
-        // 4 — tracking log lives on the new occurrence (history + this abandon)
+        // 4 — reminders + imminence alert follow the task onto the new occurrence
+        moveRemindersToNextOccurrence(oldTaskId = id, oldDue = task.dueDate, next = nextTask)
+        rearmImminence(oldTaskId = id, next = nextTask)
+        // 5 — tracking log lives on the new occurrence (history + this abandon)
         copyCommentsToNextOccurrence(fromTaskId = id, toTaskId = nextTask.id)
         addRecurrenceLogComment(nextTask.id, "Abandoned")
         syncWrite(id)

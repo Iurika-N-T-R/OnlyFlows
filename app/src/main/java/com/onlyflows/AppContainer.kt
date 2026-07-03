@@ -54,9 +54,16 @@ class AppContainer(context: Context) {
     val actionLogRepository: ActionLogRepository        = ActionLogRepository(db.actionLogDao())
     val geofenceManager: GeofenceManager                = GeofenceManager(context)
 
-    // Declared before taskRepository (constructor dependency)
+    // Declared before taskRepository (constructor dependencies)
     val goalRepository: GoalRepository       = GoalRepository(db.goalDao(), syncDao, lanSyncWriter)
     val goalLogRepository: GoalLogRepository = GoalLogRepository(db.goalLogDao(), syncDao, lanSyncWriter)
+    val notificationPreferences: NotificationPreferences = NotificationPreferences(context)
+    val reminderScheduler: ReminderScheduler = ReminderScheduler(context)
+    val reminderRepository: ReminderRepository = ReminderRepository(
+        dao             = db.reminderDao(),
+        syncDao         = syncDao,
+        lanSyncWriter = lanSyncWriter,
+    )
 
     val taskRepository: TaskRepository = TaskRepository(
         taskDao             = db.taskDao(),
@@ -64,6 +71,9 @@ class AppContainer(context: Context) {
         checklistSectionDao = db.checklistSectionDao(),
         commentDao          = db.commentDao(),
         goalRepo            = goalRepository,
+        reminderRepo        = reminderRepository,
+        reminderScheduler   = reminderScheduler,
+        notificationPreferences = notificationPreferences,
         actionLog           = actionLogRepository,
         syncDao             = syncDao,
         lanSyncWriter       = lanSyncWriter,
@@ -104,7 +114,6 @@ class AppContainer(context: Context) {
         lanSyncWriter = lanSyncWriter,
     )
 
-    val notificationPreferences: NotificationPreferences = NotificationPreferences(context)
     val sidebarPreferences: SidebarPreferences   = SidebarPreferences(context)
     val appPreferences: AppPreferences           = AppPreferences(context)
     val calendarPreferences: CalendarPreferences = CalendarPreferences(context)
@@ -115,7 +124,6 @@ class AppContainer(context: Context) {
     val dateTrackerRepository: DateTrackerRepository = DateTrackerRepository(db.dateTrackerDao(), syncDao, lanSyncWriter)
     val rssRepository: com.onlyflows.data.repository.RssRepository =
         com.onlyflows.data.repository.RssRepository(db.rssFeedDao(), db.rssArticleDao(), context)
-    val reminderScheduler: ReminderScheduler     = ReminderScheduler(context)
     val dailyAlertPreferences: DailyAlertPreferences = DailyAlertPreferences(context)
     val dailyAlertScheduler: DailyAlertScheduler     = DailyAlertScheduler(context)
 
@@ -129,12 +137,6 @@ class AppContainer(context: Context) {
     val commentRepository: CommentRepository = CommentRepository(
         dao             = db.commentDao(),
         actionLog       = actionLogRepository,
-        syncDao         = syncDao,
-        lanSyncWriter = lanSyncWriter,
-    )
-
-    val reminderRepository: ReminderRepository = ReminderRepository(
-        dao             = db.reminderDao(),
         syncDao         = syncDao,
         lanSyncWriter = lanSyncWriter,
     )

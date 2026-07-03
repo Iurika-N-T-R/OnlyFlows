@@ -34,6 +34,9 @@ class ReminderRepository(
     suspend fun getById(id: String): Reminder? =
         dao.getById(id)?.toDomain()
 
+    suspend fun getByTask(taskId: String): List<Reminder> =
+        dao.getByTask(taskId).map { it.toDomain() }
+
     suspend fun delete(id: String) {
         val now = LocalDateTime.now()
         syncDao.insertTombstone(DeletedEntityEntity("tomb_$id", "reminders", id, now))

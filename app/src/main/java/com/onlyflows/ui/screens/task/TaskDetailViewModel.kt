@@ -495,7 +495,9 @@ class TaskDetailViewModel(app: Application) : AndroidViewModel(app) {
             TaskDetailEvent.ToggleComplete -> viewModelScope.launch {
                 val completing = !task.isCompleted
                 AppLog.d("TaskDetailVM", "toggleComplete: \"${task.title}\" ${task.isCompleted} → $completing recurrence=${task.recurrence != null}")
-                if (completing) {
+                // Recurring tasks keep their reminders: completeRecurring() moves them onto
+                // the next occurrence (or clears them when the recurrence ends).
+                if (completing && task.recurrence == null) {
                     // Cancel each reminder alarm individually (keyed by reminderId)
                     _uiState.value.reminders.forEach { scheduler.cancelByReminderId(it.id) }
                     // Legacy cancel for any alarm keyed by taskId (pre-v31 reminders)

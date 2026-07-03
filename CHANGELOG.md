@@ -5,6 +5,15 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.68.0] — 2026-07-03 · Les rappels suivent les tâches récurrentes
+
+### Ajouté
+
+- **Rappels reportés sur l'occurrence suivante** : compléter (ou abandonner) une tâche récurrente déplace maintenant ses rappels sur la nouvelle occurrence, décalés du même delta que l'échéance (un rappel à 09:00 reste à 09:00 le nouveau jour). Avant, le rappel mourait avec la première occurrence — une seule notification puis plus rien. Les rappels géolocalisés suivent aussi (le geofence, indexé par lieu, reste valide). L'alerte d'imminence (N min avant l'échéance) est réarmée sur la nouvelle occurrence. Fin de récurrence : alarmes annulées et rappels supprimés proprement.
+- L'écran de détail ne supprime plus les rappels quand on complète une tâche **récurrente** (comportement conservé pour les tâches simples).
+
+---
+
 ## [0.67.0] — 2026-07-03 · Objectifs périodiques + objectifs fiables partout + widget auto-refresh
 
 ### Ajouté
