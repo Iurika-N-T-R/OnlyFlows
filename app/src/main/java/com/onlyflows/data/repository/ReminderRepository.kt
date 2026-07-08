@@ -55,4 +55,8 @@ class ReminderRepository(
 
     suspend fun getFutureReminders(): List<Reminder> =
         dao.getFutureReminders(LocalDateTime.now().toString()).map { it.toDomain() }
+
+    /** Recurring reminders whose scheduledAt slipped into the past (missed firings). */
+    suspend fun getPastRecurring(): List<Reminder> =
+        dao.getPastRecurring(LocalDateTime.now().toString()).map { it.toDomain() }
 }

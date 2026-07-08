@@ -34,6 +34,11 @@ class OnlyFlowsApp : Application() {
             if (interval > 0L) com.onlyflows.data.rss.RssSyncWorker.schedule(this@OnlyFlowsApp, interval)
         }
         ReminderReceiver.ensureChannels(this)
+        // Alarms are volatile (wiped by force-stop / OEM killers); re-arm everything from DB state.
+        CoroutineScope(Dispatchers.IO).launch {
+            runCatching { com.onlyflows.data.notifications.AlarmReconciler.reconcile(this@OnlyFlowsApp) }
+                .onFailure { AppLog.e("OnlyFlowsApp", "Alarm reconcile failed", it) }
+        }
         AppLog.i("OnlyFlowsApp", "App started")
     }
 

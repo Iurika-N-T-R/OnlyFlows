@@ -5,6 +5,17 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.69.1] — 2026-07-08 · Notifications fiables (réconciliation des alarmes)
+
+### Corrigé
+
+- **Les notifications mouraient silencieusement** — cause racine : les alarmes `AlarmManager` sont volatiles (effacées par force-stop, tueurs de batterie OEM, redémarrage) et rien ne les réarmait. Nouveau `AlarmReconciler` idempotent qui réarme tout depuis la DB (rappels, rappels de checklist, imminence, brief quotidien, récap hebdo, geofences), appelé au démarrage de l'app, au boot et après chaque delta LAN sync.
+- **Rappels reçus via LAN sync jamais armés** : `applyDelta` écrivait les rappels en DB sans jamais poser d'alarme — un rappel créé sur l'autre appareil ne sonnait jamais ici. Chaque complétion récurrente synchronisée tuait aussi le rappel local (nouvelle ligne, aucune alarme). Corrigé via réconciliation post-delta (uniquement quand le delta a réellement écrit). Les suppressions distantes annulent maintenant l'alarme fantôme.
+- **Un tir manqué tuait définitivement un rappel récurrent** : `scheduledAt` restait dans le passé, exclu de `getFutureReminders()` pour toujours. La réconciliation fait avancer les rappels récurrents en retard sur leur prochaine occurrence valide.
+- **BootReceiver bloqué sur le premier rappel** : `observeById().collect { return@collect }` ne termine jamais un Flow Room — seul le premier rappel était réarmé après un boot, puis le receiver était tué (timeout goAsync). Remplacé par un appel au réconciliateur.
+
+---
+
 ## [0.69.0] — 2026-07-08 · Widget Countdown (Date Tracker)
 
 ### Ajouté

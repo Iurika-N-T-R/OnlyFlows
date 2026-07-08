@@ -276,7 +276,8 @@ class LanSyncCoordinator(
             applyDelete(type, id)
             syncDao.insertTombstone(DeletedEntityEntity("tomb_$id", type, id, deletedAt))
         }
-        delta.forEachArray("tasks")          { o -> upsertIfNewer(o, "tasks", "updatedAt", syncDao::getTaskUpdatedAt) { syncDao.upsertTask(taskEntityFromJson(o)) } }
+        var alarmsDirty = false
+        delta.forEachArray("tasks")          { o -> if (upsertIfNewer(o, "tasks", "updatedAt", syncDao::getTaskUpdatedAt) { syncDao.upsertTask(taskEntityFromJson(o)) }) alarmsDirty = true }
         delta.forEachArray("projects")       { o -> upsertIfNewer(o, "projects", "updatedAt", syncDao::getProjectUpdatedAt) { syncDao.upsertProject(projectEntityFromJson(o)) } }
         delta.forEachArray("sections")       { o -> upsertIfNewer(o, "sections", "updatedAt", syncDao::getSectionUpdatedAt) { syncDao.upsertSection(sectionEntityFromJson(o)) } }
         delta.forEachArray("checklistItems") { o -> upsertIfNewer(o, "checklist_items", "updatedAt", syncDao::getChecklistItemUpdatedAt) { syncDao.upsertChecklistItem(checklistItemEntityFromJson(o)) } }
@@ -284,31 +285,33 @@ class LanSyncCoordinator(
         delta.forEachArray("folders")        { o -> upsertIfNewer(o, "folders", "updatedAt", syncDao::getFolderUpdatedAt) { syncDao.upsertFolder(folderEntityFromJson(o)) } }
         delta.forEachArray("notes")          { o -> upsertIfNewer(o, "notes", "updatedAt", syncDao::getNoteUpdatedAt) { syncDao.upsertNote(noteEntityFromJson(o)) } }
         delta.forEachArray("comments")       { o -> upsertIfNewer(o, "comments", "updatedAt", syncDao::getCommentUpdatedAt) { syncDao.upsertComment(commentEntityFromJson(o)) } }
-        delta.forEachArray("reminders")      { o -> upsertIfNewer(o, "reminders", "updatedAt", syncDao::getReminderUpdatedAt) { syncDao.upsertReminder(reminderEntityFromJson(o)) } }
+        delta.forEachArray("reminders")      { o -> if (upsertIfNewer(o, "reminders", "updatedAt", syncDao::getReminderUpdatedAt) { syncDao.upsertReminder(reminderEntityFromJson(o)) }) alarmsDirty = true }
         delta.forEachArray("timeEntries")    { o -> upsertIfNewer(o, "time_entries", "updatedAt", syncDao::getTimeEntryUpdatedAt) { syncDao.upsertTimeEntry(timeEntryEntityFromJson(o)) } }
         delta.forEachArray("savedLocations") { o -> upsertIfNewer(o, "saved_locations", "updatedAt", syncDao::getSavedLocationUpdatedAt) { syncDao.upsertSavedLocation(savedLocationEntityFromJson(o)) } }
         delta.forEachArray("goals")          { o -> upsertIfNewer(o, "goals", "updatedAt", syncDao::getGoalUpdatedAt) { syncDao.upsertGoal(goalEntityFromJson(o)) } }
         delta.forEachArray("goalLogs")       { o -> upsertIfNewer(o, "goal_logs", "loggedAt", syncDao::getGoalLogLoggedAt) { syncDao.upsertGoalLog(goalLogEntityFromJson(o)) } }
         delta.forEachArray("dateTrackers")   { o -> upsertIfNewer(o, "date_trackers", "updatedAt", syncDao::getDateTrackerCreatedAt) { syncDao.upsertDateTracker(dateTrackerEntityFromJson(o)) } }
-        // Remote deltas bypass the repositories, so refresh widgets explicitly
+        // Remote deltas bypass the repositories, so refresh widgets + re-arm alarms explicitly
         com.onlyflows.ui.widget.WidgetUpdater.updateAll(context)
+        if (alarmsDirty) com.onlyflows.data.notifications.AlarmReconciler.reconcile(context)
     }
 
     // Write only if not tombstoned and incoming is strictly newer than local — last-write-wins,
-    // no resurrection, no flicker (steady state does zero writes).
+    // no resurrection, no flicker (steady state does zero writes). Returns true if it wrote.
     private suspend fun upsertIfNewer(
         json: JSONObject,
         type: String,
         tsKey: String,
         localTs: suspend (String) -> LocalDateTime?,
         write: suspend () -> Unit,
-    ) {
+    ): Boolean {
         val id = json.optString("id")
-        if (id.isBlank() || syncDao.isTombstoned(id, type)) return
+        if (id.isBlank() || syncDao.isTombstoned(id, type)) return false
         val incoming = runCatching { LocalDateTime.parse(json.optString(tsKey)) }.getOrNull()
         val local = localTs(id)
-        if (incoming != null && local != null && !incoming.isAfter(local)) return
+        if (incoming != null && local != null && !incoming.isAfter(local)) return false
         write()
+        return true
     }
 
     private suspend fun applyDelete(type: String, id: String) = when (type) {
@@ -320,7 +323,11 @@ class LanSyncCoordinator(
         "folders"         -> syncDao.deleteFolder(id)
         "notes"           -> syncDao.deleteNote(id)
         "comments"        -> syncDao.deleteComment(id)
-        "reminders"       -> syncDao.deleteReminder(id)
+        "reminders"       -> {
+            syncDao.deleteReminder(id)
+            // Cancel the ghost alarm a remotely-deleted reminder leaves behind
+            com.onlyflows.data.notifications.ReminderScheduler(context).cancelByReminderId(id)
+        }
         "time_entries"    -> syncDao.deleteTimeEntry(id)
         "saved_locations" -> syncDao.deleteSavedLocation(id)
         "goals"           -> syncDao.deleteGoal(id)
