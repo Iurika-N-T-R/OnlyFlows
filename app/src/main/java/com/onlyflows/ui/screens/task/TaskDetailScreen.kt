@@ -446,7 +446,13 @@ fun TaskDetailScreen(
                             HorizontalDivider(modifier = Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
                             // Start Date
                             if (task.startDate != null) {
-                                MetaRow(icon = Icons.Outlined.PlayArrow, label = "Start Date", value = task.startDate.format(DateTimeFormatter.ofPattern("EEE, d MMM")), onClick = { viewModel.onEvent(TaskDetailEvent.ShowStartDatePicker) })
+                                MetaRow(
+                                    icon  = Icons.Outlined.PlayArrow,
+                                    label = "Start Date",
+                                    value = task.startDate.format(DateTimeFormatter.ofPattern("EEE, d MMM")) +
+                                        (task.startTime?.let { " · " + it.format(DateTimeFormatter.ofPattern("HH:mm")) } ?: ""),
+                                    onClick = { viewModel.onEvent(TaskDetailEvent.ShowStartDatePicker) },
+                                )
                                 HorizontalDivider(modifier = Modifier.padding(start = 52.dp), color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
                             }
                             // Deadline
@@ -850,7 +856,9 @@ fun TaskDetailScreen(
     if (state.showStartDatePicker) {
         DatePickerModal(
             initialDate    = task.startDate,
-            onDateSelected = { viewModel.onEvent(TaskDetailEvent.SetStartDate(it)) },
+            initialDueTime = task.startTime,
+            showTimeOption = true,
+            onResult       = { date, time, _ -> viewModel.onEvent(TaskDetailEvent.SetStartDate(date, time)) },
             onDismiss      = { viewModel.onEvent(TaskDetailEvent.HideStartDatePicker) },
         )
     }

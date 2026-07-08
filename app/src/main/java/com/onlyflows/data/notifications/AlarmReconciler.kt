@@ -79,16 +79,21 @@ object AlarmReconciler {
         val alertPrefs = container.dailyAlertPreferences
         alertScheduler.scheduleAll(alertPrefs.enabled.first(), alertPrefs.times.first(), alertPrefs.days.first())
 
-        // 5. Imminence alarms for tasks with future due date+time
+        // 5. Imminence (pre-due-time) + start-time alerts for tasks with future times
         val notifPrefs = container.notificationPreferences
         val lead = notifPrefs.imminenceLeadMinutes.first()
         var imminence = 0
-        taskRepo.getUpcomingDeadlines(LocalDate.now().toString()).forEach { t ->
-            val due  = t.dueDate ?: return@forEach
-            val time = t.dueTime ?: return@forEach
-            val fireAt = LocalDateTime.of(due, time).minusMinutes(lead.toLong())
-            if (fireAt.isAfter(LocalDateTime.now())) {
-                scheduler.scheduleImminence("imm_${t.id}", t.id, t.title, fireAt)
+        taskRepo.getUpcomingTimed(LocalDate.now().toString()).forEach { t ->
+            val dueAt = if (t.dueDate != null && t.dueTime != null)
+                LocalDateTime.of(t.dueDate, t.dueTime).minusMinutes(lead.toLong()) else null
+            if (dueAt != null && dueAt.isAfter(LocalDateTime.now())) {
+                scheduler.scheduleImminence("imm_${t.id}", t.id, t.title, dueAt)
+                imminence++
+            }
+            val startAt = if (t.startDate != null && t.startTime != null)
+                LocalDateTime.of(t.startDate, t.startTime) else null
+            if (startAt != null && startAt.isAfter(LocalDateTime.now())) {
+                scheduler.scheduleImminence("start_${t.id}", t.id, t.title, startAt, kind = ImminenceReceiver.KIND_START)
                 imminence++
             }
         }
@@ -98,7 +103,7 @@ object AlarmReconciler {
             alertScheduler.scheduleWeeklyRecap(DayOfWeek.SUNDAY, notifPrefs.weeklyRecapTime.first())
         }
 
-        AppLog.i(TAG, "Reconciled alarms: $armed reminders + $imminence due-time alerts armed, $rolled past-due recurring rolled forward")
+        AppLog.i(TAG, "Reconciled alarms: $armed reminders + $imminence time alerts armed, $rolled past-due recurring rolled forward")
         showStatus(context, armed, imminence)
     }
 
@@ -120,7 +125,7 @@ object AlarmReconciler {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val text = buildString {
-            append("$armed reminder${if (armed == 1) "" else "s"} · $imminence due-time alert${if (imminence == 1) "" else "s"} armed")
+            append("$armed reminder${if (armed == 1) "" else "s"} · $imminence time alert${if (imminence == 1) "" else "s"} armed")
             append(if (exact) " · exact alarms ✓" else " · ⚠ inexact — grant “Alarms & reminders”")
             append(" · checked ${LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))}")
         }

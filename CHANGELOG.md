@@ -5,6 +5,20 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.70.0] — 2026-07-08 · Notification à l'heure de début
+
+### Ajouté
+
+- **Heure de début (`startTime`) sur les tâches** (migration 38→39, non destructive, synchronisée LAN) : le picker de date de début propose maintenant une heure optionnelle, affichée dans la ligne « Start Date » du détail.
+- **Alerte « Starts now »** : notification à l'heure de début exacte (alarme `start_<taskId>`, même canal que l'alerte d'échéance). Armée à l'édition, portée sur l'occurrence suivante des tâches récurrentes, réarmée par la réconciliation.
+
+### Corrigé
+
+- La réconciliation n'armait les alertes d'échéance que pour **3 tâches max** (requête `LIMIT 3` héritée du brief quotidien) — nouvelle requête sans limite couvrant échéances et débuts.
+- La notification de statut compte maintenant « time alerts » (échéances + débuts).
+
+---
+
 ## [0.69.2] — 2026-07-08 · Notification de statut persistante
 
 ### Ajouté

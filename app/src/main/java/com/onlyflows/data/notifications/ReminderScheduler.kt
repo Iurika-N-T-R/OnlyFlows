@@ -89,13 +89,17 @@ class ReminderScheduler(private val context: Context) {
         setAlarm(triggerMs, pending, title)
     }
 
-    fun scheduleImminence(alarmId: String, taskId: String, title: String, at: LocalDateTime) {
+    fun scheduleImminence(
+        alarmId: String, taskId: String, title: String, at: LocalDateTime,
+        kind: String = ImminenceReceiver.KIND_DUE,
+    ) {
         val triggerMs = at.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
         if (triggerMs <= System.currentTimeMillis()) return
         val intent = Intent(context, ImminenceReceiver::class.java).apply {
             action = ImminenceReceiver.ACTION_SHOW
             putExtra(ImminenceReceiver.EXTRA_TASK_ID, taskId)
             putExtra(ImminenceReceiver.EXTRA_TITLE, title)
+            putExtra(ImminenceReceiver.EXTRA_KIND, kind)
         }
         val pending = PendingIntent.getBroadcast(
             context, abs(alarmId.hashCode()), intent,

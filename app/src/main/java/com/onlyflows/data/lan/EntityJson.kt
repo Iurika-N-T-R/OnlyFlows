@@ -66,6 +66,7 @@ fun TaskEntity.toJson(): JSONObject = JSONObject().apply {
     put("difficulty", difficulty)
     put("impact", impact)
     putNullable("startDate", startDate)
+    putNullable("startTime", startTime)
     putNullable("recurrenceJson", recurrenceJson)
     put("sortOrder", sortOrder)
     put("hasNote", hasNote)
@@ -100,6 +101,7 @@ fun taskEntityFromJson(j: JSONObject) = TaskEntity(
     difficulty               = j.optString("difficulty", "NONE"),
     impact                   = j.optString("impact", "NONE"),
     startDate                = j.getLocalDateOrNull("startDate"),
+    startTime                = j.getLocalTimeOrNull("startTime"),
     recurrenceJson           = if (j.isNull("recurrenceJson")) null else j.optString("recurrenceJson"),
     sortOrder                = j.optInt("sortOrder", 0),
     hasNote                  = j.optBoolean("hasNote", false),

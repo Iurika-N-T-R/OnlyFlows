@@ -139,6 +139,10 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE dueDate >= :today AND isCompleted = 0 AND isArchived = 0 AND deletedAt IS NULL ORDER BY dueDate ASC LIMIT 3")
     suspend fun getUpcomingDeadlines(today: String): List<TaskEntity>
 
+    /** All active tasks with a due time or start time from today on — alarm reconciliation. */
+    @Query("SELECT * FROM tasks WHERE ((dueDate >= :today AND dueTime IS NOT NULL) OR (startDate >= :today AND startTime IS NOT NULL)) AND isCompleted = 0 AND isArchived = 0 AND deletedAt IS NULL")
+    suspend fun getUpcomingTimed(today: String): List<TaskEntity>
+
     @Query("SELECT COUNT(*) FROM tasks WHERE isCompleted = 1 AND deletedAt IS NULL AND completedAt >= :sevenDaysAgo")
     suspend fun getCompletedThisWeekCount(sevenDaysAgo: String): Int
 

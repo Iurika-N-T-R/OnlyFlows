@@ -99,6 +99,7 @@ data class Task(
     val difficulty: TaskDifficulty = TaskDifficulty.NONE,
     val impact: TaskImpact = TaskImpact.NONE,
     val startDate: LocalDate? = null,
+    val startTime: LocalTime? = null,   // null = all day; non-null fires a "starts now" alert
     @IgnoredOnParcel val recurrence: RecurrenceRule? = null,
     val sortOrder: Int = 0,
     val hasNote: Boolean = false,

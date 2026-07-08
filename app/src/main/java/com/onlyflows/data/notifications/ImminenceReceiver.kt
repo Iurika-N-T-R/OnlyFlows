@@ -21,13 +21,17 @@ class ImminenceReceiver : BroadcastReceiver() {
         const val ACTION_SHOW   = "com.onlyflows.ACTION_IMMINENCE"
         const val EXTRA_TASK_ID = "imminence_task_id"
         const val EXTRA_TITLE   = "imminence_title"
+        const val EXTRA_KIND    = "imminence_kind"
+        const val KIND_DUE      = "DUE"
+        const val KIND_START    = "START"
     }
 
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != ACTION_SHOW) return
         val taskId  = intent.getStringExtra(EXTRA_TASK_ID) ?: return
         val title   = intent.getStringExtra(EXTRA_TITLE)   ?: return
-        val notifId = abs("imm_$taskId".hashCode())
+        val isStart = intent.getStringExtra(EXTRA_KIND) == KIND_START
+        val notifId = abs("${if (isStart) "start" else "imm"}_$taskId".hashCode())
 
         val pendingResult = goAsync()
         val container = (context.applicationContext as OnlyFlowsApp).container
@@ -48,8 +52,8 @@ class ImminenceReceiver : BroadcastReceiver() {
 
                 val builder = NotificationCompat.Builder(context, channelId)
                     .setSmallIcon(R.drawable.ic_nav_today)
-                    .setContentTitle("Due soon — $title")
-                    .setContentText("This task is due soon")
+                    .setContentTitle(if (isStart) "Starts now — $title" else "Due soon — $title")
+                    .setContentText(if (isStart) "This task starts now" else "This task is due soon")
                     .setContentIntent(tapIntent)
                     .setAutoCancel(true)
                     .setPriority(NotificationCompat.PRIORITY_HIGH)

@@ -114,7 +114,7 @@ sealed interface TaskDetailEvent {
     data object ShowImpactPicker                                             : TaskDetailEvent
     data object HideImpactPicker                                            : TaskDetailEvent
     data object Delete                                                       : TaskDetailEvent
-    data class SetStartDate(val date: LocalDate?)                            : TaskDetailEvent
+    data class SetStartDate(val date: LocalDate?, val time: LocalTime? = null) : TaskDetailEvent
     data class SetRecurrence(val rule: RecurrenceRule?)                      : TaskDetailEvent
     data class AddReminder(
         val at: LocalDateTime,
@@ -546,9 +546,13 @@ class TaskDetailViewModel(app: Application) : AndroidViewModel(app) {
             TaskDetailEvent.ShowImpactPicker -> _uiState.update { it.copy(showImpactPicker = true) }
             TaskDetailEvent.HideImpactPicker -> _uiState.update { it.copy(showImpactPicker = false) }
             is TaskDetailEvent.SetStartDate -> {
-                AppLog.d("TaskDetailVM", "SetStartDate: \"${task.title}\" ${task.startDate} → ${event.date}")
+                AppLog.d("TaskDetailVM", "SetStartDate: \"${task.title}\" ${task.startDate} → ${event.date} time=${event.time}")
                 viewModelScope.launch {
-                    var updated = task.copy(startDate = event.date, updatedAt = LocalDateTime.now())
+                    var updated = task.copy(
+                        startDate = event.date,
+                        startTime = if (event.date != null) event.time else null,
+                        updatedAt = LocalDateTime.now(),
+                    )
                     if (event.date == null && task.dueDate == null
                         && task.projectId == null && task.scheduledGroup == null) {
                         updated = updated.copy(
@@ -557,6 +561,19 @@ class TaskDetailViewModel(app: Application) : AndroidViewModel(app) {
                         AppLog.d("TaskDetailVM", "SetStartDate null→floating: assigned group=${updated.scheduledGroup}")
                     }
                     taskRepo.update(updated)
+
+                    // Arm/cancel the "starts now" alert
+                    val startScheduler = ReminderScheduler(getApplication())
+                    val fireAt = if (event.date != null && event.time != null)
+                        LocalDateTime.of(event.date, event.time) else null
+                    if (fireAt != null && fireAt.isAfter(LocalDateTime.now())) {
+                        startScheduler.scheduleImminence(
+                            "start_${task.id}", task.id, task.title, fireAt,
+                            kind = com.onlyflows.data.notifications.ImminenceReceiver.KIND_START,
+                        )
+                    } else {
+                        startScheduler.cancelImminence("start_${task.id}")
+                    }
                 }
                 _uiState.update { it.copy(showStartDatePicker = false) }
             }

@@ -58,7 +58,7 @@ import com.onlyflows.data.local.entity.AttachmentEntity
         ChecklistSectionEntity::class,
         ChecklistItemReminderEntity::class,
     ],
-    version = 38,
+    version = 39,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -199,12 +199,15 @@ abstract class AppDatabase : RoomDatabase() {
                     // NULL = not yet anchored; first rollover check anchors without resetting
                     db.execSQL("ALTER TABLE goals ADD COLUMN periodStart TEXT")
                 }
+                val migration38to39 = Migration(38, 39) { db ->
+                    db.execSQL("ALTER TABLE tasks ADD COLUMN startTime TEXT")
+                }
                 Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "onlyflows.db",
                 )
-                .addMigrations(migration27to28, migration28to29, migration29to30, migration30to31, migration31to32, migration32to33, migration33to34, migration34to35, migration35to36, migration36to37, migration37to38)
+                .addMigrations(migration27to28, migration28to29, migration29to30, migration30to31, migration31to32, migration32to33, migration33to34, migration34to35, migration35to36, migration36to37, migration37to38, migration38to39)
                 .fallbackToDestructiveMigration()
                 .fallbackToDestructiveMigrationOnDowngrade()
                 .build()

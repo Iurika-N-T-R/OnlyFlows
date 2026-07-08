@@ -125,12 +125,22 @@ class TaskRepository(
     private suspend fun clearReminders(taskId: String) {
         reminderRepo.getByTask(taskId).forEach { reminderScheduler.cancelByReminderId(it.id) }
         reminderScheduler.cancelImminence("imm_$taskId")
+        reminderScheduler.cancelImminence("start_$taskId")
         reminderRepo.deleteByTask(taskId)
     }
 
-    /** Move the pre-due-date imminence alert onto the next occurrence (same id scheme as BootReceiver). */
+    /** Move the pre-due-date imminence + start alerts onto the next occurrence (same id scheme as AlarmReconciler). */
     private suspend fun rearmImminence(oldTaskId: String, next: Task) {
         reminderScheduler.cancelImminence("imm_$oldTaskId")
+        reminderScheduler.cancelImminence("start_$oldTaskId")
+        val startDate = next.startDate
+        val startTime = next.startTime
+        if (startDate != null && startTime != null) {
+            reminderScheduler.scheduleImminence(
+                "start_${next.id}", next.id, next.title, startDate.atTime(startTime),
+                kind = com.onlyflows.data.notifications.ImminenceReceiver.KIND_START,
+            )
+        }
         val due  = next.dueDate ?: return
         val time = next.dueTime ?: return
         val lead = notificationPreferences.imminenceLeadMinutes.first()
@@ -559,6 +569,8 @@ class TaskRepository(
 
     suspend fun getCompletedThisWeekCount(sevenDaysAgo: String): Int = taskDao.getCompletedThisWeekCount(sevenDaysAgo)
     suspend fun getUpcomingDeadlines(today: String): List<com.onlyflows.data.local.entity.TaskEntity> = taskDao.getUpcomingDeadlines(today)
+
+    suspend fun getUpcomingTimed(today: String): List<com.onlyflows.data.local.entity.TaskEntity> = taskDao.getUpcomingTimed(today)
 
     fun observeActiveCount(): Flow<Int>        = taskDao.observeActiveCount()
     fun observeAllCompletedCount(): Flow<Int>  = taskDao.observeAllCompletedCount()
