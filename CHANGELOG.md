@@ -5,6 +5,14 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.70.1] — 2026-07-08 · Statut des alarmes à jour après édition locale
+
+### Corrigé
+
+- **La notification de statut ne bougeait pas après une édition locale** : régler une heure d'échéance/début armait bien l'alarme, mais le compteur ne se rafraîchissait qu'au démarrage, au boot ou après un delta sync. La réconciliation est maintenant aussi déclenchée par chaque mutation de tâche (même hook que le rafraîchissement des widgets, fire-and-forget, sérialisée par mutex).
+
+---
+
 ## [0.70.0] — 2026-07-08 · Notification à l'heure de début
 
 ### Ajouté
