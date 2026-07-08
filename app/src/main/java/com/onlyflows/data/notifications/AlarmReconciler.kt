@@ -82,12 +82,14 @@ object AlarmReconciler {
         // 5. Imminence alarms for tasks with future due date+time
         val notifPrefs = container.notificationPreferences
         val lead = notifPrefs.imminenceLeadMinutes.first()
+        var imminence = 0
         taskRepo.getUpcomingDeadlines(LocalDate.now().toString()).forEach { t ->
             val due  = t.dueDate ?: return@forEach
             val time = t.dueTime ?: return@forEach
             val fireAt = LocalDateTime.of(due, time).minusMinutes(lead.toLong())
             if (fireAt.isAfter(LocalDateTime.now())) {
                 scheduler.scheduleImminence("imm_${t.id}", t.id, t.title, fireAt)
+                imminence++
             }
         }
 
@@ -96,15 +98,15 @@ object AlarmReconciler {
             alertScheduler.scheduleWeeklyRecap(DayOfWeek.SUNDAY, notifPrefs.weeklyRecapTime.first())
         }
 
-        AppLog.i(TAG, "Reconciled alarms: $armed reminders armed, $rolled past-due recurring rolled forward")
-        showStatus(context, armed)
+        AppLog.i(TAG, "Reconciled alarms: $armed reminders + $imminence due-time alerts armed, $rolled past-due recurring rolled forward")
+        showStatus(context, armed, imminence)
     }
 
     private const val STATUS_CHANNEL  = "onlyflows_status"
     private const val STATUS_NOTIF_ID = 424242
 
     /** Persistent silent notification proving the reminder system is armed and healthy. */
-    private fun showStatus(context: Context, armed: Int) {
+    private fun showStatus(context: Context, armed: Int, imminence: Int) {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.createNotificationChannel(
             NotificationChannel(STATUS_CHANNEL, "Notification status", NotificationManager.IMPORTANCE_MIN)
@@ -118,7 +120,7 @@ object AlarmReconciler {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         val text = buildString {
-            append("$armed reminder${if (armed == 1) "" else "s"} armed")
+            append("$armed reminder${if (armed == 1) "" else "s"} · $imminence due-time alert${if (imminence == 1) "" else "s"} armed")
             append(if (exact) " · exact alarms ✓" else " · ⚠ inexact — grant “Alarms & reminders”")
             append(" · checked ${LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))}")
         }
