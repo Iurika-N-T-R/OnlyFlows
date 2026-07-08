@@ -1,6 +1,7 @@
 package com.onlyflows
 
 import android.content.Context
+import kotlinx.coroutines.launch
 import com.onlyflows.data.backup.BackupManager
 import com.onlyflows.data.local.AppDatabase
 import com.onlyflows.data.calendar.CalendarRepository
@@ -77,7 +78,13 @@ class AppContainer(context: Context) {
         actionLog           = actionLogRepository,
         syncDao             = syncDao,
         lanSyncWriter       = lanSyncWriter,
-        onTaskMutated       = { com.onlyflows.ui.widget.WidgetUpdater.updateAll(context) },
+        onTaskMutated       = {
+            com.onlyflows.ui.widget.WidgetUpdater.updateAll(context)
+            // Fire-and-forget so writes don't wait on a full alarm pass (mutex-serialized inside)
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                runCatching { com.onlyflows.data.notifications.AlarmReconciler.reconcile(context) }
+            }
+        },
     )
 
     val projectRepository: ProjectRepository = ProjectRepository(
