@@ -1,7 +1,16 @@
 package com.onlyflows.data.notifications
 
+import android.app.AlarmManager
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
+import android.os.Build
+import androidx.core.app.NotificationCompat
+import com.onlyflows.MainActivity
 import com.onlyflows.OnlyFlowsApp
+import com.onlyflows.R
 import com.onlyflows.data.debug.AppLog
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
@@ -9,6 +18,7 @@ import kotlinx.coroutines.sync.withLock
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import com.onlyflows.domain.model.ReminderRecurrence
 
 /**
@@ -87,5 +97,43 @@ object AlarmReconciler {
         }
 
         AppLog.i(TAG, "Reconciled alarms: $armed reminders armed, $rolled past-due recurring rolled forward")
+        showStatus(context, armed)
+    }
+
+    private const val STATUS_CHANNEL  = "onlyflows_status"
+    private const val STATUS_NOTIF_ID = 424242
+
+    /** Persistent silent notification proving the reminder system is armed and healthy. */
+    private fun showStatus(context: Context, armed: Int) {
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        nm.createNotificationChannel(
+            NotificationChannel(STATUS_CHANNEL, "Notification status", NotificationManager.IMPORTANCE_MIN)
+                .apply { description = "Persistent reminder-system status" }
+        )
+        val exact = Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+            (context.getSystemService(Context.ALARM_SERVICE) as AlarmManager).canScheduleExactAlarms()
+        val tap = PendingIntent.getActivity(
+            context, STATUS_NOTIF_ID,
+            Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        val text = buildString {
+            append("$armed reminder${if (armed == 1) "" else "s"} armed")
+            append(if (exact) " · exact alarms ✓" else " · ⚠ inexact — grant “Alarms & reminders”")
+            append(" · checked ${LocalDateTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))}")
+        }
+        nm.notify(
+            STATUS_NOTIF_ID,
+            NotificationCompat.Builder(context, STATUS_CHANNEL)
+                .setSmallIcon(R.drawable.ic_nav_today)
+                .setContentTitle("Reminders active")
+                .setContentText(text)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+                .setOngoing(true)
+                .setSilent(true)
+                .setShowWhen(false)
+                .setContentIntent(tap)
+                .build(),
+        )
     }
 }

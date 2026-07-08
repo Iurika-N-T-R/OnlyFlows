@@ -5,6 +5,14 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.69.2] — 2026-07-08 · Notification de statut persistante
+
+### Ajouté
+
+- **Notification persistante « Reminders active »** (silencieuse, importance minimale) : affiche le nombre de rappels armés, l'état des alarmes exactes (✓ ou ⚠ avec l'action à faire) et l'heure du dernier check. Mise à jour à chaque réconciliation (démarrage, boot, delta LAN sync). Preuve visible que le système de notifications est vivant ; désactivable via le canal « Notification status ».
+
+---
+
 ## [0.69.1] — 2026-07-08 · Notifications fiables (réconciliation des alarmes)
 
 ### Corrigé
