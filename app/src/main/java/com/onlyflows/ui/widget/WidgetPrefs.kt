@@ -23,7 +23,13 @@ class WidgetPrefs(context: Context, private val widgetId: Int) {
         get() = sp.getBoolean(k("show_details"), true)
         set(v) = sp.edit().putBoolean(k("show_details"), v).apply()
 
+    /** Countdown widget: selected DateTracker id or a BUILTIN_* constant. */
+    var trackerId: String
+        get() = sp.getString(k("tracker_id"), "") ?: ""
+        set(v) = sp.edit().putString(k("tracker_id"), v).apply()
+
     fun clear() = sp.edit()
         .remove(k("filter_type")).remove(k("filter_id"))
-        .remove(k("theme")).remove(k("show_details")).apply()
+        .remove(k("theme")).remove(k("show_details"))
+        .remove(k("tracker_id")).apply()
 }

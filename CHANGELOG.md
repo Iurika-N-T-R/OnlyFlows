@@ -5,6 +5,14 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.69.0] — 2026-07-08 · Widget Countdown (Date Tracker)
+
+### Ajouté
+
+- **Nouveau widget 2×2 « Countdown »** : carte affichant le compte à rebours d'un Date Tracker au choix — gros compteur de jours en gras au centre, unité (« days left » / « days ago » / « today! 🎉 ») en dessous, titre (emoji + nom) en bas. Sélection du tracker au placement (reconfigurable par appui long) : trackers de la liste + compteurs intégrés **Fin de mois** et **Fin d'année**. Thème System/Light/Dark comme le widget existant. Trackers annuels et anniversaires comptent vers la prochaine occurrence. Auto-refresh ~10 s (même alarme auto-chaînée) + rebuild sur mutations et après LAN sync.
+
+---
+
 ## [0.68.0] — 2026-07-03 · Les rappels suivent les tâches récurrentes
 
 ### Ajouté

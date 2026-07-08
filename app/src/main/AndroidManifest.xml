@@ -115,6 +115,28 @@
             </intent-filter>
         </activity>
 
+        <!-- ── Countdown widget (DateTracker card) ── -->
+        <receiver
+            android:name=".ui.widget.CountdownWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_countdown_info" />
+        </receiver>
+
+        <activity
+            android:name=".ui.widget.CountdownWidgetConfigActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:theme="@style/Theme.OnlyFlows.Dialog">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
     </application>
 
 
