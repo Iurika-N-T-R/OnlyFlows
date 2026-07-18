@@ -2,7 +2,9 @@
 
 # OnlyFlows
 
-Task & project manager — minimal, editorial, local-first
+**Offline-first Android task & project manager with LAN sync** — a free, open-source
+[Things 3](https://culturedcode.com/things/) alternative built with Jetpack Compose. No account,
+no cloud, no subscription — your data stays on your devices, synced peer-to-peer over your local network.
 
 Jetpack Compose × Room × LAN Sync × WorkManager
 
