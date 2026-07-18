@@ -11,6 +11,7 @@ Jetpack Compose × Room × LAN Sync × WorkManager
 [![android](https://img.shields.io/badge/android-8.0%2B-3DDC84?style=flat-square&logo=android&logoColor=white)](https://developer.android.com)
 [![minSdk](https://img.shields.io/badge/minSdk-26-green?style=flat-square)](https://developer.android.com/about/versions/oreo)
 [![license](https://img.shields.io/badge/license-GPLv3-blue?style=flat-square)](LICENSE)
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-FFDD00?style=flat-square&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/Iurika)
 
 </div>
 
@@ -26,6 +27,9 @@ entirely over **LAN**, peer-to-peer, with no server in between.
 Licensed under **GPLv3** — free to use, study, modify, and redistribute under the same license.
 Commercial resale of this app or its source, even though technically permitted by GPLv3, is not
 something the author endorses; please respect the spirit of a free, offline-first project.
+
+OnlyFlows is built and maintained solo. If you find it useful, consider
+[buying me a coffee](https://buymeacoffee.com/Iurika) ☕ — it helps keep the project going.
 
 ---
 
