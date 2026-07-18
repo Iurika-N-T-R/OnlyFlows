@@ -10,9 +10,22 @@ Jetpack Compose × Room × LAN Sync × WorkManager
 [![kotlin](https://img.shields.io/badge/kotlin-2.1.0-7F52FF?style=flat-square&logo=kotlin&logoColor=white)](https://kotlinlang.org)
 [![android](https://img.shields.io/badge/android-8.0%2B-3DDC84?style=flat-square&logo=android&logoColor=white)](https://developer.android.com)
 [![minSdk](https://img.shields.io/badge/minSdk-26-green?style=flat-square)](https://developer.android.com/about/versions/oreo)
-[![license](https://img.shields.io/badge/license-Proprietary-red?style=flat-square)](LICENSE)
+[![license](https://img.shields.io/badge/license-GPLv3-blue?style=flat-square)](LICENSE)
 
 </div>
+
+---
+
+## About
+
+OnlyFlows is inspired by **Things 3**, but goes further: a broader feature set (goals with periodic
+tracking, RSS reader, date tracker, time tracking, geofence reminders, home screen widget, statistics)
+and is **fully offline by design** — no account, no cloud, no telemetry. Sync between devices happens
+entirely over **LAN**, peer-to-peer, with no server in between.
+
+Licensed under **GPLv3** — free to use, study, modify, and redistribute under the same license.
+Commercial resale of this app or its source, even though technically permitted by GPLv3, is not
+something the author endorses; please respect the spirit of a free, offline-first project.
 
 ---
 
