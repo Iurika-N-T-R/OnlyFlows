@@ -50,6 +50,9 @@ fun DatePickerModal(
     onResult: ((date: LocalDate?, dueTime: LocalTime?, endTime: LocalTime?) -> Unit)? = null,
     // Called when user taps "Add Reminder" — saves date first, then opens reminder picker
     onAddReminder: (() -> Unit)? = null,
+    /** Greys the reminder button out instead of hiding it. A control that vanishes with no
+     *  explanation reads as a bug; one that is visibly inactive explains itself. */
+    addReminderEnabled: Boolean = true,
     /** Invoked instead of the plain date result when "This Evening" is tapped, so callers can
      *  record the THIS_EVENING group. Without it the shortcut was indistinguishable from Today:
      *  it only set today's date and nothing else. */
@@ -169,6 +172,26 @@ fun DatePickerModal(
                 onClick    = { showCalendarDialog = true },
             )
 
+            // ── Add Reminder ─────────────────────────────────────────────────
+            // Placed with the shortcuts, not after the time fields: at the bottom it fell
+            // below the fold once a date exposed the All Day / Start / End rows.
+            if (onAddReminder != null) {
+                TextButton(
+                    onClick  = {
+                        fireResult(selectedDate)   // save the date selection first
+                        onAddReminder.invoke()     // then open the reminder picker
+                    },
+                    enabled  = addReminderEnabled,
+                    modifier = Modifier.padding(horizontal = 12.dp),
+                ) {
+                    Text(
+                        text  = if (addReminderEnabled) "+ Add Reminder" else "+ Add Reminder (name the task first)",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = if (addReminderEnabled) 0.85f else 0.3f),
+                    )
+                }
+            }
+
             // ── Time option (deadline picker only) ────────────────────────────
             if (showTimeOption && selectedDate != null) {
                 HorizontalDivider(
@@ -231,24 +254,6 @@ fun DatePickerModal(
                 }
             }
 
-            // ── Add Reminder ─────────────────────────────────────────────────
-            // Only offered when a caller can actually handle it. Rendered unconditionally
-            // it was a dead control that just applied a null date and closed the sheet.
-            if (onAddReminder != null) {
-                TextButton(
-                    onClick  = {
-                        fireResult(selectedDate)   // save the date selection first
-                        onAddReminder.invoke()     // then open the reminder picker
-                    },
-                    modifier = Modifier.padding(horizontal = 12.dp),
-                ) {
-                    Text(
-                        text  = "+ Add Reminder",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
-                    )
-                }
-            }
         }
     }
 

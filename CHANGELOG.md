@@ -5,6 +5,15 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.75.3] — 2026-09-20 · « + Add Reminder » visible et explicite
+
+### Corrigé
+
+- **Le bouton retombait sous la ligne de flottaison.** Placé tout en bas de la feuille, il passait hors écran dès qu'une date faisait apparaître les lignes All Day / Start / End. Il est remonté avec les raccourcis de date.
+- **Il disparaissait tant que la tâche n'avait pas de titre.** Le callback était annulé sur `title.isBlank()`, donc le bouton s'évaporait sans explication si l'on ouvrait le sélecteur de date avant d'avoir saisi un nom. Il reste désormais affiché, grisé, et indique « name the task first ».
+
+---
+
 ## [0.75.2] — 2026-09-20 · Heures en dialogue, Someday remonté
 
 ### Modifié

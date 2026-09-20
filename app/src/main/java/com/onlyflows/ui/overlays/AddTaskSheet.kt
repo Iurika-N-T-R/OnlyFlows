@@ -484,7 +484,8 @@ fun AddTaskSheet(
                 endTime = null
                 showDatePicker = false
             },
-            onAddReminder = if (onTaskCreatedWithReminder == null || title.isBlank()) null else ({
+            addReminderEnabled = title.isNotBlank(),
+            onAddReminder = if (onTaskCreatedWithReminder == null) null else ({
                 // A reminder needs a day to hang off, so an unset date becomes today
                 // rather than silently producing a reminder with nothing to fire against.
                 if (dueDate == null) {
