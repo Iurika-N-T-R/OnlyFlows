@@ -209,12 +209,20 @@ fun AddTaskSheet(
             }
 
             // ── Project / section picker row (only when projects are provided) ──
-            if (projects.isNotEmpty()) {
-                Spacer(Modifier.height(10.dp))
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment     = Alignment.CenterVertically,
-                ) {
+            Spacer(Modifier.height(8.dp))
+
+            // ── Chips row ────────────────────────────────────────────────────────
+            // Project, date and reminder chips share one scrollable line; the action buttons
+            // get the next one. On a single line the last button was clipped once a reminder
+            // chip appeared, and splitting the chips apart cost a third line for nothing.
+            Row(
+                verticalAlignment     = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+            ) {
+                if (projects.isNotEmpty()) {
                     // Project chip
                     Box {
                         FilterChip(
@@ -316,20 +324,7 @@ fun AddTaskSheet(
                         }
                     }
                 }
-            }
 
-            Spacer(Modifier.height(12.dp))
-
-            // ── Chips row ────────────────────────────────────────────────────────
-            // Chips and actions live on separate lines: together they overflowed the width
-            // as soon as a reminder chip appeared, clipping the last action button.
-            Row(
-                verticalAlignment     = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-            ) {
                 // Date group chip
                 FilterChip(
                     selected = true,
@@ -381,8 +376,6 @@ fun AddTaskSheet(
                 }
 
             }
-
-            Spacer(Modifier.height(8.dp))
 
             // ── Action buttons row ───────────────────────────────────────────────
             Row(

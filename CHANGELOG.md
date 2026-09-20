@@ -5,6 +5,14 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.77.2] — 2026-09-20 · Puces regroupées sur une ligne
+
+### Corrigé
+
+- **La feuille de création occupait trois lignes.** Séparer les puces des boutons d'action avait laissé la puce de projet sur sa propre ligne, la date sur une deuxième et les actions sur une troisième. Projet, date et rappel partagent désormais une seule ligne défilante, les actions occupent la suivante.
+
+---
+
 ## [0.77.1] — 2026-09-20 · Un rappel ne force plus la tâche à « Today »
 
 ### Corrigé
