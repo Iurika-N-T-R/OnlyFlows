@@ -15,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -25,6 +26,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.onlyflows.data.mock.MockData
+import com.onlyflows.data.preferences.NotificationPreferences
 import com.onlyflows.domain.model.Project
 import com.onlyflows.domain.model.ProjectType
 import com.onlyflows.domain.model.Section
@@ -72,6 +74,10 @@ fun AddTaskSheet(
     var checklistItems     by remember { mutableStateOf(listOf<String>()) }
     var checklistDraft     by remember { mutableStateOf("") }
     val focusRequester = remember { FocusRequester() }
+
+    val context      = LocalContext.current
+    val notifPrefs   = remember { NotificationPreferences(context.applicationContext) }
+    val eveningTime  by notifPrefs.thisEveningTime.collectAsState(initial = "18:00")
 
     fun resetForm() {
         taskId          = UUID.randomUUID().toString()
@@ -467,6 +473,15 @@ fun AddTaskSheet(
                     picked == LocalDate.now() -> TaskGroup.TODAY
                     else                      -> TaskGroup.ANYTIME
                 }
+                showDatePicker = false
+            },
+            onThisEvening = {
+                // Without this the shortcut only set today's date, making it identical to
+                // "Today". It now carries the group and the configured evening hour.
+                group   = TaskGroup.THIS_EVENING
+                dueDate = LocalDate.now()
+                dueTime = runCatching { LocalTime.parse(eveningTime) }.getOrDefault(LocalTime.of(18, 0))
+                endTime = null
                 showDatePicker = false
             },
             onAddReminder = if (onTaskCreatedWithReminder == null || title.isBlank()) null else ({

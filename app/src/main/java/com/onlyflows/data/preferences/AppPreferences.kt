@@ -104,6 +104,7 @@ class NotificationPreferences(private val context: Context) {
     private val KEY_IMMINENCE_LEAD   = intPreferencesKey("imminence_lead_minutes")
     private val KEY_WEEKLY_ENABLED   = booleanPreferencesKey("weekly_recap_enabled")
     private val KEY_WEEKLY_TIME      = stringPreferencesKey("weekly_recap_time")
+    private val KEY_EVENING_TIME     = stringPreferencesKey("this_evening_time")
 
     val soundEnabled: Flow<Boolean>        = context.notifDataStore.data.map { it[KEY_SOUND]          ?: true }
     val vibrationEnabled: Flow<Boolean>    = context.notifDataStore.data.map { it[KEY_VIBRATION]      ?: true }
@@ -111,6 +112,8 @@ class NotificationPreferences(private val context: Context) {
     val imminenceLeadMinutes: Flow<Int>    = context.notifDataStore.data.map { it[KEY_IMMINENCE_LEAD] ?: 30 }
     val weeklyRecapEnabled: Flow<Boolean>  = context.notifDataStore.data.map { it[KEY_WEEKLY_ENABLED] ?: false }
     val weeklyRecapTime: Flow<String>      = context.notifDataStore.data.map { it[KEY_WEEKLY_TIME]    ?: "20:00" }
+    /** Hour "This Evening" resolves to, for the due time and its automatic reminder. */
+    val thisEveningTime: Flow<String>      = context.notifDataStore.data.map { it[KEY_EVENING_TIME]   ?: "18:00" }
 
     suspend fun setSoundEnabled(enabled: Boolean)       = context.notifDataStore.edit { it[KEY_SOUND]          = enabled }
     suspend fun setVibrationEnabled(enabled: Boolean)   = context.notifDataStore.edit { it[KEY_VIBRATION]      = enabled }
@@ -118,6 +121,7 @@ class NotificationPreferences(private val context: Context) {
     suspend fun setImminenceLeadMinutes(minutes: Int)   = context.notifDataStore.edit { it[KEY_IMMINENCE_LEAD] = minutes }
     suspend fun setWeeklyRecapEnabled(enabled: Boolean) = context.notifDataStore.edit { it[KEY_WEEKLY_ENABLED] = enabled }
     suspend fun setWeeklyRecapTime(time: String)        = context.notifDataStore.edit { it[KEY_WEEKLY_TIME]    = time }
+    suspend fun setThisEveningTime(time: String)        = context.notifDataStore.edit { it[KEY_EVENING_TIME]   = time }
 
     suspend fun snapshot(): Triple<Boolean, Boolean, Boolean> {
         val p = context.notifDataStore.data.first()

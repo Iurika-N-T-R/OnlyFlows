@@ -27,8 +27,10 @@ import com.onlyflows.ui.theme.ModalDark
 import com.onlyflows.ui.theme.OnlyFlowsTheme
 import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.Instant
 import java.time.LocalTime
-import java.time.YearMonth
+import java.time.ZoneId
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
@@ -46,10 +48,13 @@ fun DatePickerModal(
     onResult: ((date: LocalDate?, dueTime: LocalTime?, endTime: LocalTime?) -> Unit)? = null,
     // Called when user taps "Add Reminder" — saves date first, then opens reminder picker
     onAddReminder: (() -> Unit)? = null,
+    /** Invoked instead of the plain date result when "This Evening" is tapped, so callers can
+     *  record the THIS_EVENING group. Without it the shortcut was indistinguishable from Today:
+     *  it only set today's date and nothing else. */
+    onThisEvening: (() -> Unit)? = null,
     onDismiss: () -> Unit,
 ) {
     var selectedDate by remember { mutableStateOf(initialDate) }
-    var currentMonth  by remember { mutableStateOf(YearMonth.now()) }
     var isAllDay      by remember { mutableStateOf(initialDueTime == null) }
 
     val dueTimeState = rememberTimePickerState(
@@ -128,18 +133,20 @@ fun DatePickerModal(
                 label      = "This Evening",
                 isSelected = false,
                 onClick    = {
-                    selectedDate = LocalDate.now()
-                    if (!showTimeOption) fireResult(LocalDate.now())
+                    if (onThisEvening != null) {
+                        onThisEvening()
+                    } else {
+                        selectedDate = LocalDate.now()
+                        if (!showTimeOption) fireResult(LocalDate.now())
+                    }
                 },
             )
 
             Spacer(Modifier.height(12.dp))
 
             // ── Calendar ──────────────────────────────────────────────────────
-            CalendarView(
-                currentMonth  = currentMonth,
+            M3Calendar(
                 selectedDate  = selectedDate,
-                onMonthChange = { currentMonth = it },
                 onDaySelected = { date ->
                     selectedDate = date
                     if (!showTimeOption) fireResult(date)
@@ -307,116 +314,61 @@ private fun DateShortcut(
     }
 }
 
+// ── Calendar ──────────────────────────────────────────────────────────────────
+
+/** Material 3's date picker, themed for this dark sheet. Replaces a hand-rolled month grid:
+ *  the platform component brings keyboard entry, year navigation and accessibility for free. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun CalendarView(
-    currentMonth: YearMonth,
+private fun M3Calendar(
     selectedDate: LocalDate?,
-    onMonthChange: (YearMonth) -> Unit,
     onDaySelected: (LocalDate) -> Unit,
 ) {
-    val today    = LocalDate.now()
-    val dayNames = DayOfWeek.values().map { it.getDisplayName(TextStyle.SHORT, Locale.getDefault()).take(2) }
+    val zone  = ZoneId.systemDefault()
+    val state = rememberDatePickerState(
+        initialSelectedDateMillis = selectedDate?.atStartOfDay(zone)?.toInstant()?.toEpochMilli(),
+    )
 
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
-        // Day names header
-        Row(modifier = Modifier.fillMaxWidth()) {
-            dayNames.forEach { day ->
-                Text(
-                    text      = day,
-                    style     = MaterialTheme.typography.labelSmall,
-                    color     = Color.White.copy(alpha = 0.4f),
-                    textAlign = TextAlign.Center,
-                    modifier  = Modifier.weight(1f),
-                )
-            }
-        }
-
-        Spacer(Modifier.height(4.dp))
-
-        val firstDay    = currentMonth.atDay(1)
-        val daysInMonth = currentMonth.lengthOfMonth()
-        val startOffset = firstDay.dayOfWeek.value - 1 // Mon=0, Tue=1, …, Sun=6
-
-        val allCells = buildList {
-            repeat(startOffset) { add(null) }
-            for (d in 1..daysInMonth) add(currentMonth.atDay(d))
-        }
-
-        LazyVerticalGrid(
-            columns           = GridCells.Fixed(7),
-            modifier          = Modifier.fillMaxWidth().heightIn(max = 240.dp),
-            userScrollEnabled = false,
-        ) {
-            items(allCells) { date ->
-                if (date == null) {
-                    Box(Modifier.aspectRatio(1f))
-                } else {
-                    val isSelected = date == selectedDate
-                    val isToday    = date == today
-                    val isPast     = date < today
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .aspectRatio(1f)
-                            .padding(2.dp)
-                            .clip(CircleShape)
-                            .background(
-                                when {
-                                    isSelected -> MaterialTheme.colorScheme.primary
-                                    isToday    -> MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
-                                    else       -> Color.Transparent
-                                }
-                            )
-                            .clickable { onDaySelected(date) },
-                    ) {
-                        Text(
-                            text       = date.dayOfMonth.toString(),
-                            style      = MaterialTheme.typography.bodyMedium,
-                            fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
-                            color      = when {
-                                isSelected -> Color.White
-                                isPast     -> Color.White.copy(alpha = 0.3f)
-                                else       -> Color.White
-                            },
-                            textAlign  = TextAlign.Center,
-                        )
-                    }
-                }
-            }
-        }
-
-        Spacer(Modifier.height(8.dp))
-
-        // Month navigation
-        Row(
-            horizontalArrangement = Arrangement.SpaceBetween,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            TextButton(onClick = { onMonthChange(currentMonth.minusMonths(1)) }) {
-                Text("< Prev", color = Color.White.copy(alpha = 0.5f))
-            }
-            Text(
-                text  = "${currentMonth.month.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${currentMonth.year}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color.White.copy(alpha = 0.5f),
-            )
-            TextButton(onClick = { onMonthChange(currentMonth.plusMonths(1)) }) {
-                Text("Next >", color = MaterialTheme.colorScheme.primary)
-            }
+    // The picker owns its selection; mirror it outwards whenever it changes.
+    LaunchedEffect(state.selectedDateMillis) {
+        state.selectedDateMillis?.let { millis ->
+            val picked = Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate()
+            if (picked != selectedDate) onDaySelected(picked)
         }
     }
+
+    val onDark = Color.White
+    val dim    = Color.White.copy(alpha = 0.6f)
+    DatePicker(
+        state          = state,
+        title          = null,
+        headline       = null,
+        showModeToggle = false,
+        colors = DatePickerDefaults.colors(
+            containerColor              = Color.Transparent,
+            titleContentColor           = onDark,
+            headlineContentColor        = onDark,
+            weekdayContentColor         = dim,
+            subheadContentColor         = dim,
+            navigationContentColor      = onDark,
+            yearContentColor            = onDark,
+            currentYearContentColor     = MaterialTheme.colorScheme.primary,
+            selectedYearContentColor    = Color.White,
+            selectedYearContainerColor  = MaterialTheme.colorScheme.primary,
+            dayContentColor             = onDark,
+            disabledDayContentColor     = Color.White.copy(alpha = 0.3f),
+            selectedDayContentColor     = Color.White,
+            selectedDayContainerColor   = MaterialTheme.colorScheme.primary,
+            todayContentColor           = MaterialTheme.colorScheme.primary,
+            todayDateBorderColor        = MaterialTheme.colorScheme.primary,
+        ),
+    )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Preview
 @Composable
 private fun DatePickerModalPreview() {
-    OnlyFlowsTheme {
-        DatePickerModal(
-            initialDate    = LocalDate.now(),
-            showTimeOption = true,
-            onDateSelected = {},
-            onDismiss      = {},
-        )
+    OnlyFlowsTheme(darkTheme = true) {
+        DatePickerModal(onDateSelected = {}, onDismiss = {})
     }
 }

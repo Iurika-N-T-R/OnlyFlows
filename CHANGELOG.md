@@ -5,6 +5,23 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.75.0] — 2026-09-20 · Calendrier Material 3 et « This Evening » réparé
+
+### Corrigé
+
+- **« This Evening » était identique à « Today ».** Le raccourci se contentait de `selectedDate = LocalDate.now()` : ni groupe `THIS_EVENING`, ni heure. Il pose désormais le groupe, la date du jour et l'heure du soir configurée. Comme `AlarmReconciler` arme une alerte pour toute tâche ayant une date **et** une heure, la notification automatique en découle sans créer de `Reminder` en double.
+
+### Ajouté
+
+- **Heure du soir configurable** (Réglages → Notifications → This Evening), 18h00 par défaut, stockée dans `NotificationPreferences`.
+- **Le calendrier du sélecteur de date est celui de Material 3.** Le composant maison (grille de mois écrite à la main, ~110 lignes) est remplacé par `DatePicker`, thémé pour la feuille sombre : navigation par année, saisie clavier et accessibilité viennent avec.
+
+### Note
+
+L'alerte automatique de « This Evening » part **avant** l'heure posée, du délai réglé dans « Alert before deadline » (30 min par défaut) — une heure du soir à 18h00 notifie donc à 17h30.
+
+---
+
 ## [0.74.0] — 2026-09-20 · Heure à la création, et rappel enfin atteignable
 
 ### Corrigé

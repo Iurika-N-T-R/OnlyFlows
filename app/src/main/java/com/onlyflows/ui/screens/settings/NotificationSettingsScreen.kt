@@ -56,6 +56,7 @@ fun NotificationSettingsScreen(
     val imminenceLead    by prefs.imminenceLeadMinutes.collectAsStateWithLifecycle(initialValue = 30)
     val weeklyEnabled    by prefs.weeklyRecapEnabled.collectAsStateWithLifecycle(initialValue = false)
     val weeklyTime       by prefs.weeklyRecapTime.collectAsStateWithLifecycle(initialValue = "20:00")
+    val eveningTime      by prefs.thisEveningTime.collectAsStateWithLifecycle(initialValue = "18:00")
 
     val alertEnabled by alertPrefs.enabled.collectAsStateWithLifecycle(initialValue = false)
     val alertTimes   by alertPrefs.times.collectAsStateWithLifecycle(initialValue = emptySet())
@@ -67,8 +68,10 @@ fun NotificationSettingsScreen(
 
     var showTimePicker by remember { mutableStateOf(false) }
     var showWeeklyTimePicker by remember { mutableStateOf(false) }
+    var showEveningTimePicker by remember { mutableStateOf(false) }
     val timePickerState = rememberTimePickerState(initialHour = 8, initialMinute = 0, is24Hour = true)
     val weeklyTimePickerState = rememberTimePickerState(initialHour = 20, initialMinute = 0, is24Hour = true)
+    val eveningTimePickerState = rememberTimePickerState(initialHour = 18, initialMinute = 0, is24Hour = true)
 
     fun rescheduleAll(enabled: Boolean, times: Set<String>, days: Set<String>) {
         DailyAlertScheduler(context).scheduleAll(enabled, times, days)
@@ -340,6 +343,25 @@ fun NotificationSettingsScreen(
             }
             HorizontalDivider(modifier = Modifier.padding(start = 64.dp, top = 8.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
 
+            // ── This Evening section ─────────────────────────────────────────
+            NotifGroupLabel("This Evening")
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showEveningTimePicker = true }
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Outlined.Bedtime, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+                Spacer(Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Evening hour", style = MaterialTheme.typography.bodyLarge)
+                    Text("Time \"This Evening\" sets on a task ($eveningTime)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Icon(Icons.Outlined.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            HorizontalDivider(modifier = Modifier.padding(start = 64.dp, top = 8.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+
             // ── System section ───────────────────────────────────────────────
             NotifGroupLabel("System")
 
@@ -406,6 +428,25 @@ fun NotificationSettingsScreen(
                 TextButton(onClick = { showWeeklyTimePicker = false }) { Text("Cancel") }
             },
             text = { TimePicker(state = weeklyTimePickerState) },
+        )
+    }
+
+    // This Evening hour picker
+    if (showEveningTimePicker) {
+        AlertDialog(
+            onDismissRequest = { showEveningTimePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    showEveningTimePicker = false
+                    val hh = eveningTimePickerState.hour.toString().padStart(2, '0')
+                    val mm = eveningTimePickerState.minute.toString().padStart(2, '0')
+                    scope.launch { prefs.setThisEveningTime("$hh:$mm") }
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEveningTimePicker = false }) { Text("Cancel") }
+            },
+            text = { TimePicker(state = eveningTimePickerState) },
         )
     }
 
