@@ -2093,6 +2093,13 @@ private fun ReminderPickerSheet(
     var persoHour           by remember { mutableStateOf(9) }
     var persoMinute         by remember { mutableStateOf(0) }
     var showPersoTimePicker by remember { mutableStateOf(false) }
+    // Shared hour for every relative preset below, instead of a hardcoded 9:00.
+    var presetHour          by remember { mutableStateOf(9) }
+    var presetMinute        by remember { mutableStateOf(0) }
+    var showPresetTimePicker by remember { mutableStateOf(false) }
+    // "exact" mode: an absolute date and time, independent of the due date.
+    var exactDate           by remember { mutableStateOf(taskDueDate ?: LocalDate.now()) }
+    var showExactDatePicker by remember { mutableStateOf(false) }
 
     val container = (context.applicationContext as com.onlyflows.OnlyFlowsApp).container
     val locations by container.savedLocationRepository.observeAll()
@@ -2182,24 +2189,45 @@ private fun ReminderPickerSheet(
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
 
-            // Tomorrow morning shortcut
+            // Hour every preset below fires at — adjustable rather than fixed at 9:00.
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+            ) {
+                Text(
+                    "Preset time",
+                    style    = MaterialTheme.typography.bodyMedium,
+                    color    = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
+                OutlinedButton(onClick = { showPresetTimePicker = true }) {
+                    Icon(Icons.Outlined.Schedule, null, modifier = Modifier.size(14.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(String.format("%02d:%02d", presetHour, presetMinute))
+                }
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+
+            // Tomorrow shortcut
             ReminderRow(
                 icon    = Icons.Outlined.WbSunny,
                 tint    = Color(0xFFFF8800),
-                label   = "Demain matin · 9:00",
+                label   = "Tomorrow · %02d:%02d".format(presetHour, presetMinute),
                 onClick = {
-                    onApply(LocalDate.now().plusDays(1).atTime(9, 0), null, com.onlyflows.domain.model.ReminderRecurrence.NONE)
+                    onApply(LocalDate.now().plusDays(1).atTime(presetHour, presetMinute), null, com.onlyflows.domain.model.ReminderRecurrence.NONE)
                     onDismiss()
                 },
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
 
-            // Due-date relative templates
+            // Due-date relative templates. "Same day" was ambiguous — these are all counted
+            // from the due date, so the labels now say so.
+            val presetSuffix = " · %02d:%02d".format(presetHour, presetMinute)
             val dueDateTemplates = listOf(
-                Triple("Same day · 9:00",        Icons.Outlined.Today,            0L),
-                Triple("1 day before · 9:00",    Icons.Outlined.EventAvailable,   1L),
-                Triple("2 days before · 9:00",   Icons.Outlined.EventAvailable,   2L),
-                Triple("1 week before · 9:00",   Icons.Outlined.DateRange,        7L),
+                Triple("On the due date$presetSuffix",   Icons.Outlined.Today,            0L),
+                Triple("1 day before due$presetSuffix",  Icons.Outlined.EventAvailable,   1L),
+                Triple("2 days before due$presetSuffix", Icons.Outlined.EventAvailable,   2L),
+                Triple("1 week before due$presetSuffix", Icons.Outlined.DateRange,        7L),
             )
             dueDateTemplates.forEach { (label, icon, daysBefore) ->
                 val targetDate = taskDueDate?.minusDays(daysBefore)
@@ -2209,7 +2237,7 @@ private fun ReminderPickerSheet(
                     label    = label,
                     sublabel = if (targetDate == null) "No due date" else null,
                     onClick  = if (targetDate != null) ({
-                        onApply(targetDate.atTime(9, 0), null, com.onlyflows.domain.model.ReminderRecurrence.NONE)
+                        onApply(targetDate.atTime(presetHour, presetMinute), null, com.onlyflows.domain.model.ReminderRecurrence.NONE)
                         onDismiss()
                     }) else ({}),
                 )
@@ -2233,6 +2261,11 @@ private fun ReminderPickerSheet(
                     onClick  = { persoMode = "weekly" },
                     label    = { Text("Weekly") },
                 )
+                FilterChip(
+                    selected = persoMode == "exact",
+                    onClick  = { persoMode = "exact" },
+                    label    = { Text("Exact date") },
+                )
             }
             Spacer(Modifier.height(8.dp))
 
@@ -2243,7 +2276,7 @@ private fun ReminderPickerSheet(
                 persoMode == "daily"                 -> "days from today"
                 else                                 -> "weeks from today"
             }
-            val persoTarget: LocalDate = taskDueDate?.let {
+            val persoTarget: LocalDate = if (persoMode == "exact") exactDate else taskDueDate?.let {
                 val days = if (persoMode == "daily") persoCount.toLong() else persoCount.toLong() * 7
                 it.minusDays(days)
             } ?: run {
@@ -2259,6 +2292,21 @@ private fun ReminderPickerSheet(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                if (persoMode == "exact") {
+                    OutlinedButton(
+                        onClick  = { showExactDatePicker = true },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Icon(Icons.Outlined.DateRange, null, modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(exactDate.format(DateTimeFormatter.ofPattern("d MMM yyyy", java.util.Locale.ENGLISH)))
+                    }
+                    OutlinedButton(onClick = { showPersoTimePicker = true }) {
+                        Icon(Icons.Outlined.Schedule, null, modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(String.format("%02d:%02d", persoHour, persoMinute))
+                    }
+                } else {
                 OutlinedButton(
                     onClick  = { if (persoCount > 1) persoCount-- },
                     modifier = Modifier.size(36.dp),
@@ -2279,6 +2327,7 @@ private fun ReminderPickerSheet(
                     Spacer(Modifier.width(4.dp))
                     Text(String.format("%02d:%02d", persoHour, persoMinute))
                 }
+                }
             }
             Spacer(Modifier.height(6.dp))
             Text(
@@ -2289,8 +2338,11 @@ private fun ReminderPickerSheet(
             Spacer(Modifier.height(10.dp))
             Button(
                 onClick  = {
-                    val recType = if (persoMode == "daily") com.onlyflows.domain.model.ReminderRecurrence.DAILY
-                                  else com.onlyflows.domain.model.ReminderRecurrence.WEEKLY
+                    val recType = when (persoMode) {
+                        "daily"  -> com.onlyflows.domain.model.ReminderRecurrence.DAILY
+                        "weekly" -> com.onlyflows.domain.model.ReminderRecurrence.WEEKLY
+                        else     -> com.onlyflows.domain.model.ReminderRecurrence.NONE
+                    }
                     onApply(persoTarget.atTime(persoHour, persoMinute), selectedLocation?.id, recType)
                     onDismiss()
                 },
@@ -2378,6 +2430,48 @@ private fun ReminderPickerSheet(
     }
 
     // Personnalisé time picker dialog
+    if (showPresetTimePicker) {
+        val presetTimeState = rememberTimePickerState(
+            initialHour   = presetHour,
+            initialMinute = presetMinute,
+            is24Hour      = true,
+        )
+        AlertDialog(
+            onDismissRequest = { showPresetTimePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    presetHour   = presetTimeState.hour
+                    presetMinute = presetTimeState.minute
+                    showPresetTimePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = { TextButton(onClick = { showPresetTimePicker = false }) { Text("Cancel") } },
+            text = { TimePicker(state = presetTimeState) },
+        )
+    }
+
+    if (showExactDatePicker) {
+        val zone       = java.time.ZoneId.systemDefault()
+        val dateState  = rememberDatePickerState(
+            initialSelectedDateMillis = exactDate.atStartOfDay(zone).toInstant().toEpochMilli(),
+        )
+        DatePickerDialog(
+            onDismissRequest = { showExactDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    dateState.selectedDateMillis?.let { millis ->
+                        exactDate = java.time.Instant.ofEpochMilli(millis)
+                            .atZone(java.time.ZoneOffset.UTC).toLocalDate()
+                    }
+                    showExactDatePicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = { TextButton(onClick = { showExactDatePicker = false }) { Text("Cancel") } },
+        ) {
+            DatePicker(state = dateState)
+        }
+    }
+
     if (showPersoTimePicker) {
         val timePickerState = rememberTimePickerState(
             initialHour   = persoHour,

@@ -5,6 +5,20 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.76.0] — 2026-09-20 · Sélecteur de rappel : heure libre et date absolue
+
+### Ajouté
+
+- **Heure des préréglages ajustable.** Tous les raccourcis étaient figés à 9h00 en dur. Une ligne « Preset time » en tête les pilote désormais tous.
+- **Mode « Exact date ».** La section Custom ne proposait que du relatif à l'échéance (« X jours avant ») : impossible de demander un rappel à une date et une heure précises. Un troisième mode ouvre un calendrier natif et fixe l'instant absolu, sans récurrence.
+
+### Modifié
+
+- **« Same day » devient « On the due date »**, et les autres libellés disent explicitement « before due » : rien n'indiquait par rapport à quoi ces délais étaient comptés.
+- « Demain matin » (seul libellé français de l'écran) devient « Tomorrow ».
+
+---
+
 ## [0.75.3] — 2026-09-20 · « + Add Reminder » visible et explicite
 
 ### Corrigé
