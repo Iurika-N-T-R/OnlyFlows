@@ -2,6 +2,8 @@ package com.onlyflows.ui.overlays
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -54,7 +56,8 @@ fun DatePickerModal(
     onThisEvening: (() -> Unit)? = null,
     onDismiss: () -> Unit,
 ) {
-    var selectedDate by remember { mutableStateOf(initialDate) }
+    var selectedDate       by remember { mutableStateOf(initialDate) }
+    var showCalendarDialog by remember { mutableStateOf(false) }
     var isAllDay      by remember { mutableStateOf(initialDueTime == null) }
 
     val dueTimeState = rememberTimePickerState(
@@ -90,6 +93,7 @@ fun DatePickerModal(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
                 .padding(bottom = 32.dp),
         ) {
             // ── Header ────────────────────────────────────────────────────────
@@ -145,12 +149,12 @@ fun DatePickerModal(
             Spacer(Modifier.height(12.dp))
 
             // ── Calendar ──────────────────────────────────────────────────────
-            M3Calendar(
-                selectedDate  = selectedDate,
-                onDaySelected = { date ->
-                    selectedDate = date
-                    if (!showTimeOption) fireResult(date)
-                },
+            DateShortcut(
+                painter    = painterResource(R.drawable.ic_nav_anytime),
+                label      = selectedDate?.format(DateTimeFormatter.ofPattern("d MMMM yyyy"))
+                    ?: "Pick a date",
+                isSelected = selectedDate != null,
+                onClick    = { showCalendarDialog = true },
             )
 
             Spacer(Modifier.height(4.dp))
@@ -207,7 +211,7 @@ fun DatePickerModal(
                             color    = Color.White.copy(alpha = 0.6f),
                             modifier = Modifier.width(52.dp),
                         )
-                        TimeInput(
+                        TimePicker(
                             state  = dueTimeState,
                             colors = TimePickerDefaults.colors(
                                 timeSelectorSelectedContainerColor   = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
@@ -243,7 +247,7 @@ fun DatePickerModal(
                                 color    = Color.White.copy(alpha = 0.6f),
                                 modifier = Modifier.width(52.dp),
                             )
-                            TimeInput(
+                            TimePicker(
                                 state  = endTimeState,
                                 colors = TimePickerDefaults.colors(
                                     timeSelectorSelectedContainerColor   = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
@@ -279,6 +283,33 @@ fun DatePickerModal(
             }
         }
     }
+
+    if (showCalendarDialog) {
+        val zone        = ZoneId.systemDefault()
+        val pickerState = rememberDatePickerState(
+            initialSelectedDateMillis = selectedDate?.atStartOfDay(zone)?.toInstant()?.toEpochMilli(),
+        )
+        // Its own dialog rather than embedded in the sheet: inline, the M3 picker drew its
+        // year grid on top of the month grid, and made the sheet tall enough to push
+        // "Add Reminder" off screen.
+        DatePickerDialog(
+            onDismissRequest = { showCalendarDialog = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    pickerState.selectedDateMillis?.let { millis ->
+                        selectedDate = Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate()
+                    }
+                    showCalendarDialog = false
+                    if (!showTimeOption) fireResult(selectedDate)
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCalendarDialog = false }) { Text("Cancel") }
+            },
+        ) {
+            DatePicker(state = pickerState)
+        }
+    }
 }
 
 @Composable
@@ -312,57 +343,6 @@ private fun DateShortcut(
             )
         }
     }
-}
-
-// ── Calendar ──────────────────────────────────────────────────────────────────
-
-/** Material 3's date picker, themed for this dark sheet. Replaces a hand-rolled month grid:
- *  the platform component brings keyboard entry, year navigation and accessibility for free. */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun M3Calendar(
-    selectedDate: LocalDate?,
-    onDaySelected: (LocalDate) -> Unit,
-) {
-    val zone  = ZoneId.systemDefault()
-    val state = rememberDatePickerState(
-        initialSelectedDateMillis = selectedDate?.atStartOfDay(zone)?.toInstant()?.toEpochMilli(),
-    )
-
-    // The picker owns its selection; mirror it outwards whenever it changes.
-    LaunchedEffect(state.selectedDateMillis) {
-        state.selectedDateMillis?.let { millis ->
-            val picked = Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate()
-            if (picked != selectedDate) onDaySelected(picked)
-        }
-    }
-
-    val onDark = Color.White
-    val dim    = Color.White.copy(alpha = 0.6f)
-    DatePicker(
-        state          = state,
-        title          = null,
-        headline       = null,
-        showModeToggle = false,
-        colors = DatePickerDefaults.colors(
-            containerColor              = Color.Transparent,
-            titleContentColor           = onDark,
-            headlineContentColor        = onDark,
-            weekdayContentColor         = dim,
-            subheadContentColor         = dim,
-            navigationContentColor      = onDark,
-            yearContentColor            = onDark,
-            currentYearContentColor     = MaterialTheme.colorScheme.primary,
-            selectedYearContentColor    = Color.White,
-            selectedYearContainerColor  = MaterialTheme.colorScheme.primary,
-            dayContentColor             = onDark,
-            disabledDayContentColor     = Color.White.copy(alpha = 0.3f),
-            selectedDayContentColor     = Color.White,
-            selectedDayContainerColor   = MaterialTheme.colorScheme.primary,
-            todayContentColor           = MaterialTheme.colorScheme.primary,
-            todayDateBorderColor        = MaterialTheme.colorScheme.primary,
-        ),
-    )
 }
 
 @Preview

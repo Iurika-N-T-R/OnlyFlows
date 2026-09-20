@@ -5,6 +5,16 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.75.1] — 2026-09-20 · Sélecteur de date utilisable
+
+### Corrigé
+
+- **« + Add Reminder » était hors écran.** Le `DatePicker` de Material 3, incrusté dans la feuille, la rendait plus haute que l'écran, et la colonne ne défilait pas : le bouton existait mais restait inatteignable. La feuille défile désormais.
+- **La grille des années se dessinait par-dessus celle des jours.** Encastré dans cette feuille, le `DatePicker` superposait ses deux panneaux au lieu de les alterner. Le calendrier est maintenant un **dialogue natif** (`DatePickerDialog`) ouvert depuis une ligne « Pick a date », ce qui raccourcit aussi nettement la feuille.
+- **L'heure de début et de fin se saisissait au clavier.** `TimeInput` (champs « Heure » / « Minute ») est remplacé par `TimePicker`, le cadran horaire natif.
+
+---
+
 ## [0.75.0] — 2026-09-20 · Calendrier Material 3 et « This Evening » réparé
 
 ### Corrigé
