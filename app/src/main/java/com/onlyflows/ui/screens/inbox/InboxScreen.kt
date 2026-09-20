@@ -10,11 +10,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import com.onlyflows.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -30,7 +32,6 @@ import com.onlyflows.ui.overlays.SmartMoveSheet
 @Composable
 fun InboxScreen(
     onTaskClick: (String) -> Unit = {},
-    onTaskWithReminderClick: ((String) -> Unit)? = null,
     onOpenDrawer: () -> Unit      = {},
     viewModel: InboxViewModel     = viewModel(),
 ) {
@@ -55,6 +56,7 @@ fun InboxScreen(
     }
 
     if (state.showAddTask) {
+        val reminderCtx = LocalContext.current.applicationContext
         AddTaskSheet(
             projects       = state.projects,
             onDismiss      = { viewModel.onEvent(InboxEvent.HideAddTask) },
@@ -62,7 +64,11 @@ fun InboxScreen(
                 viewModel.onEvent(InboxEvent.AddTask(id, title, note, priority, projectId, sectionId, checklistItems, group, dueDate, dueTime, endTime))
             },
             onTaskCreated  = { onTaskClick(it) },
-            onTaskCreatedWithReminder = onTaskWithReminderClick,
+            onAddReminderForTask = { id, at, locId, rec ->
+                kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                    com.onlyflows.data.notifications.ReminderCreator.attach(reminderCtx, id, at, locId, rec)
+                }
+            },
         )
     }
 

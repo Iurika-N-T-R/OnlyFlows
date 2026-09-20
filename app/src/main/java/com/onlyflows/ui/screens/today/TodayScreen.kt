@@ -23,6 +23,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import com.onlyflows.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -49,7 +50,6 @@ import java.util.Locale
 @Composable
 fun TodayScreen(
     onTaskClick: (String) -> Unit   = {},
-    onTaskWithReminderClick: ((String) -> Unit)? = null,
     onSearchClick: () -> Unit       = {},
     onOpenDrawer: () -> Unit        = {},
     viewModel: TodayViewModel       = viewModel(),
@@ -450,6 +450,7 @@ fun TodayScreen(
 
     // Add task sheet
     if (state.showAddTask) {
+        val reminderCtx = LocalContext.current.applicationContext
         AddTaskSheet(
             defaultGroup  = com.onlyflows.domain.model.TaskGroup.TODAY,
             tags          = state.tags,
@@ -459,7 +460,11 @@ fun TodayScreen(
             },
             onDismiss     = { viewModel.onEvent(TodayEvent.HideAddTask) },
             onTaskCreated = { onTaskClick(it) },
-            onTaskCreatedWithReminder = onTaskWithReminderClick,
+            onAddReminderForTask = { id, at, locId, rec ->
+                kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                    com.onlyflows.data.notifications.ReminderCreator.attach(reminderCtx, id, at, locId, rec)
+                }
+            },
         )
     }
 

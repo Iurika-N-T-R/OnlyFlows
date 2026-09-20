@@ -5,6 +5,30 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.76.1] — 2026-09-20 · « Exact date » par défaut
+
+### Modifié
+
+- Dans la section Custom du sélecteur de rappel, le mode **« Exact date » est sélectionné par défaut** au lieu de « Daily » : poser un rappel à un instant précis est le cas courant, la récurrence l'exception.
+
+---
+
+## [0.77.0] — 2026-09-20 · Rappel posé sur place, et feuille « When? » complète
+
+### Modifié
+
+- **« + Add Reminder » pose le rappel sans quitter la feuille de création.** Il ouvrait jusqu'ici le détail de la tâche, parce que l'armement d'alarme n'existait que dans `TaskDetailViewModel`. Cette séquence — écrire le rappel, armer l'alarme, enregistrer la géofence, marquer `hasReminders` — est extraite dans `ReminderCreator`, appelé par les quatre points de création. Le détour par la navigation et le paramètre de route `openReminder` sont supprimés.
+- Une puce affiche le rappel en attente dans la feuille de création : rien n'indiquait auparavant qu'il avait été enregistré, puisqu'il n'est écrit qu'à la sauvegarde de la tâche.
+- **Le sélecteur de date passe en première ligne** de la feuille « When? », et **« Anytime »** rejoint les raccourcis.
+- **« Exact date »** devient le mode par défaut de la section Custom du sélecteur de rappel.
+- **Les heures de la feuille « When? » sont relabellisées** « From » / « To » sous « All day deadline ». Elles bornent l'échéance et n'ont rien à voir avec `startDate`/`startTime`, qui existent séparément sur la tâche — les appeler « Start » et « End » prêtait à confusion.
+
+### Note
+
+Les trois notions de date coexistent déjà dans le modèle, aucune migration n'était nécessaire : échéance (`dueDate` + `dueTime`/`endTime`), début planifié (`startDate` + `startTime`), le tout exposé dans le détail de la tâche.
+
+---
+
 ## [0.76.0] — 2026-09-20 · Sélecteur de rappel : heure libre et date absolue
 
 ### Ajouté

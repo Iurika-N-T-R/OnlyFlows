@@ -42,6 +42,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -121,7 +122,6 @@ private val taskAutoSort: Comparator<Task> = compareBy<Task>(
 fun ProjectDetailScreen(
     projectId: String,
     onTaskClick: (String) -> Unit = {},
-    onTaskWithReminderClick: ((String) -> Unit)? = null,
     onListClick: (String) -> Unit = {},
     onBack: () -> Unit = {},
     onNoteSelected: ((noteId: String, projectId: String) -> Unit)? = null,
@@ -805,6 +805,7 @@ fun ProjectDetailScreen(
     }
 
     if (state.showAddTask) {
+        val reminderCtx = LocalContext.current.applicationContext
         AddTaskSheet(
             tags          = state.tags,
             onAdd         = { id, title, note, group, dueDate, dueTime, endTime, priority, _, _, checklistItems ->
@@ -812,7 +813,11 @@ fun ProjectDetailScreen(
             },
             onDismiss     = { viewModel.onEvent(ProjectDetailEvent.HideAddTask) },
             onTaskCreated = { onTaskClick(it) },
-            onTaskCreatedWithReminder = onTaskWithReminderClick,
+            onAddReminderForTask = { id, at, locId, rec ->
+                kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                    com.onlyflows.data.notifications.ReminderCreator.attach(reminderCtx, id, at, locId, rec)
+                }
+            },
         )
     }
 

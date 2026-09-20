@@ -87,18 +87,12 @@ import androidx.core.content.ContextCompat
 @Composable
 fun TaskDetailScreen(
     taskId: String,
-    /** Opens the reminder picker as soon as the task loads — used by the add-task flow,
-     *  where choosing "Add Reminder" creates the task and lands the user straight here. */
-    openReminder: Boolean = false,
     onBack: () -> Unit = {},
     onDeleted: () -> Unit = {},
     onConverted: (String) -> Unit = {},
     onNavigateToProject: (String) -> Unit = {},
     viewModel: TaskDetailViewModel = viewModel(),
 ) {
-    LaunchedEffect(taskId, openReminder) {
-        if (openReminder) viewModel.onEvent(TaskDetailEvent.ShowReminderPicker)
-    }
     LaunchedEffect(taskId) {
         viewModel.loadTask(taskId)
         viewModel.loadTimer(taskId)
@@ -2075,9 +2069,10 @@ private fun RecurrencePickerSheet(
 
 // ── Reminder picker sheet ─────────────────────────────────────────────────────
 
+/** Also used by the add-task flow, which is why this is not private. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ReminderPickerSheet(
+fun ReminderPickerSheet(
     taskDueDate: LocalDate?,
     onApply: (LocalDateTime, String?, com.onlyflows.domain.model.ReminderRecurrence) -> Unit,
     onDismiss: () -> Unit,
@@ -2087,8 +2082,9 @@ private fun ReminderPickerSheet(
 
     var selectedLocation    by remember { mutableStateOf<com.onlyflows.domain.model.SavedLocation?>(null) }
     var locationExpanded    by remember { mutableStateOf(false) }
-    // Personnalisé mode: "daily" = X jours avant, "weekly" = X semaines avant
-    var persoMode           by remember { mutableStateOf("daily") }
+    // Personnalisé mode: "exact" = date et heure absolues (défaut), "daily" = X jours
+    // avant, "weekly" = X semaines avant
+    var persoMode           by remember { mutableStateOf("exact") }
     var persoCount          by remember { mutableStateOf(1) }
     var persoHour           by remember { mutableStateOf(9) }
     var persoMinute         by remember { mutableStateOf(0) }

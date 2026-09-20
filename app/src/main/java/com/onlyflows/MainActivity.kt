@@ -164,6 +164,13 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             },
+                            onAddReminderForTask = { id, at, locId, rec ->
+                                CoroutineScope(Dispatchers.IO).launch {
+                                    com.onlyflows.data.notifications.ReminderCreator.attach(
+                                        applicationContext, id, at, locId, rec,
+                                    )
+                                }
+                            },
                             onDismiss = { showGlobalAddTask = false },
                         )
                     }

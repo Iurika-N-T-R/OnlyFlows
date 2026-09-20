@@ -50,13 +50,12 @@ fun DatePickerModal(
     onResult: ((date: LocalDate?, dueTime: LocalTime?, endTime: LocalTime?) -> Unit)? = null,
     // Called when user taps "Add Reminder" — saves date first, then opens reminder picker
     onAddReminder: (() -> Unit)? = null,
-    /** Greys the reminder button out instead of hiding it. A control that vanishes with no
-     *  explanation reads as a bug; one that is visibly inactive explains itself. */
-    addReminderEnabled: Boolean = true,
     /** Invoked instead of the plain date result when "This Evening" is tapped, so callers can
      *  record the THIS_EVENING group. Without it the shortcut was indistinguishable from Today:
      *  it only set today's date and nothing else. */
     onThisEvening: (() -> Unit)? = null,
+    /** Same idea as [onThisEvening], for the Anytime group: a bucket with no date at all. */
+    onAnytime: (() -> Unit)? = null,
     onDismiss: () -> Unit,
 ) {
     var selectedDate       by remember { mutableStateOf(initialDate) }
@@ -129,6 +128,13 @@ fun DatePickerModal(
 
             // ── Shortcuts ────────────────────────────────────────────────────
             DateShortcut(
+                painter    = painterResource(R.drawable.ic_nav_anytime),
+                label      = selectedDate?.format(DateTimeFormatter.ofPattern("d MMMM yyyy"))
+                    ?: "Pick a date",
+                isSelected = selectedDate != null,
+                onClick    = { showCalendarDialog = true },
+            )
+            DateShortcut(
                 painter    = painterResource(R.drawable.ic_nav_today),
                 label      = "Today",
                 isSelected = selectedDate == LocalDate.now(),
@@ -151,7 +157,15 @@ fun DatePickerModal(
                 },
             )
 
-            Spacer(Modifier.height(12.dp))
+            // ── Anytime ───────────────────────────────────────────────────────
+            if (onAnytime != null) {
+                DateShortcut(
+                    painter    = painterResource(R.drawable.ic_nav_anytime),
+                    label      = "Anytime",
+                    isSelected = false,
+                    onClick    = { onAnytime() },
+                )
+            }
 
             // ── Someday ───────────────────────────────────────────────────────
             DateShortcut(
@@ -159,17 +173,6 @@ fun DatePickerModal(
                 label      = "Someday",
                 isSelected = false,
                 onClick    = { fireResult(null); onDismiss() },
-            )
-
-            Spacer(Modifier.height(4.dp))
-
-            // ── Calendar ──────────────────────────────────────────────────────
-            DateShortcut(
-                painter    = painterResource(R.drawable.ic_nav_anytime),
-                label      = selectedDate?.format(DateTimeFormatter.ofPattern("d MMMM yyyy"))
-                    ?: "Pick a date",
-                isSelected = selectedDate != null,
-                onClick    = { showCalendarDialog = true },
             )
 
             // ── Add Reminder ─────────────────────────────────────────────────
@@ -181,13 +184,12 @@ fun DatePickerModal(
                         fireResult(selectedDate)   // save the date selection first
                         onAddReminder.invoke()     // then open the reminder picker
                     },
-                    enabled  = addReminderEnabled,
                     modifier = Modifier.padding(horizontal = 12.dp),
                 ) {
                     Text(
-                        text  = if (addReminderEnabled) "+ Add Reminder" else "+ Add Reminder (name the task first)",
+                        text  = "+ Add Reminder",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = if (addReminderEnabled) 0.85f else 0.3f),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
                     )
                 }
             }
@@ -208,7 +210,7 @@ fun DatePickerModal(
                         .padding(horizontal = 20.dp, vertical = 4.dp),
                 ) {
                     Text(
-                        text  = "All Day",
+                        text  = "All day deadline",
                         style = MaterialTheme.typography.titleMedium,
                         color = Color.White,
                     )
@@ -226,7 +228,7 @@ fun DatePickerModal(
                     // Compact rows opening the native clock dialog. The dial rendered inline
                     // next to a label was cramped and dominated the sheet.
                     TimeRow(
-                        label   = "Start",
+                        label   = "From",
                         value   = "%02d:%02d".format(dueTimeState.hour, dueTimeState.minute),
                         onClick = { showStartTimeDialog = true },
                     )
@@ -244,7 +246,7 @@ fun DatePickerModal(
                         }
                     } else {
                         TimeRow(
-                            label   = "End",
+                            label   = "To",
                             value   = "%02d:%02d".format(endTimeState.hour, endTimeState.minute),
                             onClick = { showEndTimeDialog = true },
                         )
