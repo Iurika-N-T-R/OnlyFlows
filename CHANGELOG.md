@@ -5,6 +5,14 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.78.1] — 2026-09-20 · Les tags créés depuis l'Inbox restaient invisibles
+
+### Corrigé
+
+- **Un tag créé depuis l'Inbox ou l'ajout rapide global n'apparaissait jamais.** Il était pourtant bien écrit en base : `InboxScreen` et `MainActivity` ne passaient tout simplement pas le paramètre `tags` à l'AddTaskSheet, qui retombait sur `emptyList()`. La liste affichée était vide par construction, d'où l'impression que la création échouait. Les deux écrans fournissent désormais la liste, observée en direct.
+
+---
+
 ## [0.78.0] — 2026-09-20 · Tags fonctionnels à la création
 
 ### Corrigé

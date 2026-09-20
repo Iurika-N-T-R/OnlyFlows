@@ -134,8 +134,11 @@ class MainActivity : ComponentActivity() {
                     )
 
                     if (showGlobalAddTask) {
+                        val globalTags by app.container.tagRepository.observeAll()
+                            .collectAsStateWithLifecycle(initialValue = emptyList())
                         AddTaskSheet(
                             defaultGroup = TaskGroup.TODAY,
+                            tags         = globalTags,
                             onAdd = { id, title, note, group, dueDate, dueTime, endTime, priority, projectId, sectionId, checklistItems, tagIds ->
                                 showGlobalAddTask = false
                                 val repo = app.container.taskRepository

@@ -58,6 +58,7 @@ fun InboxScreen(
     if (state.showAddTask) {
         val reminderCtx = LocalContext.current.applicationContext
         AddTaskSheet(
+            tags           = state.tags,
             projects       = state.projects,
             onDismiss      = { viewModel.onEvent(InboxEvent.HideAddTask) },
             onAdd          = { id, title, note, group, dueDate, dueTime, endTime, priority, projectId, sectionId, checklistItems, tagIds ->
