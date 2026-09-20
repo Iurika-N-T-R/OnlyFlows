@@ -30,6 +30,7 @@ import com.onlyflows.ui.overlays.SmartMoveSheet
 @Composable
 fun InboxScreen(
     onTaskClick: (String) -> Unit = {},
+    onTaskWithReminderClick: ((String) -> Unit)? = null,
     onOpenDrawer: () -> Unit      = {},
     viewModel: InboxViewModel     = viewModel(),
 ) {
@@ -61,6 +62,7 @@ fun InboxScreen(
                 viewModel.onEvent(InboxEvent.AddTask(id, title, note, priority, projectId, sectionId, checklistItems, group, dueDate))
             },
             onTaskCreated  = { onTaskClick(it) },
+            onTaskCreatedWithReminder = onTaskWithReminderClick,
         )
     }
 

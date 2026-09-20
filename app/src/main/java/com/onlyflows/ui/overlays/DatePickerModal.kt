@@ -253,18 +253,22 @@ fun DatePickerModal(
             }
 
             // ── Add Reminder ─────────────────────────────────────────────────
-            TextButton(
-                onClick  = {
-                    fireResult(selectedDate)   // save the date selection first
-                    onAddReminder?.invoke()    // then open the reminder picker
-                },
-                modifier = Modifier.padding(horizontal = 12.dp),
-            ) {
-                Text(
-                    text  = "+ Add Reminder",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
-                )
+            // Only offered when a caller can actually handle it. Rendered unconditionally
+            // it was a dead control that just applied a null date and closed the sheet.
+            if (onAddReminder != null) {
+                TextButton(
+                    onClick  = {
+                        fireResult(selectedDate)   // save the date selection first
+                        onAddReminder.invoke()     // then open the reminder picker
+                    },
+                    modifier = Modifier.padding(horizontal = 12.dp),
+                ) {
+                    Text(
+                        text  = "+ Add Reminder",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
+                    )
+                }
             }
         }
     }

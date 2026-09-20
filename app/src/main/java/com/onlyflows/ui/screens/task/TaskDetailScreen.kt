@@ -87,12 +87,18 @@ import androidx.core.content.ContextCompat
 @Composable
 fun TaskDetailScreen(
     taskId: String,
+    /** Opens the reminder picker as soon as the task loads — used by the add-task flow,
+     *  where choosing "Add Reminder" creates the task and lands the user straight here. */
+    openReminder: Boolean = false,
     onBack: () -> Unit = {},
     onDeleted: () -> Unit = {},
     onConverted: (String) -> Unit = {},
     onNavigateToProject: (String) -> Unit = {},
     viewModel: TaskDetailViewModel = viewModel(),
 ) {
+    LaunchedEffect(taskId, openReminder) {
+        if (openReminder) viewModel.onEvent(TaskDetailEvent.ShowReminderPicker)
+    }
     LaunchedEffect(taskId) {
         viewModel.loadTask(taskId)
         viewModel.loadTimer(taskId)

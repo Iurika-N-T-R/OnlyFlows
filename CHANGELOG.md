@@ -5,6 +5,23 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.73.0] — 2026-09-20 · Les rappels fonctionnent à la création d'une tâche
+
+### Ajouté
+
+- **« + Add Reminder » fonctionne depuis la création d'une tâche** (Inbox et Today). Si aucune date n'est posée, la tâche reçoit **aujourd'hui** — un rappel a besoin d'un jour sur lequel s'accrocher. La tâche est créée puis son détail s'ouvre avec le sélecteur de rappel déjà affiché.
+- La route `TaskDetail` accepte un paramètre optionnel `openReminder`, consommé par `TaskDetailScreen` au chargement.
+
+### Corrigé
+
+- **Le bouton « + Add Reminder » était mort hors de l'écran de détail.** `onAddReminder` n'était câblé que dans `TaskDetailScreen` ; ailleurs le bouton s'affichait quand même, appliquait une date nulle puis fermait la feuille — ce qui basculait la tâche en « Someday » sans jamais ouvrir de sélecteur. Il n'est plus rendu lorsqu'aucun appelant ne peut le traiter.
+
+### Note d'implémentation
+
+Le flux de création délègue au détail de tâche au lieu d'enregistrer le rappel lui-même : poser un rappel exige d'armer l'alarme via `ReminderScheduler` et d'enregistrer d'éventuelles géofences, ce que seul `TaskDetailViewModel` sait faire. Le dupliquer dans les trois ViewModels pouvant créer une tâche aurait triple l'endroit où une alarme peut être oubliée.
+
+---
+
 ## [0.72.1] — 2026-09-20 · La date de création de tâche était purement décorative
 
 ### Corrigé

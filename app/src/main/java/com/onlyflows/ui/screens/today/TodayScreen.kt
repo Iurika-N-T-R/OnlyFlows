@@ -49,6 +49,7 @@ import java.util.Locale
 @Composable
 fun TodayScreen(
     onTaskClick: (String) -> Unit   = {},
+    onTaskWithReminderClick: ((String) -> Unit)? = null,
     onSearchClick: () -> Unit       = {},
     onOpenDrawer: () -> Unit        = {},
     viewModel: TodayViewModel       = viewModel(),
@@ -458,6 +459,7 @@ fun TodayScreen(
             },
             onDismiss     = { viewModel.onEvent(TodayEvent.HideAddTask) },
             onTaskCreated = { onTaskClick(it) },
+            onTaskCreatedWithReminder = onTaskWithReminderClick,
         )
     }
 

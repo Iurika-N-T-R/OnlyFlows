@@ -46,6 +46,11 @@ fun AddTaskSheet(
     onAdd: (id: String, title: String, note: String, group: TaskGroup?, dueDate: LocalDate?, priority: TaskPriority, projectId: String?, sectionId: String?, checklistItems: List<String>) -> Unit,
     onDismiss: () -> Unit,
     onTaskCreated: ((taskId: String) -> Unit)? = null,
+    /** Saves the task and opens its detail with the reminder picker already showing.
+     *  Reminders need the alarm scheduled and geofences registered, which only
+     *  TaskDetailViewModel knows how to do — so the add flow hands off rather than
+     *  duplicating that across every screen that can create a task. */
+    onTaskCreatedWithReminder: ((taskId: String) -> Unit)? = null,
 ) {
     var taskId   by remember { mutableStateOf(UUID.randomUUID().toString()) }
     var title    by remember { mutableStateOf("") }
@@ -454,6 +459,19 @@ fun AddTaskSheet(
                 }
                 showDatePicker = false
             },
+            onAddReminder = if (onTaskCreatedWithReminder == null || title.isBlank()) null else ({
+                // A reminder needs a day to hang off, so an unset date becomes today
+                // rather than silently producing a reminder with nothing to fire against.
+                if (dueDate == null) {
+                    dueDate = LocalDate.now()
+                    group   = TaskGroup.TODAY
+                }
+                val finalItems = if (checklistDraft.isNotBlank()) checklistItems + checklistDraft.trim() else checklistItems
+                onAdd(taskId, title.trim(), note.trim(), group, dueDate, priority, selectedProjectId, selectedSectionId, finalItems)
+                onTaskCreatedWithReminder(taskId)
+                showDatePicker = false
+                onDismiss()
+            }),
             onDismiss = { showDatePicker = false },
         )
     }

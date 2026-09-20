@@ -97,6 +97,7 @@ fun AppNavigation(
         composable(Screen.Today.route) {
             TodayScreen(
                 onTaskClick   = { navigateToTask(it) },
+                onTaskWithReminderClick = { navController.navigate(Screen.TaskDetail.createRoute(it, openReminder = true)) },
                 onSearchClick = onSearchClick,
                 onOpenDrawer  = onOpenDrawer,
             )
@@ -112,6 +113,7 @@ fun AppNavigation(
         composable(Screen.Inbox.route) {
             InboxScreen(
                 onTaskClick  = { navigateToTask(it) },
+                onTaskWithReminderClick = { navController.navigate(Screen.TaskDetail.createRoute(it, openReminder = true)) },
                 onOpenDrawer = onOpenDrawer,
             )
         }
@@ -213,11 +215,15 @@ fun AppNavigation(
 
         composable(
             route = Screen.TaskDetail.route,
-            arguments = listOf(navArgument("taskId") { type = NavType.StringType })
+            arguments = listOf(
+                navArgument("taskId") { type = NavType.StringType },
+                navArgument("openReminder") { type = NavType.BoolType; defaultValue = false },
+            )
         ) { backStack ->
             val taskId = backStack.arguments?.getString("taskId") ?: return@composable
             TaskDetailScreen(
-                taskId      = taskId,
+                taskId        = taskId,
+                openReminder  = backStack.arguments?.getBoolean("openReminder") == true,
                 onBack      = { navController.popBackStack() },
                 onDeleted   = { navController.popBackStack() },
                 onConverted = { projectId ->
