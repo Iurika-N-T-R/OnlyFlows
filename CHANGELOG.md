@@ -5,6 +5,19 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.78.0] — 2026-09-20 · Tags fonctionnels à la création
+
+### Corrigé
+
+- **Créer un tag depuis la feuille de création ne créait rien.** `TagsPickerModal` y était appelé avec `selectedTagIds = emptyList()`, `onToggleTag = {}` et **sans** `onCreateTag`, qui retombait donc sur sa valeur par défaut vide. Sélection, création et suppression étaient trois coquilles vides, et aucun tag n'était attaché à la tâche : `tagIds` ne figurait même pas dans le callback `onAdd`. Les quatre points de création transmettent désormais les tags jusqu'au repository.
+
+### Modifié
+
+- **Icône de rappel dans la barre d'outils**, colorée quand un rappel est en attente — comme l'icône de checklist. Elle remplace la puce de rappel.
+- **La puce de date redescend dans la barre d'outils.** La ligne défile horizontalement : une puce et sept icônes dépassent 360dp, et c'est ce débordement qui rognait le dernier bouton.
+
+---
+
 ## [0.77.2] — 2026-09-20 · Puces regroupées sur une ligne
 
 ### Corrigé

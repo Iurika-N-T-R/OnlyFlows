@@ -808,8 +808,8 @@ fun ProjectDetailScreen(
         val reminderCtx = LocalContext.current.applicationContext
         AddTaskSheet(
             tags          = state.tags,
-            onAdd         = { id, title, note, group, dueDate, dueTime, endTime, priority, _, _, checklistItems ->
-                viewModel.onEvent(ProjectDetailEvent.AddTask(id, title, note, state.addTaskSectionId, priority, checklistItems, group, dueDate, dueTime, endTime))
+            onAdd         = { id, title, note, group, dueDate, dueTime, endTime, priority, _, _, checklistItems, tagIds ->
+                viewModel.onEvent(ProjectDetailEvent.AddTask(id, title, note, state.addTaskSectionId, priority, checklistItems, group, dueDate, dueTime, endTime, tagIds))
             },
             onDismiss     = { viewModel.onEvent(ProjectDetailEvent.HideAddTask) },
             onTaskCreated = { onTaskClick(it) },

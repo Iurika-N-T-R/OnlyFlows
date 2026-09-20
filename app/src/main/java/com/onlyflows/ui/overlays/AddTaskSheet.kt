@@ -22,6 +22,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
+import com.onlyflows.OnlyFlowsApp
 import com.onlyflows.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -40,6 +41,7 @@ import com.onlyflows.domain.model.TaskPriority
 import com.onlyflows.ui.theme.FlowGold
 import com.onlyflows.ui.theme.OnlyFlowsTheme
 import java.time.LocalDate
+import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -51,7 +53,7 @@ fun AddTaskSheet(
     defaultGroup: TaskGroup? = null,
     tags: List<Tag> = emptyList(),
     projects: List<Project> = emptyList(),
-    onAdd: (id: String, title: String, note: String, group: TaskGroup?, dueDate: LocalDate?, dueTime: LocalTime?, endTime: LocalTime?, priority: TaskPriority, projectId: String?, sectionId: String?, checklistItems: List<String>) -> Unit,
+    onAdd: (id: String, title: String, note: String, group: TaskGroup?, dueDate: LocalDate?, dueTime: LocalTime?, endTime: LocalTime?, priority: TaskPriority, projectId: String?, sectionId: String?, checklistItems: List<String>, tagIds: List<String>) -> Unit,
     /** Called right after [onAdd] when the user attached a reminder while creating the task. */
     onAddReminderForTask: ((taskId: String, at: LocalDateTime, locationId: String?, recurrence: ReminderRecurrence) -> Unit)? = null,
     onDismiss: () -> Unit,
@@ -74,6 +76,7 @@ fun AddTaskSheet(
     var showSectionMenu    by remember { mutableStateOf(false) }
     var showChecklist      by remember { mutableStateOf(false) }
     var showReminderPicker by remember { mutableStateOf(false) }
+    var selectedTagIds     by remember { mutableStateOf(listOf<String>()) }
     var pendingReminder    by remember { mutableStateOf<Triple<LocalDateTime, String?, ReminderRecurrence>?>(null) }
     var checklistItems     by remember { mutableStateOf(listOf<String>()) }
     var checklistDraft     by remember { mutableStateOf("") }
@@ -81,6 +84,7 @@ fun AddTaskSheet(
 
     val context      = LocalContext.current
     val notifPrefs   = remember { NotificationPreferences(context.applicationContext) }
+    val scope        = rememberCoroutineScope()
     val eveningTime  by notifPrefs.thisEveningTime.collectAsState(initial = "18:00")
 
     fun resetForm() {
@@ -92,6 +96,7 @@ fun AddTaskSheet(
         dueTime         = null
         endTime         = null
         pendingReminder = null
+        selectedTagIds  = emptyList()
         priority        = TaskPriority.NONE
         checklistItems  = emptyList()
         checklistDraft  = ""
@@ -325,6 +330,18 @@ fun AddTaskSheet(
                     }
                 }
 
+            }
+
+            // ── Action buttons row ───────────────────────────────────────────────
+            // Date chip plus seven icons overflow 360dp, which is what clipped the last
+            // button before. Scrolling the row keeps every action reachable.
+            Row(
+                verticalAlignment     = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+            ) {
                 // Date group chip
                 FilterChip(
                     selected = true,
@@ -352,37 +369,16 @@ fun AddTaskSheet(
                     ),
                 )
 
-                // Pending reminder — without this nothing tells the user it was registered,
-                // since the reminder is only written once the task itself is saved.
-                pendingReminder?.let { (at, _, _) ->
-                    FilterChip(
-                        selected = true,
-                        onClick  = { showReminderPicker = true },
-                        label    = {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Outlined.Notifications, null, modifier = Modifier.size(14.dp))
-                                Spacer(Modifier.width(4.dp))
-                                Text(
-                                    at.format(DateTimeFormatter.ofPattern("d MMM HH:mm")),
-                                    style = MaterialTheme.typography.labelMedium,
-                                )
-                            }
-                        },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            selectedLabelColor     = MaterialTheme.colorScheme.onPrimaryContainer,
-                        ),
+
+                // Reminder icon — tinted once one is pending, the way the checklist icon works
+                IconButton(onClick = { showReminderPicker = true }) {
+                    Icon(
+                        Icons.Outlined.Notifications,
+                        "Reminder",
+                        tint = if (pendingReminder != null) MaterialTheme.colorScheme.primary
+                               else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-
-            }
-
-            // ── Action buttons row ───────────────────────────────────────────────
-            Row(
-                verticalAlignment     = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.End,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
                 // Tag icon
                 IconButton(onClick = { showTagsPicker = true }) {
                     Icon(Icons.Outlined.Label, "Tags", tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -430,7 +426,7 @@ fun AddTaskSheet(
                         onClick = {
                             if (title.isNotBlank()) {
                                 val finalItems = if (checklistDraft.isNotBlank()) checklistItems + checklistDraft.trim() else checklistItems
-                                onAdd(taskId, title.trim(), note.trim(), group, dueDate, dueTime, endTime, priority, selectedProjectId, selectedSectionId, finalItems)
+                                onAdd(taskId, title.trim(), note.trim(), group, dueDate, dueTime, endTime, priority, selectedProjectId, selectedSectionId, finalItems, selectedTagIds)
                                 pendingReminder?.let { (at, locId, rec) ->
                                     onAddReminderForTask?.invoke(taskId, at, locId, rec)
                                 }
@@ -455,7 +451,7 @@ fun AddTaskSheet(
                     onClick = {
                         if (title.isNotBlank()) {
                             val finalItems = if (checklistDraft.isNotBlank()) checklistItems + checklistDraft.trim() else checklistItems
-                            onAdd(taskId, title.trim(), note.trim(), group, dueDate, dueTime, endTime, priority, selectedProjectId, selectedSectionId, finalItems)
+                            onAdd(taskId, title.trim(), note.trim(), group, dueDate, dueTime, endTime, priority, selectedProjectId, selectedSectionId, finalItems, selectedTagIds)
                                 pendingReminder?.let { (at, locId, rec) ->
                                     onAddReminderForTask?.invoke(taskId, at, locId, rec)
                                 }
@@ -479,7 +475,7 @@ fun AddTaskSheet(
                     onClick  = {
                         if (title.isNotBlank()) {
                             val finalItems = if (checklistDraft.isNotBlank()) checklistItems + checklistDraft.trim() else checklistItems
-                            onAdd(taskId, title.trim(), note.trim(), group, dueDate, dueTime, endTime, priority, selectedProjectId, selectedSectionId, finalItems)
+                            onAdd(taskId, title.trim(), note.trim(), group, dueDate, dueTime, endTime, priority, selectedProjectId, selectedSectionId, finalItems, selectedTagIds)
                                 pendingReminder?.let { (at, locId, rec) ->
                                     onAddReminderForTask?.invoke(taskId, at, locId, rec)
                                 }
@@ -561,8 +557,23 @@ fun AddTaskSheet(
     if (showTagsPicker) {
         TagsPickerModal(
             allTags        = tags,
-            selectedTagIds = emptyList(),
-            onToggleTag    = {},
+            selectedTagIds = selectedTagIds,
+            onToggleTag    = { id ->
+                selectedTagIds = if (id in selectedTagIds) selectedTagIds - id else selectedTagIds + id
+            },
+            onCreateTag    = { name ->
+                scope.launch {
+                    val tag = Tag(id = "tag_${System.currentTimeMillis()}", name = name)
+                    (context.applicationContext as OnlyFlowsApp).container.tagRepository.insert(tag)
+                    selectedTagIds = selectedTagIds + tag.id
+                }
+            },
+            onDeleteTag    = { id ->
+                scope.launch {
+                    (context.applicationContext as OnlyFlowsApp).container.tagRepository.delete(id)
+                    selectedTagIds = selectedTagIds - id
+                }
+            },
             onDismiss      = { showTagsPicker = false },
         )
     }
@@ -574,7 +585,7 @@ private fun AddTaskSheetPreview() {
     OnlyFlowsTheme {
         AddTaskSheet(
             tags      = MockData.tags,
-            onAdd     = { _, _, _, _, _, _, _, _, _, _, _ -> },
+            onAdd     = { _, _, _, _, _, _, _, _, _, _, _, _ -> },
             onDismiss = {},
         )
     }
