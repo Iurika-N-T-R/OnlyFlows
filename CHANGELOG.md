@@ -5,6 +5,27 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.71.0] — 2026-09-20 · Agenda dans le widget + rafraîchissement fiable
+
+### Ajouté
+
+- **Les événements d'agenda apparaissent dans le widget** sur les filtres `TODAY` et `UPCOMING` (30 jours), intercalés chronologiquement avec les tâches. Pastille à la couleur du calendrier au lieu de la case à cocher, horaire en sous-ligne (« All day » pour les événements sur la journée). Les calendriers décochés dans Réglages → Calendrier sont respectés, et sans la permission `READ_CALENDAR` le widget se comporte comme avant.
+- Toucher un événement l'ouvre dans l'application Agenda du système (`WidgetClickActivity.OPEN_EVENT`).
+
+### Corrigé
+
+- **Les widgets restaient figés tant qu'aucune tâche n'était modifiée** : le seul mécanisme d'auto-rafraîchissement était une alarme `AlarmManager.set()` (inexacte, `RTC`) auto-chaînée toutes les 10 s. Dès que l'app quittait le bucket « Active » de l'App Standby, Android différait ces alarmes de plusieurs minutes à plusieurs heures — d'où un rafraîchissement apparemment aléatoire. En Doze (écran éteint) elle ne partait pas du tout, et la chaîne étant à maillon unique, un seul déclenchement manqué (Doze, process tué par l'OEM, reboot) la tuait définitivement : seule une édition de tâche pouvait la relancer.
+- **Le widget ne basculait pas de jour à minuit** : les filtres `TODAY`/`UPCOMING` et la coloration « en retard » sont dérivés de `LocalDate.now()` au moment du build, sans aucun déclencheur au changement de date. Il fallait ouvrir l'app pour voir les tâches du jour.
+
+### Modifié
+
+- Alarme de rafraîchissement unique et partagée par les deux widgets (`WidgetUpdater.scheduleNextRefresh`), en `setExactAndAllowWhileIdle` avec repli inexact — elle survit au Doze. Elle se déclenche au plus tôt entre **minuit** (bascule de jour) et **+15 min** (filet de sécurité), au lieu d'un sondage toutes les 10 s.
+- Nouveau `WidgetRefreshReceiver` déclaré au manifeste : reconstruit les widgets et ré-arme l'alarme sur `DATE_CHANGED`, `TIME_SET`, `TIMEZONE_CHANGED`, `BOOT_COMPLETED` et `MY_PACKAGE_REPLACED` — la chaîne ne peut plus rester morte après un reboot ou une mise à jour.
+- `updatePeriodMillis` passé de `0` à 30 min sur les deux widgets : filet système supplémentaire, qui ne réveille jamais l'appareil.
+- Les tâches du widget sont désormais triées par date **et heure** d'échéance (au lieu de la date seule), pour que les événements d'agenda s'intercalent au bon endroit.
+
+---
+
 ## [0.70.1] — 2026-07-08 · Statut des alarmes à jour après édition locale
 
 ### Corrigé

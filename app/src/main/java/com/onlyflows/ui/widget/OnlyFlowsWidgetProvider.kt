@@ -1,10 +1,8 @@
 package com.onlyflows.ui.widget
 
-import android.app.AlarmManager
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
@@ -16,17 +14,23 @@ import androidx.core.widget.RemoteViewsCompat
 import androidx.core.widget.RemoteViewsCompat.RemoteCollectionItems
 import com.onlyflows.MainActivity
 import com.onlyflows.R
+import com.onlyflows.data.calendar.CalendarRepository
 import com.onlyflows.data.local.AppDatabase
 import com.onlyflows.data.local.dao.TaskDao
 import com.onlyflows.data.local.entity.TaskEntity
+import com.onlyflows.data.preferences.CalendarPreferences
+import com.onlyflows.domain.model.AgendaEvent
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 private const val MAX_ITEMS = 100
-private const val REFRESH_INTERVAL_MS = 10_000L
 
 class OnlyFlowsWidgetProvider : AppWidgetProvider() {
 
@@ -38,41 +42,11 @@ class OnlyFlowsWidgetProvider : AppWidgetProvider() {
                 mgr.notifyAppWidgetViewDataChanged(id, R.id.widget_list)
             }.onFailure { Log.e("OnlyFlowsWidget", "build failed for $id", it) }
         }
-        scheduleNextRefresh(context)
+        WidgetUpdater.scheduleNextRefresh(context)
     }
 
     override fun onDisabled(context: Context) {
-        alarmManager(context).cancel(refreshPI(context, IntArray(0)))
-    }
-
-    companion object {
-        /** Self-chaining auto-refresh: each update schedules the next one ~10s later.
-         *  ponytail: AlarmManager.set() is inexact and deferred in Doze — fine, nobody
-         *  looks at the widget with the screen off; avoids burning the exact-alarm budget
-         *  that task reminders need. */
-        fun scheduleNextRefresh(context: Context) {
-            val ids = AppWidgetManager.getInstance(context)
-                ?.getAppWidgetIds(ComponentName(context, OnlyFlowsWidgetProvider::class.java))
-                ?: return
-            if (ids.isEmpty()) return
-            alarmManager(context).set(
-                AlarmManager.RTC,
-                System.currentTimeMillis() + REFRESH_INTERVAL_MS,
-                refreshPI(context, ids),
-            )
-        }
-
-        private fun alarmManager(context: Context) =
-            context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-
-        private fun refreshPI(context: Context, ids: IntArray): PendingIntent =
-            PendingIntent.getBroadcast(
-                context, 0,
-                Intent(context, OnlyFlowsWidgetProvider::class.java)
-                    .setAction(AppWidgetManager.ACTION_APPWIDGET_UPDATE)
-                    .putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids),
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-            )
+        WidgetUpdater.scheduleNextRefresh(context)
     }
 
     override fun onAppWidgetOptionsChanged(
@@ -115,8 +89,9 @@ private fun buildWidget(context: Context, id: Int): RemoteViews {
     val c     = colors(context, isDark(context, prefs.theme))
     val db    = AppDatabase.getInstance(context)
 
-    val tasks = runBlocking { loadTasks(db.taskDao(), prefs) }
-    val label = runBlocking { resolveLabel(db, prefs) }
+    val tasks  = runBlocking { loadTasks(db.taskDao(), prefs) }
+    val events = runBlocking { loadEvents(context, prefs) }
+    val label  = runBlocking { resolveLabel(db, prefs) }
     val projectNames = runBlocking { db.projectDao().observeActiveProjectsAndLists().first() }
         .associate { it.id to it.title }
     val tagNames = runBlocking { db.tagDao().observeAll().first() }
@@ -141,19 +116,38 @@ private fun buildWidget(context: Context, id: Int): RemoteViews {
 
     RemoteViewsCompat.setRemoteAdapter(
         context = context, remoteViews = rv, appWidgetId = id,
-        viewId = R.id.widget_list, items = buildItems(context, tasks, prefs.showDetails, c, projectNames, tagNames),
+        viewId = R.id.widget_list, items = buildItems(context, tasks, events, prefs.showDetails, c, projectNames, tagNames),
     )
     return rv
 }
 
+/** Tasks and calendar events interleaved chronologically; undated tasks land at the end. */
 private fun buildItems(
-    context: Context, tasks: List<TaskEntity>, showDetails: Boolean, c: WColors,
+    context: Context, tasks: List<TaskEntity>, events: List<AgendaEvent>, showDetails: Boolean, c: WColors,
     projectNames: Map<String, String>, tagNames: Map<String, String>,
 ): RemoteCollectionItems {
+    val taskRows = tasks.map { t ->
+        Triple(taskSortKey(t), t.id.hashCode().toLong(), buildRow(context, t, showDetails, c, projectNames, tagNames))
+    }
+    val eventRows = events.map { e ->
+        Triple(eventSortKey(e), "evt:${e.id}".hashCode().toLong(), buildEventRow(context, e, c))
+    }
+
     val b = RemoteCollectionItems.Builder().setHasStableIds(true).setViewTypeCount(1)
-    tasks.forEach { t -> b.addItem(t.id.hashCode().toLong(), buildRow(context, t, showDetails, c, projectNames, tagNames)) }
+    (taskRows + eventRows)
+        .sortedWith(compareBy(nullsLast()) { it.first })
+        .take(MAX_ITEMS)
+        .forEach { (_, stableId, views) -> b.addItem(stableId, views) }
     return b.build()
 }
+
+private fun taskSortKey(t: TaskEntity): LocalDateTime? =
+    t.dueDate?.atTime(t.dueTime ?: java.time.LocalTime.MIDNIGHT)
+
+/** All-day events store BEGIN as UTC midnight, so their date must be read in UTC (see CalendarRepository). */
+private fun eventSortKey(e: AgendaEvent): LocalDateTime =
+    if (e.isAllDay) Instant.ofEpochMilli(e.startMillis).atZone(ZoneOffset.UTC).toLocalDate().atStartOfDay()
+    else Instant.ofEpochMilli(e.startMillis).atZone(ZoneId.systemDefault()).toLocalDateTime()
 
 private fun buildRow(
     context: Context, t: TaskEntity, showDetails: Boolean, c: WColors,
@@ -188,7 +182,46 @@ private fun buildRow(
     }
 }
 
+private fun buildEventRow(context: Context, e: AgendaEvent, c: WColors): RemoteViews {
+    val dotColor = runCatching { android.graphics.Color.parseColor(e.colorHex) }.getOrDefault(c.accent)
+    return RemoteViews(context.packageName, R.layout.widget_row).apply {
+        setTextViewText(R.id.widget_text, e.title)
+        setTextColor(R.id.widget_text, c.text)
+        setImageViewResource(R.id.widget_checkbox, R.drawable.ic_event_dot)
+        setInt(R.id.widget_checkbox, "setColorFilter", dotColor)
+
+        setTextViewText(R.id.widget_meta, e.time ?: "All day")
+        setTextColor(R.id.widget_meta, c.text2)
+        setViewVisibility(R.id.widget_meta, View.VISIBLE)
+
+        setOnClickFillInIntent(
+            R.id.widget_row,
+            Intent(WidgetClickActivity.OPEN_EVENT).putExtra(WidgetClickActivity.EXTRA_EVENT_ID, e.id),
+        )
+        // The dot is not a checkbox: without its own fill-in it would inherit the row's click target.
+        setOnClickFillInIntent(
+            R.id.widget_checkbox,
+            Intent(WidgetClickActivity.OPEN_EVENT).putExtra(WidgetClickActivity.EXTRA_EVENT_ID, e.id),
+        )
+    }
+}
+
 // ── Data ──────────────────────────────────────────────────────────────────────
+
+private const val UPCOMING_EVENT_DAYS = 30L
+
+private suspend fun loadEvents(context: Context, prefs: WidgetPrefs): List<AgendaEvent> {
+    val repo = CalendarRepository(context)
+    if (!repo.hasPermission()) return emptyList()
+    val disabled = CalendarPreferences(context).disabledCalendarIds.first()
+    val today = LocalDate.now()
+    return when (prefs.filterType) {
+        "TODAY"    -> repo.getEventsForDay(today, disabled)
+        "UPCOMING" -> repo.getEventsForDateRange(today, today.plusDays(UPCOMING_EVENT_DAYS), disabled)
+            .values.flatten()
+        else       -> emptyList()
+    }
+}
 
 private suspend fun loadTasks(dao: TaskDao, prefs: WidgetPrefs): List<TaskEntity> {
     val today = LocalDate.now().toString()

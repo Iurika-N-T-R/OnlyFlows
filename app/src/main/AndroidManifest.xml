@@ -92,6 +92,20 @@
                 android:resource="@xml/widget_info" />
         </receiver>
 
+        <!-- Rebuilds widgets on the shared refresh alarm and on the system events that
+             invalidate their contents (day rollover, clock change, boot, app update). -->
+        <receiver
+            android:name=".ui.widget.WidgetRefreshReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.DATE_CHANGED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
         <activity
             android:name=".ui.widget.WidgetClickActivity"
             android:exported="false"

@@ -7,7 +7,7 @@
     android:maxResizeWidth="250dp"
     android:maxResizeHeight="250dp"
     android:resizeMode="horizontal|vertical"
-    android:updatePeriodMillis="0"
+    android:updatePeriodMillis="1800000"
     android:widgetCategory="home_screen"
     android:initialLayout="@layout/widget_countdown"
     android:configure="com.onlyflows.ui.widget.CountdownWidgetConfigActivity"

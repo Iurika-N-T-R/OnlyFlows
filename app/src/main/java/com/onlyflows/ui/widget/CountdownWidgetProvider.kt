@@ -1,10 +1,8 @@
 package com.onlyflows.ui.widget
 
-import android.app.AlarmManager
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
 import android.appwidget.AppWidgetProvider
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
@@ -18,8 +16,6 @@ import kotlinx.coroutines.runBlocking
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
-private const val REFRESH_INTERVAL_MS = 10_000L
-
 /** Built-in pickable trackers (not stored in DB). */
 const val TRACKER_END_OF_MONTH = "BUILTIN_END_OF_MONTH"
 const val TRACKER_END_OF_YEAR  = "BUILTIN_END_OF_YEAR"
@@ -32,42 +28,15 @@ class CountdownWidgetProvider : AppWidgetProvider() {
             runCatching { mgr.updateAppWidget(id, buildCountdownWidget(context, id)) }
                 .onFailure { Log.e("CountdownWidget", "build failed for $id", it) }
         }
-        scheduleNextRefresh(context)
+        WidgetUpdater.scheduleNextRefresh(context)
     }
 
     override fun onDisabled(context: Context) {
-        alarmManager(context).cancel(refreshPI(context, IntArray(0)))
+        WidgetUpdater.scheduleNextRefresh(context)
     }
 
     override fun onDeleted(context: Context, ids: IntArray) {
         ids.forEach { WidgetPrefs(context, it).clear() }
-    }
-
-    companion object {
-        /** Same self-chaining ~10s inexact refresh as OnlyFlowsWidgetProvider. */
-        fun scheduleNextRefresh(context: Context) {
-            val ids = AppWidgetManager.getInstance(context)
-                ?.getAppWidgetIds(ComponentName(context, CountdownWidgetProvider::class.java))
-                ?: return
-            if (ids.isEmpty()) return
-            alarmManager(context).set(
-                AlarmManager.RTC,
-                System.currentTimeMillis() + REFRESH_INTERVAL_MS,
-                refreshPI(context, ids),
-            )
-        }
-
-        private fun alarmManager(context: Context) =
-            context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-
-        private fun refreshPI(context: Context, ids: IntArray): PendingIntent =
-            PendingIntent.getBroadcast(
-                context, 0,
-                Intent(context, CountdownWidgetProvider::class.java)
-                    .setAction(AppWidgetManager.ACTION_APPWIDGET_UPDATE)
-                    .putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids),
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-            )
     }
 }
 

@@ -7,7 +7,7 @@
     android:maxResizeWidth="400dp"
     android:maxResizeHeight="600dp"
     android:resizeMode="horizontal|vertical"
-    android:updatePeriodMillis="0"
+    android:updatePeriodMillis="1800000"
     android:widgetCategory="home_screen"
     android:initialLayout="@layout/widget_scrollable"
     android:configure="com.onlyflows.ui.widget.WidgetConfigActivity"
