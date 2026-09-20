@@ -5,6 +5,20 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.72.0] — 2026-09-20 · Mouvement : navigation directionnelle et case à cocher animée
+
+### Ajouté
+
+- **Transitions de navigation directionnelles** : glissement d'un cinquième de largeur + fondu, vers la gauche à l'aller et vers la droite au retour. Déclarées une seule fois sur le `NavHost`, donc héritées par toutes les destinations. Auparavant aucune transition n'était déclarée et la navigation retombait sur le fondu par défaut de la bibliothèque, identique dans les deux sens — d'où l'absence de sensation d'avant/arrière.
+- **Case à cocher animée** : la coche apparaît sur un ressort légèrement rebondissant pendant que la bordure vide s'efface, le fond se teinte en 180 ms. Un seul pilote d'animation pour les deux, pour qu'ils ne puissent pas se désynchroniser. C'est le geste le plus répété de l'app et il n'avait aucun retour visuel, seulement de l'haptique.
+- **`rememberReducedMotion()`** ([Motion.kt](app/src/main/java/com/onlyflows/ui/theme/Motion.kt)) : lit `ANIMATOR_DURATION_SCALE` et neutralise toutes les animations ci-dessus quand l'utilisateur a désactivé les animations système. À rebrancher sur toute animation future.
+
+### Corrigé
+
+- **Cible tactile de la case à cocher** : 22dp, très en dessous du minimum de 48dp recommandé par Android. La zone de contact est maintenant une boîte de 48dp non rognée qui déborde le visuel sans occuper de place supplémentaire — aucun titre ni séparateur ne bouge.
+
+---
+
 ## [0.71.1] — 2026-09-20 · Menus et popups déteintés en violet
 
 ### Corrigé

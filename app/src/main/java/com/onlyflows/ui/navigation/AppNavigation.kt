@@ -1,7 +1,15 @@
 package com.onlyflows.ui.navigation
 
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import com.onlyflows.ui.theme.rememberReducedMotion
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -38,6 +46,8 @@ import com.onlyflows.ui.screens.task.TaskDetailScreen
 import com.onlyflows.ui.screens.today.TodayScreen
 import com.onlyflows.ui.screens.upcoming.UpcomingScreen
 
+private const val NAV_TRANSITION_MS = 280
+
 @Composable
 fun AppNavigation(
     navController: NavHostController,
@@ -57,10 +67,32 @@ fun AppNavigation(
         if (isTablet && onProjectSelected != null) onProjectSelected(id)
         else navController.navigate(Screen.ProjectDetail.createRoute(id))
     }
+    val reducedMotion = rememberReducedMotion()
+
+    // Declared on the NavHost so every destination inherits them. The library default is the
+    // same fade in both directions, which gave navigation no sense of forward or back.
+    // Offsets are a fifth of the width: enough to read as directional without the screen
+    // appearing to travel a long distance.
     NavHost(
         navController = navController,
         startDestination = Screen.Today.route,
         modifier = modifier,
+        enterTransition = {
+            if (reducedMotion) EnterTransition.None
+            else slideInHorizontally(tween(NAV_TRANSITION_MS)) { it / 5 } + fadeIn(tween(NAV_TRANSITION_MS))
+        },
+        exitTransition = {
+            if (reducedMotion) ExitTransition.None
+            else slideOutHorizontally(tween(NAV_TRANSITION_MS)) { -it / 5 } + fadeOut(tween(NAV_TRANSITION_MS))
+        },
+        popEnterTransition = {
+            if (reducedMotion) EnterTransition.None
+            else slideInHorizontally(tween(NAV_TRANSITION_MS)) { -it / 5 } + fadeIn(tween(NAV_TRANSITION_MS))
+        },
+        popExitTransition = {
+            if (reducedMotion) ExitTransition.None
+            else slideOutHorizontally(tween(NAV_TRANSITION_MS)) { it / 5 } + fadeOut(tween(NAV_TRANSITION_MS))
+        },
     ) {
         composable(Screen.Today.route) {
             TodayScreen(
