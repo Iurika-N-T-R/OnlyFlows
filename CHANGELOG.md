@@ -5,6 +5,15 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.71.1] — 2026-09-20 · Menus et popups déteintés en violet
+
+### Corrigé
+
+- **Tous les menus et popups s'affichaient sur un fond lavande** au lieu du gris neutre de l'app. `lightColorScheme`/`darkColorScheme` définissaient `surface` et `surfaceVariant`, mais aucun des tokens `surfaceContainer*`, `surfaceBright` ni `surfaceDim`. Non définis, ces tokens retombent sur la palette baseline de Material 3, qui est teintée violet — et c'est justement `surfaceContainer` que `DropdownMenu` utilise par défaut. Le contraste était particulièrement visible dans l'AddTaskSheet, qui force `containerColor = surface` (blanc) alors que son menu de projets s'ouvrait en lavande.
+- Les sept tokens sont désormais définis sur les deux schémas, alignés sur la palette neutre existante (blanc → #E0E0E0 en clair, #10151C → #2A3344 en sombre). Corrige l'ensemble des menus, dropdowns et composants M3 de l'app, pas seulement celui de l'AddTaskSheet.
+
+---
+
 ## [0.71.0] — 2026-09-20 · Agenda dans le widget + rafraîchissement fiable
 
 ### Ajouté

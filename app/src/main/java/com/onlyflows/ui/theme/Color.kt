@@ -23,6 +23,13 @@ val SurfaceContainerLight   = Color(0xFFF5F5F5)
 val SurfaceCardLight        = Color(0xFFFFFFFF)
 val AgendaCardBgLight       = Color(0xFFF0F4F8)
 
+// Neutral rungs of the M3 surfaceContainer ladder. Left unset, these fall back to the
+// baseline M3 palette, which is purple-tinted and clashes with this neutral scheme.
+val SurfaceContainerLowLight     = Color(0xFFFAFAFA)
+val SurfaceContainerHighLight    = Color(0xFFEFEFEF)
+val SurfaceContainerHighestLight = Color(0xFFE8E8E8)
+val SurfaceDimLight              = Color(0xFFE0E0E0)
+
 val OnSurfaceLight          = Color(0xFF1A1A1A)
 val OnSurfaceVariantLight   = Color(0xFF6B7280)
 val OutlineLight            = Color(0xFFE5E7EB)
@@ -33,6 +40,10 @@ val OutlineVariantLight     = Color(0xFFF3F4F6)
 val SurfaceDark             = Color(0xFF161B22)
 val SurfaceContainerDark    = Color(0xFF1C2330)
 val SurfaceCardDark         = Color(0xFF1E2530)
+
+val SurfaceContainerLowestDark  = Color(0xFF10151C)
+val SurfaceContainerHighDark    = Color(0xFF232B3A)
+val SurfaceContainerHighestDark = Color(0xFF2A3344)
 val AgendaCardBgDark        = Color(0xFF1A2235)
 val ModalDark               = Color(0xFF1E2635)
 
