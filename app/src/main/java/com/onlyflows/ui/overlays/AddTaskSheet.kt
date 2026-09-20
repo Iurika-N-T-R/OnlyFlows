@@ -1,6 +1,8 @@
 package com.onlyflows.ui.overlays
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -318,10 +320,15 @@ fun AddTaskSheet(
 
             Spacer(Modifier.height(12.dp))
 
-            // ── Group chip + action buttons row ──────────────────────────────────
+            // ── Chips row ────────────────────────────────────────────────────────
+            // Chips and actions live on separate lines: together they overflowed the width
+            // as soon as a reminder chip appeared, clipping the last action button.
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment     = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
             ) {
                 // Date group chip
                 FilterChip(
@@ -353,7 +360,6 @@ fun AddTaskSheet(
                 // Pending reminder — without this nothing tells the user it was registered,
                 // since the reminder is only written once the task itself is saved.
                 pendingReminder?.let { (at, _, _) ->
-                    Spacer(Modifier.width(8.dp))
                     FilterChip(
                         selected = true,
                         onClick  = { showReminderPicker = true },
@@ -374,8 +380,16 @@ fun AddTaskSheet(
                     )
                 }
 
-                Spacer(Modifier.weight(1f))
+            }
 
+            Spacer(Modifier.height(8.dp))
+
+            // ── Action buttons row ───────────────────────────────────────────────
+            Row(
+                verticalAlignment     = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.End,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
                 // Tag icon
                 IconButton(onClick = { showTagsPicker = true }) {
                     Icon(Icons.Outlined.Label, "Tags", tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -530,12 +544,9 @@ fun AddTaskSheet(
                 showDatePicker = false
             },
             onAddReminder = {
-                // A reminder needs a day to hang off, so an unset date becomes today
-                // rather than silently producing a reminder with nothing to fire against.
-                if (dueDate == null) {
-                    dueDate = LocalDate.now()
-                    group   = TaskGroup.TODAY
-                }
+                // The reminder carries its own absolute date and time, so the task keeps
+                // whatever schedule the user chose — forcing a due date here made every
+                // reminder silently flip the task to Today.
                 showDatePicker     = false
                 showReminderPicker = true
             },

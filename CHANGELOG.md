@@ -5,6 +5,15 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.77.1] — 2026-09-20 · Un rappel ne force plus la tâche à « Today »
+
+### Corrigé
+
+- **Ajouter un rappel basculait la tâche sur « Today ».** La feuille posait la date du jour quand aucune n'était définie — utile tant que les rappels étaient relatifs à l'échéance, absurde depuis que « Exact date » leur donne leur propre instant. La tâche conserve désormais la planification choisie, même vide.
+- **La rangée d'actions débordait.** Puces et boutons partageaient une seule ligne : dès qu'une puce de rappel apparaissait, le dernier bouton était rogné hors écran. Les puces occupent maintenant leur propre ligne, défilante horizontalement, et les actions la suivante.
+
+---
+
 ## [0.77.0] — 2026-09-20 · Rappel posé sur place, et feuille « When? » complète
 
 ### Modifié
