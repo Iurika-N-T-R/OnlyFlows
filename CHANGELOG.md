@@ -5,14 +5,6 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
-## [0.76.1] — 2026-09-20 · « Exact date » par défaut
-
-### Modifié
-
-- Dans la section Custom du sélecteur de rappel, le mode **« Exact date » est sélectionné par défaut** au lieu de « Daily » : poser un rappel à un instant précis est le cas courant, la récurrence l'exception.
-
----
-
 ## [0.77.0] — 2026-09-20 · Rappel posé sur place, et feuille « When? » complète
 
 ### Modifié
