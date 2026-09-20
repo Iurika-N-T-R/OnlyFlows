@@ -57,7 +57,9 @@ fun DatePickerModal(
     onDismiss: () -> Unit,
 ) {
     var selectedDate       by remember { mutableStateOf(initialDate) }
-    var showCalendarDialog by remember { mutableStateOf(false) }
+    var showCalendarDialog  by remember { mutableStateOf(false) }
+    var showStartTimeDialog by remember { mutableStateOf(false) }
+    var showEndTimeDialog   by remember { mutableStateOf(false) }
     var isAllDay      by remember { mutableStateOf(initialDueTime == null) }
 
     val dueTimeState = rememberTimePickerState(
@@ -148,6 +150,16 @@ fun DatePickerModal(
 
             Spacer(Modifier.height(12.dp))
 
+            // ── Someday ───────────────────────────────────────────────────────
+            DateShortcut(
+                painter    = painterResource(R.drawable.ic_nav_someday),
+                label      = "Someday",
+                isSelected = false,
+                onClick    = { fireResult(null); onDismiss() },
+            )
+
+            Spacer(Modifier.height(4.dp))
+
             // ── Calendar ──────────────────────────────────────────────────────
             DateShortcut(
                 painter    = painterResource(R.drawable.ic_nav_anytime),
@@ -155,16 +167,6 @@ fun DatePickerModal(
                     ?: "Pick a date",
                 isSelected = selectedDate != null,
                 onClick    = { showCalendarDialog = true },
-            )
-
-            Spacer(Modifier.height(4.dp))
-
-            // ── Someday ───────────────────────────────────────────────────────
-            DateShortcut(
-                painter    = painterResource(R.drawable.ic_nav_someday),
-                label      = "Someday",
-                isSelected = false,
-                onClick    = { fireResult(null); onDismiss() },
             )
 
             // ── Time option (deadline picker only) ────────────────────────────
@@ -198,33 +200,14 @@ fun DatePickerModal(
                 }
 
                 if (!isAllDay) {
-                    Spacer(Modifier.height(8.dp))
+                    // Compact rows opening the native clock dialog. The dial rendered inline
+                    // next to a label was cramped and dominated the sheet.
+                    TimeRow(
+                        label   = "Start",
+                        value   = "%02d:%02d".format(dueTimeState.hour, dueTimeState.minute),
+                        onClick = { showStartTimeDialog = true },
+                    )
 
-                    // Start time
-                    Row(
-                        verticalAlignment     = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 20.dp),
-                    ) {
-                        Text(
-                            text     = "Start",
-                            style    = MaterialTheme.typography.bodyMedium,
-                            color    = Color.White.copy(alpha = 0.6f),
-                            modifier = Modifier.width(52.dp),
-                        )
-                        TimePicker(
-                            state  = dueTimeState,
-                            colors = TimePickerDefaults.colors(
-                                timeSelectorSelectedContainerColor   = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
-                                timeSelectorUnselectedContainerColor = Color.White.copy(alpha = 0.07f),
-                                timeSelectorSelectedContentColor     = Color.White,
-                                timeSelectorUnselectedContentColor   = Color.White.copy(alpha = 0.5f),
-                            ),
-                        )
-                    }
-
-                    Spacer(Modifier.height(8.dp))
-
-                    // End time toggle
                     if (!showEndTime) {
                         TextButton(
                             onClick  = { showEndTime = true },
@@ -237,26 +220,11 @@ fun DatePickerModal(
                             )
                         }
                     } else {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 20.dp),
-                        ) {
-                            Text(
-                                text     = "End",
-                                style    = MaterialTheme.typography.bodyMedium,
-                                color    = Color.White.copy(alpha = 0.6f),
-                                modifier = Modifier.width(52.dp),
-                            )
-                            TimePicker(
-                                state  = endTimeState,
-                                colors = TimePickerDefaults.colors(
-                                    timeSelectorSelectedContainerColor   = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
-                                    timeSelectorUnselectedContainerColor = Color.White.copy(alpha = 0.07f),
-                                    timeSelectorSelectedContentColor     = Color.White,
-                                    timeSelectorUnselectedContentColor   = Color.White.copy(alpha = 0.5f),
-                                ),
-                            )
-                        }
+                        TimeRow(
+                            label   = "End",
+                            value   = "%02d:%02d".format(endTimeState.hour, endTimeState.minute),
+                            onClick = { showEndTimeDialog = true },
+                        )
                     }
 
                     Spacer(Modifier.height(4.dp))
@@ -282,6 +250,13 @@ fun DatePickerModal(
                 }
             }
         }
+    }
+
+    if (showStartTimeDialog) {
+        TimeDialog(state = dueTimeState, onDismiss = { showStartTimeDialog = false })
+    }
+    if (showEndTimeDialog) {
+        TimeDialog(state = endTimeState, onDismiss = { showEndTimeDialog = false })
     }
 
     if (showCalendarDialog) {
@@ -310,6 +285,37 @@ fun DatePickerModal(
             DatePicker(state = pickerState)
         }
     }
+}
+
+/** One-line time field; the dial itself lives in a dialog. */
+@Composable
+private fun TimeRow(label: String, value: String, onClick: () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+    ) {
+        Text(
+            text     = label,
+            style    = MaterialTheme.typography.bodyMedium,
+            color    = Color.White.copy(alpha = 0.6f),
+            modifier = Modifier.width(52.dp),
+        )
+        Text(text = value, style = MaterialTheme.typography.titleMedium, color = Color.White)
+    }
+}
+
+/** Material 3 ships no time-picker dialog, only the bare TimePicker — this is the wrapper. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TimeDialog(state: TimePickerState, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton    = { TextButton(onClick = onDismiss) { Text("OK") } },
+        text             = { TimePicker(state = state) },
+    )
 }
 
 @Composable

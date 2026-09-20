@@ -5,6 +5,15 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.75.2] — 2026-09-20 · Heures en dialogue, Someday remonté
+
+### Modifié
+
+- **« Someday » passe au-dessus de « Pick a date »**, avec les autres raccourcis, au lieu d'être isolé sous le calendrier.
+- **Les heures de début et de fin s'ouvrent dans un dialogue natif**, comme le calendrier. Le cadran était rendu directement dans la feuille, à côté d'un libellé « Start » : à l'étroit, il écrasait tout le reste. La feuille n'affiche plus qu'une ligne « Start 09:00 ».
+
+---
+
 ## [0.75.1] — 2026-09-20 · Sélecteur de date utilisable
 
 ### Corrigé
