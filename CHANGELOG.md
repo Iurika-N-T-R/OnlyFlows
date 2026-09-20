@@ -5,6 +5,14 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.79.0] — 2026-09-20 · Tags sélectionnés visibles à la création
+
+### Ajouté
+
+- **Les tags choisis s'affichent en puces à côté de la puce de projet**, sur la première ligne de la feuille de création. Ils n'étaient visibles nulle part avant l'enregistrement : il fallait ouvrir le détail de la tâche pour savoir ce qui avait été sélectionné. Chaque puce porte la couleur du tag et rouvre le sélecteur au toucher.
+
+---
+
 ## [0.78.1] — 2026-09-20 · Les tags créés depuis l'Inbox restaient invisibles
 
 ### Corrigé

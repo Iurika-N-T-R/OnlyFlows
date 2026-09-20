@@ -1,8 +1,10 @@
 package com.onlyflows.ui.overlays
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -19,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
@@ -330,6 +333,32 @@ fun AddTaskSheet(
                     }
                 }
 
+                // Selected tags — visible here so they need not be hunted for in the detail
+                // screen. Tapping one reopens the picker.
+                selectedTagIds.mapNotNull { id -> tags.find { it.id == id } }.forEach { tag ->
+                    val tagColor = runCatching { Color(android.graphics.Color.parseColor(tag.colorHex)) }
+                        .getOrDefault(MaterialTheme.colorScheme.primary)
+                    FilterChip(
+                        selected = true,
+                        onClick  = { showTagsPicker = true },
+                        label    = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    Modifier
+                                        .size(8.dp)
+                                        .clip(CircleShape)
+                                        .background(tagColor),
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(tag.name, style = MaterialTheme.typography.labelMedium)
+                            }
+                        },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            selectedLabelColor     = MaterialTheme.colorScheme.onSurface,
+                        ),
+                    )
+                }
             }
 
             // ── Action buttons row ───────────────────────────────────────────────
