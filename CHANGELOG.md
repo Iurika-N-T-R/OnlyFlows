@@ -5,6 +5,18 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.73.1] — 2026-09-20 · Rappels aussi depuis les projets
+
+### Corrigé
+
+- **« + Add Reminder » était absent à la création d'une tâche depuis un projet.** `ProjectDetailScreen` ne transmettait pas `onTaskCreatedWithReminder`, si bien que le bouton — désormais masqué faute de destinataire — n'apparaissait que sur Inbox et Today. Les trois points de création se comportent maintenant pareil.
+
+### Connu
+
+- Sur tablette, le volet de détail projet passe `onTaskClick = { }` ([DetailPaneContent.kt:63](app/src/main/java/com/onlyflows/ui/layout/DetailPaneContent.kt#L63)) : ouvrir une tâche depuis un projet n'y fait rien, bug préexistant. Le renvoi vers les rappels y reste donc inactif lui aussi.
+
+---
+
 ## [0.73.0] — 2026-09-20 · Les rappels fonctionnent à la création d'une tâche
 
 ### Ajouté

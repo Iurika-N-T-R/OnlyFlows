@@ -121,6 +121,7 @@ private val taskAutoSort: Comparator<Task> = compareBy<Task>(
 fun ProjectDetailScreen(
     projectId: String,
     onTaskClick: (String) -> Unit = {},
+    onTaskWithReminderClick: ((String) -> Unit)? = null,
     onListClick: (String) -> Unit = {},
     onBack: () -> Unit = {},
     onNoteSelected: ((noteId: String, projectId: String) -> Unit)? = null,
@@ -811,6 +812,7 @@ fun ProjectDetailScreen(
             },
             onDismiss     = { viewModel.onEvent(ProjectDetailEvent.HideAddTask) },
             onTaskCreated = { onTaskClick(it) },
+            onTaskCreatedWithReminder = onTaskWithReminderClick,
         )
     }
 

@@ -207,6 +207,7 @@ fun AppNavigation(
             ProjectDetailScreen(
                 projectId       = projectId,
                 onTaskClick     = { navigateToTask(it) },
+                onTaskWithReminderClick = { navController.navigate(Screen.TaskDetail.createRoute(it, openReminder = true)) },
                 onListClick     = { navigateToProject(it) },
                 onBack          = { navController.popBackStack() },
                 onNoteSelected  = if (isTablet) onNoteSelected else null,
