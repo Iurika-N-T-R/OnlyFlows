@@ -58,8 +58,8 @@ fun InboxScreen(
         AddTaskSheet(
             projects       = state.projects,
             onDismiss      = { viewModel.onEvent(InboxEvent.HideAddTask) },
-            onAdd          = { id, title, note, group, dueDate, priority, projectId, sectionId, checklistItems ->
-                viewModel.onEvent(InboxEvent.AddTask(id, title, note, priority, projectId, sectionId, checklistItems, group, dueDate))
+            onAdd          = { id, title, note, group, dueDate, dueTime, endTime, priority, projectId, sectionId, checklistItems ->
+                viewModel.onEvent(InboxEvent.AddTask(id, title, note, priority, projectId, sectionId, checklistItems, group, dueDate, dueTime, endTime))
             },
             onTaskCreated  = { onTaskClick(it) },
             onTaskCreatedWithReminder = onTaskWithReminderClick,

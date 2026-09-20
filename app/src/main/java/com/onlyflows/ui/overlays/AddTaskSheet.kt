@@ -34,6 +34,7 @@ import com.onlyflows.domain.model.TaskPriority
 import com.onlyflows.ui.theme.FlowGold
 import com.onlyflows.ui.theme.OnlyFlowsTheme
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 
@@ -43,7 +44,7 @@ fun AddTaskSheet(
     defaultGroup: TaskGroup? = null,
     tags: List<Tag> = emptyList(),
     projects: List<Project> = emptyList(),
-    onAdd: (id: String, title: String, note: String, group: TaskGroup?, dueDate: LocalDate?, priority: TaskPriority, projectId: String?, sectionId: String?, checklistItems: List<String>) -> Unit,
+    onAdd: (id: String, title: String, note: String, group: TaskGroup?, dueDate: LocalDate?, dueTime: LocalTime?, endTime: LocalTime?, priority: TaskPriority, projectId: String?, sectionId: String?, checklistItems: List<String>) -> Unit,
     onDismiss: () -> Unit,
     onTaskCreated: ((taskId: String) -> Unit)? = null,
     /** Saves the task and opens its detail with the reminder picker already showing.
@@ -57,6 +58,8 @@ fun AddTaskSheet(
     var note     by remember { mutableStateOf("") }
     var group    by remember { mutableStateOf(defaultGroup) }
     var dueDate  by remember { mutableStateOf<LocalDate?>(null) }
+    var dueTime  by remember { mutableStateOf<LocalTime?>(null) }
+    var endTime  by remember { mutableStateOf<LocalTime?>(null) }
     var priority by remember { mutableStateOf(TaskPriority.NONE) }
     var selectedProjectId  by remember { mutableStateOf<String?>(null) }
     var selectedSectionId  by remember { mutableStateOf<String?>(null) }
@@ -76,6 +79,8 @@ fun AddTaskSheet(
         note            = ""
         group           = defaultGroup
         dueDate         = null
+        dueTime         = null
+        endTime         = null
         priority        = TaskPriority.NONE
         checklistItems  = emptyList()
         checklistDraft  = ""
@@ -383,7 +388,7 @@ fun AddTaskSheet(
                         onClick = {
                             if (title.isNotBlank()) {
                                 val finalItems = if (checklistDraft.isNotBlank()) checklistItems + checklistDraft.trim() else checklistItems
-                                onAdd(taskId, title.trim(), note.trim(), group, dueDate, priority, selectedProjectId, selectedSectionId, finalItems)
+                                onAdd(taskId, title.trim(), note.trim(), group, dueDate, dueTime, endTime, priority, selectedProjectId, selectedSectionId, finalItems)
                                 onTaskCreated(taskId)
                                 onDismiss()
                             }
@@ -405,7 +410,7 @@ fun AddTaskSheet(
                     onClick = {
                         if (title.isNotBlank()) {
                             val finalItems = if (checklistDraft.isNotBlank()) checklistItems + checklistDraft.trim() else checklistItems
-                            onAdd(taskId, title.trim(), note.trim(), group, dueDate, priority, selectedProjectId, selectedSectionId, finalItems)
+                            onAdd(taskId, title.trim(), note.trim(), group, dueDate, dueTime, endTime, priority, selectedProjectId, selectedSectionId, finalItems)
                             resetForm()
                             focusRequester.requestFocus()
                         }
@@ -426,7 +431,7 @@ fun AddTaskSheet(
                     onClick  = {
                         if (title.isNotBlank()) {
                             val finalItems = if (checklistDraft.isNotBlank()) checklistItems + checklistDraft.trim() else checklistItems
-                            onAdd(taskId, title.trim(), note.trim(), group, dueDate, priority, selectedProjectId, selectedSectionId, finalItems)
+                            onAdd(taskId, title.trim(), note.trim(), group, dueDate, dueTime, endTime, priority, selectedProjectId, selectedSectionId, finalItems)
                             onDismiss()
                         }
                     },
@@ -448,8 +453,13 @@ fun AddTaskSheet(
     if (showDatePicker) {
         DatePickerModal(
             initialDate    = dueDate,
-            onDateSelected = { picked ->
+            initialDueTime = dueTime,
+            initialEndTime = endTime,
+            showTimeOption = true,
+            onResult       = { picked, pickedDueTime, pickedEndTime ->
                 dueDate = picked
+                dueTime = pickedDueTime
+                endTime = pickedEndTime
                 // Clearing the date means "no date", not Someday: Someday is a deliberate
                 // choice the user makes in the picker, never a fallback for an empty value.
                 group = when {
@@ -467,7 +477,7 @@ fun AddTaskSheet(
                     group   = TaskGroup.TODAY
                 }
                 val finalItems = if (checklistDraft.isNotBlank()) checklistItems + checklistDraft.trim() else checklistItems
-                onAdd(taskId, title.trim(), note.trim(), group, dueDate, priority, selectedProjectId, selectedSectionId, finalItems)
+                onAdd(taskId, title.trim(), note.trim(), group, dueDate, dueTime, endTime, priority, selectedProjectId, selectedSectionId, finalItems)
                 onTaskCreatedWithReminder(taskId)
                 showDatePicker = false
                 onDismiss()
@@ -492,7 +502,7 @@ private fun AddTaskSheetPreview() {
     OnlyFlowsTheme {
         AddTaskSheet(
             tags      = MockData.tags,
-            onAdd     = { _, _, _, _, _, _, _, _, _ -> },
+            onAdd     = { _, _, _, _, _, _, _, _, _, _, _ -> },
             onDismiss = {},
         )
     }

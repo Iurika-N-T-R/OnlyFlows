@@ -85,6 +85,8 @@ sealed interface TodayEvent {
         val checklistItems: List<String> = emptyList(),
         val group: TaskGroup? = null,
         val dueDate: java.time.LocalDate? = null,
+        val dueTime: java.time.LocalTime? = null,
+        val endTime: java.time.LocalTime? = null,
     ) : TodayEvent
     data class DeleteSelected(val ids: Set<String>)                     : TodayEvent
     data class ToggleChecklistItem(val itemId: String, val completed: Boolean) : TodayEvent
@@ -247,7 +249,7 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
             is TodayEvent.ClearSelection -> _uiState.update { it.copy(selectedTaskIds = emptySet()) }
             is TodayEvent.ShowAddTask    -> _uiState.update { it.copy(showAddTask = true) }
             is TodayEvent.HideAddTask    -> _uiState.update { it.copy(showAddTask = false) }
-            is TodayEvent.AddTask        -> { AppLog.d("TodayVM", "addTask: \"${event.title}\" project=${event.projectId}"); addTask(event.id, event.title, event.note, event.priority, event.projectId, event.sectionId, event.checklistItems, event.group, event.dueDate) }
+            is TodayEvent.AddTask        -> { AppLog.d("TodayVM", "addTask: \"${event.title}\" project=${event.projectId}"); addTask(event.id, event.title, event.note, event.priority, event.projectId, event.sectionId, event.checklistItems, event.group, event.dueDate, event.dueTime, event.endTime) }
             is TodayEvent.DeleteSelected -> { AppLog.d("TodayVM", "deleteSelected: ${event.ids.size} tasks"); deleteSelected(event.ids) }
             is TodayEvent.ToggleChecklistItem -> viewModelScope.launch {
                 taskRepo.toggleChecklistItem(event.itemId, event.completed)
@@ -345,7 +347,7 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    private fun addTask(id: String, title: String, note: String = "", priority: TaskPriority = TaskPriority.NONE, projectId: String? = null, sectionId: String? = null, checklistItems: List<String> = emptyList(), group: TaskGroup? = null, dueDate: java.time.LocalDate? = null) {
+    private fun addTask(id: String, title: String, note: String = "", priority: TaskPriority = TaskPriority.NONE, projectId: String? = null, sectionId: String? = null, checklistItems: List<String> = emptyList(), group: TaskGroup? = null, dueDate: java.time.LocalDate? = null, dueTime: java.time.LocalTime? = null, endTime: java.time.LocalTime? = null) {
         if (title.isBlank()) return
         viewModelScope.launch {
             val newTask = Task(
@@ -359,6 +361,8 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
                 // screen, so it is the source of truth — no heuristic may override it.
                 scheduledGroup = group,
                 dueDate        = dueDate,
+                dueTime        = dueTime,
+                endTime        = endTime,
                 createdAt      = LocalDateTime.now(),
                 updatedAt      = LocalDateTime.now(),
             )

@@ -454,8 +454,8 @@ fun TodayScreen(
             defaultGroup  = com.onlyflows.domain.model.TaskGroup.TODAY,
             tags          = state.tags,
             projects      = state.allProjects,
-            onAdd         = { id, title, note, group, dueDate, priority, projectId, sectionId, checklistItems ->
-                viewModel.onEvent(TodayEvent.AddTask(id, title, note, priority, projectId, sectionId, checklistItems, group, dueDate))
+            onAdd         = { id, title, note, group, dueDate, dueTime, endTime, priority, projectId, sectionId, checklistItems ->
+                viewModel.onEvent(TodayEvent.AddTask(id, title, note, priority, projectId, sectionId, checklistItems, group, dueDate, dueTime, endTime))
             },
             onDismiss     = { viewModel.onEvent(TodayEvent.HideAddTask) },
             onTaskCreated = { onTaskClick(it) },

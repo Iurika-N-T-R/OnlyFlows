@@ -5,6 +5,23 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.74.0] — 2026-09-20 · Heure à la création, et rappel enfin atteignable
+
+### Corrigé
+
+- **Choisir une date fermait la feuille avant qu'on puisse ajouter un rappel.** `DatePickerModal` a `showTimeOption = false` par défaut, et l'AddTaskSheet ne le passait pas : chaque clic sur un jour déclenchait immédiatement `fireResult` et refermait la feuille, rendant « + Add Reminder », situé en bas, inatteignable. Le drapeau est désormais actif à la création, la feuille reste ouverte et se valide par « Done ».
+- `MainActivity` (ajout rapide global) imposait `scheduledGroup = if (projectId == null) group else null` et forçait la date du jour dès qu'un projet était choisi, écrasant le choix de l'utilisateur — même heuristique que celle déjà retirée de `TodayViewModel`.
+
+### Ajouté
+
+- **Heure d'échéance à la création d'une tâche.** Le même drapeau expose le choix « toute la journée » ou heure précise (avec heure de fin optionnelle), qui existait déjà mais n'était offert que dans le détail. `dueTime` et `endTime` sont transmis jusqu'au repository par les quatre points de création.
+
+### Connu
+
+- L'ajout rapide global de `MainActivity` ne passe pas `onTaskCreatedWithReminder` : « + Add Reminder » y reste masqué, faute d'un moyen de naviguer vers le détail depuis ce contexte.
+
+---
+
 ## [0.73.1] — 2026-09-20 · Rappels aussi depuis les projets
 
 ### Corrigé
