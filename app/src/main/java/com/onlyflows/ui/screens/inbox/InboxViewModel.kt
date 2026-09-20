@@ -44,6 +44,8 @@ sealed interface InboxEvent {
         val projectId: String? = null,
         val sectionId: String? = null,
         val checklistItems: List<String> = emptyList(),
+        val group: TaskGroup? = null,
+        val dueDate: java.time.LocalDate? = null,
     ) : InboxEvent
     data class ToggleChecklistItem(val itemId: String, val completed: Boolean) : InboxEvent
     data class ToggleSelect(val taskId: String)                         : InboxEvent
@@ -131,6 +133,8 @@ class InboxViewModel(app: Application) : AndroidViewModel(app) {
                     priority  = event.priority,
                     projectId = event.projectId,
                     sectionId = event.sectionId,
+                    scheduledGroup = event.group,
+                    dueDate        = event.dueDate,
                 )
                 taskRepo.insert(task)
                 event.checklistItems.forEachIndexed { index, itemTitle ->

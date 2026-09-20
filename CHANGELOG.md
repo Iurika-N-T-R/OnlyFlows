@@ -5,6 +5,22 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.72.1] — 2026-09-20 · La date de création de tâche était purement décorative
+
+### Corrigé
+
+- **Toute date choisie à la création d'une tâche était silencieusement perdue.** Les trois écrans ouvrant l'AddTaskSheet (`InboxScreen`, `TodayScreen`, `ProjectDetailScreen`) ignoraient les paramètres `group` et `dueDate` du callback `onAdd` avec `_, _`, et aucun des trois événements `AddTask` ne les transportait. Le sélecteur affichait donc un choix qui n'était jamais enregistré. Les deux valeurs remontent désormais jusqu'au repository.
+- **Le champ « When » affichait « Today » depuis l'Inbox.** `defaultGroup` valait `TaskGroup.TODAY` et son type non-nullable empêchait de représenter « pas de date ». Il est maintenant `TaskGroup?` à `null` par défaut : seul `TodayScreen` demande explicitement `TODAY`, et la puce affiche « No date ».
+- **Effacer la date basculait la tâche en « Someday ».** `picked == null` était mappé sur `TaskGroup.SOMEDAY`. Someday redevient un choix délibéré de l'utilisateur, jamais une valeur de repli.
+- `TodayViewModel.addTask()` n'impose plus son heuristique `scheduledGroup`/`dueDate` selon la présence d'un projet : le choix porté par la feuille fait foi.
+
+### Modifié
+
+- **Menus arrondis et teinte fixée** : les trois `DropdownMenu` de l'AddTaskSheet reçoivent `shape` (14dp au lieu du `CornerExtraSmall` de 4dp, qui jurait avec le reste) et `containerColor` explicites.
+- **Icônes dans le sélecteur de projet** : seule l'entrée « Inbox » en portait une. Chaque projet affiche désormais son emoji, ou à défaut une icône déduite de son type (projet, liste, note) teintée à sa couleur.
+
+---
+
 ## [0.72.0] — 2026-09-20 · Mouvement : navigation directionnelle et case à cocher animée
 
 ### Ajouté

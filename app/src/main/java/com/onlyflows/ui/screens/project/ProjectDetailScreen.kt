@@ -806,8 +806,8 @@ fun ProjectDetailScreen(
     if (state.showAddTask) {
         AddTaskSheet(
             tags          = state.tags,
-            onAdd         = { id, title, note, _, _, priority, _, _, checklistItems ->
-                viewModel.onEvent(ProjectDetailEvent.AddTask(id, title, note, state.addTaskSectionId, priority, checklistItems))
+            onAdd         = { id, title, note, group, dueDate, priority, _, _, checklistItems ->
+                viewModel.onEvent(ProjectDetailEvent.AddTask(id, title, note, state.addTaskSectionId, priority, checklistItems, group, dueDate))
             },
             onDismiss     = { viewModel.onEvent(ProjectDetailEvent.HideAddTask) },
             onTaskCreated = { onTaskClick(it) },

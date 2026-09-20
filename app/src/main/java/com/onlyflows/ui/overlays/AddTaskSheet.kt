@@ -6,6 +6,8 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Article
+import androidx.compose.material.icons.automirrored.outlined.FormatListBulleted
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -24,6 +26,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.onlyflows.data.mock.MockData
 import com.onlyflows.domain.model.Project
+import com.onlyflows.domain.model.ProjectType
 import com.onlyflows.domain.model.Section
 import com.onlyflows.domain.model.Tag
 import com.onlyflows.domain.model.TaskGroup
@@ -37,10 +40,10 @@ import java.util.UUID
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddTaskSheet(
-    defaultGroup: TaskGroup = TaskGroup.TODAY,
+    defaultGroup: TaskGroup? = null,
     tags: List<Tag> = emptyList(),
     projects: List<Project> = emptyList(),
-    onAdd: (id: String, title: String, note: String, group: TaskGroup, dueDate: LocalDate?, priority: TaskPriority, projectId: String?, sectionId: String?, checklistItems: List<String>) -> Unit,
+    onAdd: (id: String, title: String, note: String, group: TaskGroup?, dueDate: LocalDate?, priority: TaskPriority, projectId: String?, sectionId: String?, checklistItems: List<String>) -> Unit,
     onDismiss: () -> Unit,
     onTaskCreated: ((taskId: String) -> Unit)? = null,
 ) {
@@ -66,6 +69,7 @@ fun AddTaskSheet(
         taskId          = UUID.randomUUID().toString()
         title           = ""
         note            = ""
+        group           = defaultGroup
         dueDate         = null
         priority        = TaskPriority.NONE
         checklistItems  = emptyList()
@@ -227,6 +231,8 @@ fun AddTaskSheet(
                         DropdownMenu(
                             expanded         = showProjectMenu,
                             onDismissRequest = { showProjectMenu = false },
+                            shape            = MenuShape,
+                            containerColor   = MaterialTheme.colorScheme.surface,
                         ) {
                             DropdownMenuItem(
                                 text    = { Row(verticalAlignment = Alignment.CenterVertically) { Icon(painter = painterResource(R.drawable.ic_nav_inbox), contentDescription = null, tint = Color.Unspecified, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(8.dp)); Text("Inbox") } },
@@ -240,6 +246,7 @@ fun AddTaskSheet(
                             projects.forEach { project ->
                                 DropdownMenuItem(
                                     text    = { Text(project.title) },
+                                    leadingIcon = { ProjectLeadingIcon(project) },
                                     onClick = {
                                         selectedProjectId = project.id
                                         selectedSectionId = null
@@ -271,6 +278,8 @@ fun AddTaskSheet(
                             DropdownMenu(
                                 expanded         = showSectionMenu,
                                 onDismissRequest = { showSectionMenu = false },
+                                shape            = MenuShape,
+                                containerColor   = MaterialTheme.colorScheme.surface,
                             ) {
                                 DropdownMenuItem(
                                     text    = { Text("No section") },
@@ -304,9 +313,10 @@ fun AddTaskSheet(
                             val (iconRes, chipLabel) = when {
                                 group == TaskGroup.TODAY        -> R.drawable.ic_nav_today    to "Today"
                                 group == TaskGroup.THIS_EVENING -> R.drawable.ic_nav_evening  to "This Evening"
+                                group == TaskGroup.SOMEDAY      -> R.drawable.ic_nav_someday  to "Someday"
                                 dueDate != null                 -> R.drawable.ic_nav_anytime to
                                     dueDate!!.format(DateTimeFormatter.ofPattern("d MMM"))
-                                else                            -> R.drawable.ic_nav_someday  to "Someday"
+                                else                            -> R.drawable.ic_nav_anytime  to "No date"
                             }
                             Icon(painter = painterResource(iconRes), contentDescription = null, tint = Color.Unspecified, modifier = Modifier.size(14.dp))
                             Spacer(Modifier.width(4.dp))
@@ -346,6 +356,8 @@ fun AddTaskSheet(
                     DropdownMenu(
                         expanded         = showPriorityMenu,
                         onDismissRequest = { showPriorityMenu = false },
+                        shape            = MenuShape,
+                        containerColor   = MaterialTheme.colorScheme.surface,
                     ) {
                         listOf(
                             TaskPriority.HIGH   to "🔴 High",
@@ -433,10 +445,12 @@ fun AddTaskSheet(
             initialDate    = dueDate,
             onDateSelected = { picked ->
                 dueDate = picked
+                // Clearing the date means "no date", not Someday: Someday is a deliberate
+                // choice the user makes in the picker, never a fallback for an empty value.
                 group = when {
-                    picked == null              -> TaskGroup.SOMEDAY
-                    picked == LocalDate.now()   -> TaskGroup.TODAY
-                    else                        -> TaskGroup.ANYTIME
+                    picked == null            -> null
+                    picked == LocalDate.now() -> TaskGroup.TODAY
+                    else                      -> TaskGroup.ANYTIME
                 }
                 showDatePicker = false
             },
@@ -462,6 +476,33 @@ private fun AddTaskSheetPreview() {
             tags      = MockData.tags,
             onAdd     = { _, _, _, _, _, _, _, _, _ -> },
             onDismiss = {},
+        )
+    }
+}
+
+// ── Menu helpers ──────────────────────────────────────────────────────────────
+
+/** Menus default to CornerExtraSmall (4dp), which reads as square next to the rest of the
+ *  sheet. Passing shape and containerColor explicitly also pins the surface away from the
+ *  tonal M3 menu container, which rendered lavender against this white sheet. */
+private val MenuShape = RoundedCornerShape(14.dp)
+
+@Composable
+private fun ProjectLeadingIcon(project: Project) {
+    val icon = when (project.type) {
+        ProjectType.LIST -> Icons.AutoMirrored.Outlined.FormatListBulleted
+        ProjectType.NOTE -> Icons.AutoMirrored.Outlined.Article
+        else             -> Icons.Outlined.FolderOpen
+    }
+    if (project.iconEmoji.isNotBlank()) {
+        Text(project.iconEmoji, style = MaterialTheme.typography.bodyMedium)
+    } else {
+        Icon(
+            imageVector        = icon,
+            contentDescription = null,
+            modifier           = Modifier.size(18.dp),
+            tint               = runCatching { Color(android.graphics.Color.parseColor(project.colorHex)) }
+                .getOrDefault(MaterialTheme.colorScheme.onSurfaceVariant),
         )
     }
 }
