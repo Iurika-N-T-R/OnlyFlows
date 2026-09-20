@@ -1,6 +1,12 @@
 package com.onlyflows.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -24,7 +30,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalDensity
@@ -38,6 +46,7 @@ import com.onlyflows.data.mock.MockData
 import com.onlyflows.domain.model.ChecklistItem
 import com.onlyflows.domain.model.Tag
 import com.onlyflows.domain.model.Task
+import com.onlyflows.ui.theme.rememberReducedMotion
 import com.onlyflows.ui.theme.*
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -476,43 +485,67 @@ fun TaskCheckbox(
     onToggle: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val haptic = LocalHapticFeedback.current
+    val haptic        = LocalHapticFeedback.current
+    val reducedMotion = rememberReducedMotion()
+    val checked       = isCompleted || isSelected
 
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = modifier
-            .size(22.dp)
-            .then(
-                if (isCompleted || isSelected)
-                    Modifier
-                        .clip(RoundedCornerShape(5.dp))
-                        .background(if (isSelected) accentColor else accentColor.copy(alpha = 0.18f))
-                else
-                    Modifier
-            )
-            .clickable {
-                if (!isCompleted) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                onToggle()
-            },
-    ) {
-        when {
-            isSelected || isCompleted -> {
-                // Coloured background (applied above) + white checkmark SVG
-                Icon(
-                    painter            = painterResource(R.drawable.ic_task_checkmark),
-                    contentDescription = null,
-                    tint               = if (isSelected) Color.White else accentColor,
-                    modifier           = Modifier.size(14.dp),
-                )
-            }
-            else -> {
-                // Unchecked border SVG, tinted to accent color
-                Icon(
-                    painter            = painterResource(R.drawable.ic_task_unchecked),
-                    contentDescription = null,
-                    tint               = MaterialTheme.colorScheme.outlineVariant,
-                    modifier           = Modifier.size(22.dp),
-                )
+    val background by animateColorAsState(
+        targetValue = when {
+            isSelected  -> accentColor
+            isCompleted -> accentColor.copy(alpha = 0.18f)
+            else        -> Color.Transparent
+        },
+        animationSpec = if (reducedMotion) snap() else tween(180),
+        label = "checkboxBackground",
+    )
+    // One driver for both the mark scaling in and the empty border fading out, so they
+    // can never fall out of sync. The bouncy spring overshoots 1f, giving the tick its pop.
+    val mark by animateFloatAsState(
+        targetValue   = if (checked) 1f else 0f,
+        animationSpec = if (reducedMotion) snap() else spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness    = Spring.StiffnessMediumLow,
+        ),
+        label = "checkboxMark",
+    )
+
+    // The 22dp visual sits far under the 48dp minimum touch target. The hit area is an
+    // unclipped 48dp box overflowing it, which enlarges the target without taking extra
+    // space in the row — so no title or divider shifts.
+    Box(contentAlignment = Alignment.Center, modifier = modifier.size(22.dp)) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .requiredSize(48.dp)
+                .clip(CircleShape)
+                .clickable {
+                    if (!isCompleted) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onToggle()
+                },
+        ) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(22.dp)
+                    .clip(RoundedCornerShape(5.dp))
+                    .background(background),
+            ) {
+                if (mark < 1f) {
+                    Icon(
+                        painter            = painterResource(R.drawable.ic_task_unchecked),
+                        contentDescription = null,
+                        tint               = MaterialTheme.colorScheme.outlineVariant,
+                        modifier           = Modifier.size(22.dp).alpha((1f - mark).coerceIn(0f, 1f)),
+                    )
+                }
+                if (mark > 0f) {
+                    Icon(
+                        painter            = painterResource(R.drawable.ic_task_checkmark),
+                        contentDescription = null,
+                        tint               = if (isSelected) Color.White else accentColor,
+                        modifier           = Modifier.size(14.dp).scale(mark),
+                    )
+                }
             }
         }
     }
