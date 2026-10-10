@@ -133,6 +133,8 @@ fun ProjectDetailScreen(
     onListClick: (String) -> Unit = {},
     onBack: () -> Unit = {},
     onNoteSelected: ((noteId: String, projectId: String) -> Unit)? = null,
+    /** Opens the edit sheet as soon as the screen appears. */
+    openEditOnStart: Boolean = false,
     viewModel: ProjectDetailViewModel = viewModel(),
 ) {
     LaunchedEffect(projectId) { viewModel.loadProject(projectId) }
@@ -145,6 +147,8 @@ fun ProjectDetailScreen(
     var showStatusMenu       by remember { mutableStateOf(false) }
     var showProjectMenu     by remember { mutableStateOf(false) }
     var showEditProject     by remember { mutableStateOf(false) }
+    // Opened straight from the sidebar's long-press menu, which has no detail screen of its own.
+    LaunchedEffect(openEditOnStart) { if (openEditOnStart) showEditProject = true }
     var showAddSection        by remember { mutableStateOf(false) }
     var showReorderSections   by remember { mutableStateOf(false) }
 
@@ -1243,8 +1247,8 @@ private fun ProjectEditSheet(
 
     val colorCtx     = LocalContext.current
     val colorScope   = rememberCoroutineScope()
-    val appPrefs     = remember { (colorCtx.applicationContext as com.onlyflows.OnlyFlowsApp).container.appPreferences }
-    val savedColors by appPrefs.savedColors.collectAsStateWithLifecycle(initialValue = emptyList())
+    val colorRepo    = remember { (colorCtx.applicationContext as com.onlyflows.OnlyFlowsApp).container.savedColorRepository }
+    val savedColors by colorRepo.observeAll().collectAsStateWithLifecycle(initialValue = emptyList())
     var dueDate     by remember(project.id) { mutableStateOf(project.dueDate) }
     var iconEmoji   by remember(project.id) { mutableStateOf(project.iconEmoji) }
     var showDatePicker by remember { mutableStateOf(false) }
@@ -1292,8 +1296,8 @@ private fun ProjectEditSheet(
                 selected           = colorHex,
                 onSelect           = { colorHex = it },
                 savedColors        = savedColors,
-                onSaveColor        = { colorScope.launch { appPrefs.saveColor(it) } },
-                onRemoveSavedColor = { colorScope.launch { appPrefs.removeSavedColor(it) } },
+                onSaveColor        = { colorScope.launch { colorRepo.save(it) } },
+                onRemoveSavedColor = { colorScope.launch { colorRepo.remove(it) } },
             )
             Spacer(Modifier.height(12.dp))
             // Deadline row

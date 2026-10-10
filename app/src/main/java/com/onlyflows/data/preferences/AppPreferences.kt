@@ -17,9 +17,6 @@ import kotlinx.coroutines.flow.map
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
-/** Beyond this the swatch row stops being a palette and becomes a second problem. */
-private const val MAX_SAVED_COLORS = 24
-
 private val Context.appDataStore:       DataStore<Preferences> by preferencesDataStore(name = "app_prefs")
 private val Context.notifDataStore:     DataStore<Preferences> by preferencesDataStore(name = "notification_prefs")
 private val Context.sidebarDataStore:   DataStore<Preferences> by preferencesDataStore(name = "sidebar_prefs")
@@ -73,27 +70,10 @@ class AppPreferences(private val context: Context) {
         context.appDataStore.edit { it[key] = value }
     }
 
-    /** The user's own colour swatches, newest first. Stored as one ordered string because a
-     *  Set would lose the order, and the order is the whole point of a palette. */
+    /** Legacy store, read once at startup and migrated into Room so the palette can sync.
+     *  Nothing writes here any more — see SavedColorRepository. */
     val savedColors: Flow<List<String>> = context.appDataStore.data.map { prefs ->
         prefs[SAVED_COLORS]?.split(',')?.filter { it.isNotBlank() } ?: emptyList()
-    }
-
-    suspend fun saveColor(hex: String) {
-        val clean = hex.uppercase()
-        context.appDataStore.edit { prefs ->
-            val current = prefs[SAVED_COLORS]?.split(',')?.filter { it.isNotBlank() } ?: emptyList()
-            prefs[SAVED_COLORS] = (listOf(clean) + current.filterNot { it.equals(clean, true) })
-                .take(MAX_SAVED_COLORS)
-                .joinToString(",")
-        }
-    }
-
-    suspend fun removeSavedColor(hex: String) {
-        context.appDataStore.edit { prefs ->
-            val current = prefs[SAVED_COLORS]?.split(',')?.filter { it.isNotBlank() } ?: emptyList()
-            prefs[SAVED_COLORS] = current.filterNot { it.equals(hex, true) }.joinToString(",")
-        }
     }
 
     val rssRefreshIntervalMinutes: Flow<Long> = context.appDataStore.data.map { it[RSS_INTERVAL] ?: 30L }

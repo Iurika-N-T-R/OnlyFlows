@@ -33,6 +33,15 @@ class OnlyFlowsApp : Application() {
             val interval = container.appPreferences.rssRefreshIntervalMinutes.first()
             if (interval > 0L) com.onlyflows.data.rss.RssSyncWorker.schedule(this@OnlyFlowsApp, interval)
         }
+        // Saved colours moved from DataStore to Room in 0.83.0 so they sync; carry over
+        // whatever the previous version had stored. No-op once the table has rows.
+        CoroutineScope(Dispatchers.IO).launch {
+            runCatching {
+                container.savedColorRepository.importLegacy(
+                    container.appPreferences.savedColors.first()
+                )
+            }.onFailure { AppLog.e("OnlyFlowsApp", "Saved colour import failed", it) }
+        }
         ReminderReceiver.ensureChannels(this)
         // Alarms are volatile (wiped by force-stop / OEM killers); re-arm everything from DB state.
         CoroutineScope(Dispatchers.IO).launch {

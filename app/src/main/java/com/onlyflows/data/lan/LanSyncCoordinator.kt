@@ -242,6 +242,7 @@ class LanSyncCoordinator(
             put("goalLogs",       syncDao.getGoalLogsChangedSince(since).toJsonArray { it.toJson() })
             put("dateTrackers",   syncDao.getDateTrackersChangedSince(since).toJsonArray { it.toJson() })
             put("attachments",    syncDao.getAttachmentsChangedSince(since).toJsonArray { it.toJson() })
+            put("savedColors",    syncDao.getSavedColorsChangedSince(since).toJsonArray { it.toJson() })
             put("tombstones",     syncDao.getTombstonesSince(since).toJsonArray {
                 JSONObject().put("entityType", it.entityType).put("entityId", it.entityId).put("deletedAt", it.deletedAt.toString())
             })
@@ -302,6 +303,7 @@ class LanSyncCoordinator(
         // Attachments carry no URI across the wire: the bytes are fetched from the peer and
         // stored locally, and the row is only written once the file is actually on disk, so a
         // failed transfer retries on the next poll instead of leaving a dead attachment.
+        delta.forEachArray("savedColors")    { o -> upsertIfNewer(o, "saved_colors", "updatedAt", syncDao::getSavedColorUpdatedAt) { syncDao.upsertSavedColor(savedColorEntityFromJson(o)) } }
         delta.forEachArray("attachments")    { o -> applyAttachment(o, senderIp) }
         // Remote deltas bypass the repositories, so refresh widgets + re-arm alarms explicitly
         com.onlyflows.ui.widget.WidgetUpdater.updateAll(context)
@@ -365,6 +367,7 @@ class LanSyncCoordinator(
         "goals"           -> syncDao.deleteGoal(id)
         "goal_logs"       -> syncDao.deleteGoalLog(id)
         "date_trackers"   -> syncDao.deleteDateTracker(id)
+        "saved_colors"    -> syncDao.deleteSavedColor(id)
         "attachments"     -> {
             syncDao.deleteAttachment(id)
             AttachmentStore.deleteFor(context, id)

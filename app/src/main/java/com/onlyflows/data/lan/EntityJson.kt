@@ -365,6 +365,20 @@ fun attachmentEntityFromJson(j: JSONObject, localUri: String) = AttachmentEntity
     syncedFrom = if (j.isNull("syncedFrom")) null else j.optString("syncedFrom"),
 )
 
+// ── SavedColorEntity ──────────────────────────────────────────────────────────
+
+fun SavedColorEntity.toJson(): JSONObject = JSONObject().apply {
+    put("id", id)
+    put("sortOrder", sortOrder)
+    put("updatedAt", updatedAt.toString())
+}
+
+fun savedColorEntityFromJson(j: JSONObject) = SavedColorEntity(
+    id        = j.getString("id"),
+    sortOrder = j.optInt("sortOrder", 0),
+    updatedAt = j.getLocalDateTime("updatedAt"),
+)
+
 // ── Tombstone updatedAt helpers ───────────────────────────────────────────────
 
 fun JSONObject.getUpdatedAt(): LocalDateTime = runCatching {

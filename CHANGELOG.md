@@ -5,6 +5,26 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.83.0] — 2026-10-10 · Palette synchronisée
+
+### Ajouté
+
+- **Les couleurs sauvegardées se synchronisent entre appareils.** Elles vivaient dans DataStore : une palette construite sur le téléphone n'existait pas sur la tablette. Elles deviennent une entité Room (`saved_colors`) et voyagent dans le delta LAN comme le reste. Le hex sert d'identifiant, donc la même couleur sauvegardée sur deux appareils est la même ligne et les deux palettes convergent au lieu d'accumuler des doublons. Les couleurs déjà enregistrées en 0.81.0 sont reprises automatiquement au premier lancement.
+- **« Edit » dans le menu d'appui long d'une liste** de la sidebar, qui ouvre directement la feuille d'édition. Il fallait jusque-là ouvrir la liste puis passer par son menu ⋯.
+
+### Corrigé
+
+- **Le projet actif n'était jamais mis en surbrillance dans la sidebar.** La comparaison portait sur `destination.route`, qui vaut le motif `project/{projectId}` et jamais le chemin rempli : la condition était donc toujours fausse. Elle compare maintenant l'argument `projectId`.
+
+### Technique
+
+- Base de données v40 -> **v41** (`migration40to41`) : table `saved_colors`.
+- `SavedColorRepository`, `SavedColorDao`, entrées `savedColors` dans `buildDelta` / `applyDelta` / `applyDelete`.
+- `AppPreferences.savedColors` ne sert plus qu'à la reprise unique ; ses écritures sont supprimées.
+- La route `ProjectDetail` prend un argument optionnel `edit`.
+
+---
+
 ## [0.82.0] — 2026-10-10 · Icônes de listes
 
 ### Ajouté

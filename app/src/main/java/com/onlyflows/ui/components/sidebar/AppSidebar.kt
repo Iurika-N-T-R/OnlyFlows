@@ -116,6 +116,9 @@ fun AppSidebar(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val currentRoute by navController.currentBackStackEntryAsState()
     val route = currentRoute?.destination?.route
+    // destination.route is the pattern ("project/{projectId}"), never the filled path, so
+    // comparing it to createRoute(id) was always false and no project ever looked selected.
+    val currentProjectId = currentRoute?.arguments?.getString("projectId")
 
     var editingFolder         by remember { mutableStateOf<Folder?>(null) }
     var contextProject        by remember { mutableStateOf<Project?>(null) }
@@ -228,7 +231,7 @@ fun AppSidebar(
                                         ProjectItem(
                                             progress    = progress,
                                             indented    = true,
-                                            isSelected  = route == Screen.ProjectDetail.createRoute(progress.project.id),
+                                            isSelected  = currentProjectId == progress.project.id,
                                             onClick     = { onProjectClick(progress.project.id); onItemSelected() },
                                             onLongPress = { contextProject = progress.project },
                                         )
@@ -240,7 +243,7 @@ fun AppSidebar(
                             ProjectItem(
                                 progress           = entry.progress,
                                 indented           = false,
-                                isSelected         = route == Screen.ProjectDetail.createRoute(entry.progress.project.id),
+                                isSelected         = currentProjectId == entry.progress.project.id,
                                 onClick            = { onProjectClick(entry.progress.project.id); onItemSelected() },
                                 onLongPress        = { contextProject = entry.progress.project },
                                 dragHandleModifier = dragMod,
@@ -315,6 +318,10 @@ fun AppSidebar(
         ProjectContextSheet(
             project   = project,
             folders   = state.entries.filterIsInstance<SidebarEntry.FolderHeader>().map { it.folder },
+            onEdit    = {
+                navController.navigate(Screen.ProjectDetail.createRoute(project.id, openEdit = true))
+                onItemSelected()
+            },
             onMove    = { folderId -> viewModel.onEvent(SidebarEvent.MoveProject(project.id, folderId)) },
             onArchive = { viewModel.onEvent(SidebarEvent.ArchiveProject(project.id)) },
             onDelete  = { viewModel.onEvent(SidebarEvent.DeleteProject(project.id)) },
@@ -783,6 +790,7 @@ private fun FolderEditSheet(
 private fun ProjectContextSheet(
     project: Project,
     folders: List<Folder>,
+    onEdit: () -> Unit,
     onMove: (String?) -> Unit,
     onArchive: () -> Unit,
     onDelete: () -> Unit,
@@ -836,6 +844,7 @@ private fun ProjectContextSheet(
                     }
                 }
                 else -> {
+                    ContextAction(Icons.Outlined.Edit, "Edit", onClick = { onEdit(); onDismiss() })
                     ContextAction(Icons.Outlined.DriveFileMove, "Move to area…", onClick = { showMoveMenu = true })
                     ContextAction(Icons.Outlined.Archive, "Archive", onClick = { onArchive(); onDismiss() })
                     ContextAction(Icons.Outlined.DeleteOutline, "Delete", tint = MaterialTheme.colorScheme.error, onClick = { showDeleteConfirm = true })
@@ -883,8 +892,8 @@ private fun ProjectCreateSheet(
 
     val ctx         = LocalContext.current
     val colorScope  = rememberCoroutineScope()
-    val appPrefs    = remember { (ctx.applicationContext as OnlyFlowsApp).container.appPreferences }
-    val savedColors by appPrefs.savedColors.collectAsStateWithLifecycle(initialValue = emptyList())
+    val colorRepo   = remember { (ctx.applicationContext as OnlyFlowsApp).container.savedColorRepository }
+    val savedColors by colorRepo.observeAll().collectAsStateWithLifecycle(initialValue = emptyList())
     var type      by remember { mutableStateOf(ProjectType.PROJECT) }
     var iconEmoji by remember { mutableStateOf("") }
     var showIconPicker by remember { mutableStateOf(false) }
@@ -964,8 +973,8 @@ private fun ProjectCreateSheet(
                 selected           = selected,
                 onSelect           = { selected = it },
                 savedColors        = savedColors,
-                onSaveColor        = { colorScope.launch { appPrefs.saveColor(it) } },
-                onRemoveSavedColor = { colorScope.launch { appPrefs.removeSavedColor(it) } },
+                onSaveColor        = { colorScope.launch { colorRepo.save(it) } },
+                onRemoveSavedColor = { colorScope.launch { colorRepo.remove(it) } },
             )
             Spacer(Modifier.height(16.dp))
             Button(

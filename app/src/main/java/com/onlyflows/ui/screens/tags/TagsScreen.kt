@@ -416,8 +416,8 @@ private fun TagEditDialog(
 
     val context     = LocalContext.current
     val scope       = rememberCoroutineScope()
-    val appPrefs    = remember { (context.applicationContext as OnlyFlowsApp).container.appPreferences }
-    val savedColors by appPrefs.savedColors.collectAsStateWithLifecycle(initialValue = emptyList())
+    val colorRepo   = remember { (context.applicationContext as OnlyFlowsApp).container.savedColorRepository }
+    val savedColors by colorRepo.observeAll().collectAsStateWithLifecycle(initialValue = emptyList())
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -476,8 +476,8 @@ private fun TagEditDialog(
                     selected           = selectedColor,
                     onSelect           = { selectedColor = it },
                     savedColors        = savedColors,
-                    onSaveColor        = { scope.launch { appPrefs.saveColor(it) } },
-                    onRemoveSavedColor = { scope.launch { appPrefs.removeSavedColor(it) } },
+                    onSaveColor        = { scope.launch { colorRepo.save(it) } },
+                    onRemoveSavedColor = { scope.launch { colorRepo.remove(it) } },
                 )
             }
         },

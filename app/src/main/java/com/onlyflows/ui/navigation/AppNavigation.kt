@@ -206,11 +206,15 @@ fun AppNavigation(
 
         composable(
             route = Screen.ProjectDetail.route,
-            arguments = listOf(navArgument("projectId") { type = NavType.StringType })
+            arguments = listOf(
+                navArgument("projectId") { type = NavType.StringType },
+                navArgument("edit") { type = NavType.BoolType; defaultValue = false },
+            )
         ) { backStack ->
             val projectId = backStack.arguments?.getString("projectId") ?: return@composable
             ProjectDetailScreen(
                 projectId       = projectId,
+                openEditOnStart = backStack.arguments?.getBoolean("edit") == true,
                 onTaskClick     = { navigateToTask(it) },
                 onListClick     = { navigateToProject(it) },
                 onBack          = { navController.popBackStack() },

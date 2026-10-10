@@ -315,4 +315,18 @@ interface SyncDao {
 
     @Query("SELECT * FROM date_trackers WHERE createdAt > :since")
     suspend fun getDateTrackersChangedSince(since: java.time.LocalDateTime): List<com.onlyflows.data.local.entity.DateTrackerEntity>
+
+    // ── SavedColorEntity ──────────────────────────────────────────────────────
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertSavedColor(entity: com.onlyflows.data.local.entity.SavedColorEntity)
+
+    @Query("SELECT updatedAt FROM saved_colors WHERE id = :id")
+    suspend fun getSavedColorUpdatedAt(id: String): LocalDateTime?
+
+    @Query("DELETE FROM saved_colors WHERE id = :id")
+    suspend fun deleteSavedColor(id: String)
+
+    @Query("SELECT * FROM saved_colors WHERE updatedAt > :since")
+    suspend fun getSavedColorsChangedSince(since: java.time.LocalDateTime): List<com.onlyflows.data.local.entity.SavedColorEntity>
 }

@@ -38,9 +38,11 @@ sealed class Screen(val route: String) {
         fun createRoute(goalId: String) = "goals/$goalId"
     }
 
-    data object ProjectDetail : Screen("project/{projectId}") {
-        fun createRoute(projectId: String) = "project/$projectId"
+    data object ProjectDetail : Screen("project/{projectId}?edit={edit}") {
+        fun createRoute(projectId: String, openEdit: Boolean = false) =
+            "project/$projectId?edit=$openEdit"
     }
+
     data object TaskDetail    : Screen("task/{taskId}") {
         fun createRoute(taskId: String) = "task/$taskId"
     }

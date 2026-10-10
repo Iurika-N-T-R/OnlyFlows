@@ -152,6 +152,13 @@ class AppContainer(context: Context) {
     val checklistItemReminderRepository: com.onlyflows.data.repository.ChecklistItemReminderRepository =
         com.onlyflows.data.repository.ChecklistItemReminderRepository(db.checklistItemReminderDao(), syncDao, lanSyncWriter)
 
+    val savedColorRepository: com.onlyflows.data.repository.SavedColorRepository =
+        com.onlyflows.data.repository.SavedColorRepository(
+            dao           = db.savedColorDao(),
+            syncDao       = syncDao,
+            lanSyncWriter = lanSyncWriter,
+        )
+
     val attachmentRepository: AttachmentRepository = AttachmentRepository(
         context         = appContext,
         dao             = db.attachmentDao(),
