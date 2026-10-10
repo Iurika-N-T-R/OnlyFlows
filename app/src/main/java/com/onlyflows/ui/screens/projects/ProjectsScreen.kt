@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.onlyflows.domain.model.ProjectStatus
+import com.onlyflows.ui.components.ProjectGlyph
 import com.onlyflows.domain.model.ProjectType
 import com.onlyflows.ui.components.statusIcon
 import com.onlyflows.ui.components.statusLabel
@@ -716,7 +717,7 @@ private fun ProjectTypeIcon(
         catch (e: Exception) { Color(0xFF4A90D9) }
     }
     if (type == ProjectType.LIST && iconEmoji.isNotBlank()) {
-        Text(iconEmoji, style = MaterialTheme.typography.bodyMedium, modifier = modifier.size(size))
+        ProjectGlyph(value = iconEmoji, tint = color, size = size, modifier = modifier)
     } else when (type) {
         ProjectType.PROJECT -> ProjectPieIcon(ratio = ratio, colorHex = colorHex, size = size, modifier = modifier)
         ProjectType.LIST    -> Icon(Icons.Outlined.FormatListBulleted, null, tint = color, modifier = modifier.size(size))

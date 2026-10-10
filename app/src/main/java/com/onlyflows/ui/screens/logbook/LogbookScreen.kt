@@ -369,7 +369,7 @@ private fun LogbookProjectRow(project: Project, onClick: () -> Unit) {
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                text  = project.iconEmoji.ifBlank { project.title.firstOrNull()?.uppercaseChar()?.toString() ?: "P" },
+                text  = com.onlyflows.ui.components.glyphAsText(project.iconEmoji, project.title.firstOrNull()?.uppercaseChar()?.toString() ?: "P"),
                 style = MaterialTheme.typography.labelMedium,
                 color = Color.White,
             )

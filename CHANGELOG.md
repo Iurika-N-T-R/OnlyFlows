@@ -5,6 +5,20 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.82.0] — 2026-10-10 · Icônes de listes
+
+### Ajouté
+
+- **Une liste ou une note porte désormais une icône ou un emoji.** Le champ était un simple texte étiqueté « Icon (emoji) » : il fallait passer par le clavier emoji du système et espérer. Un sélecteur à deux onglets le remplace — **Icons** (80 icônes en 8 catégories, avec recherche) et **Emoji** (80 emoji dans les mêmes catégories). Les icônes prennent la couleur de la liste et s'affichent à l'identique sur tous les appareils, ce que les emoji ne font pas puisqu'ils viennent de la police système.
+- Aucune migration : une icône est stockée dans la colonne `iconEmoji` existante sous la forme `mi:<nom>`, donc elle se synchronise en LAN comme n'importe quel autre champ, et les emoji déjà posés continuent de s'afficher.
+- Coût en taille : **+48 Ko**. `material-icons-extended` était déjà une dépendance du projet et R8 ne conserve que les icônes réellement référencées, donc rien de nouveau n'est embarqué.
+
+### Modifié
+
+- **`EmptyState` accepte une icône à la place d'un emoji.** L'état « journée terminée » de Today et l'état vide de Repeating utilisent maintenant une icône teintée par le thème.
+
+---
+
 ## [0.81.1] — 2026-10-10 · Correctifs
 
 ### Corrigé

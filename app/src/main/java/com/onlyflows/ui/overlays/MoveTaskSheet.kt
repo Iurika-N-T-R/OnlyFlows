@@ -157,7 +157,7 @@ fun MoveTaskSheet(
                             MoveRow(
                                 color     = runCatching { Color(android.graphics.Color.parseColor(project.colorHex)) }.getOrDefault(Color(0xFF4A90D9)),
                                 label     = project.title,
-                                initial   = project.iconEmoji.ifBlank { project.title.firstOrNull()?.uppercaseChar()?.toString() ?: "P" },
+                                initial   = com.onlyflows.ui.components.glyphAsText(project.iconEmoji, project.title.firstOrNull()?.uppercaseChar()?.toString() ?: "P"),
                                 isProject = true,
                                 selected  = false,
                                 onClick   = {

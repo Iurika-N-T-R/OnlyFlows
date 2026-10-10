@@ -36,6 +36,7 @@ import androidx.compose.material.icons.outlined.Unarchive
 import androidx.compose.material.icons.outlined.ArrowDropDown
 import androidx.compose.material.icons.outlined.Article
 import androidx.compose.material.icons.outlined.CalendarToday
+import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.FormatListBulleted
 import androidx.compose.material.icons.outlined.DragIndicator
 import androidx.compose.material.icons.outlined.Label
@@ -65,6 +66,8 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.ui.graphics.SolidColor
 import com.onlyflows.domain.model.ProjectStatus
 import com.onlyflows.ui.components.ColorPickerPanel
+import com.onlyflows.ui.components.ProjectGlyph
+import com.onlyflows.ui.components.parseHexColor
 import com.onlyflows.ui.theme.Motion
 import com.onlyflows.domain.model.ProjectType
 import com.onlyflows.domain.model.Section
@@ -257,7 +260,7 @@ fun ProjectDetailScreen(
                             modifier = Modifier.padding(bottom = 4.dp),
                         ) {
                             if (project.type == ProjectType.LIST && project.iconEmoji.isNotBlank()) {
-                                Text(project.iconEmoji, style = MaterialTheme.typography.headlineSmall)
+                                ProjectGlyph(value = project.iconEmoji, tint = projectColor, size = 24.dp, emojiSize = 22.sp)
                             } else when (project.type) {
                                 ProjectType.PROJECT -> ProjectPieIcon(ratio = animatedProgress, color = projectColor)
                                 ProjectType.LIST    -> Icon(Icons.Outlined.FormatListBulleted, null, tint = projectColor, modifier = Modifier.size(24.dp))
@@ -1099,6 +1102,45 @@ private fun DeadlineBadge(dueDate: LocalDate, createdAt: LocalDate, completedAt:
     }
 }
 
+/** Shows the current list mark and opens the picker; replaces the old emoji-only text box. */
+@Composable
+internal fun IconFieldRow(value: String, accentColor: Color, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        shape   = RoundedCornerShape(10.dp),
+        color   = MaterialTheme.colorScheme.surfaceVariant,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+        ) {
+            Text(
+                text  = "Icon",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+            )
+            if (value.isBlank()) {
+                Text(
+                    text  = "None",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                )
+            } else {
+                ProjectGlyph(value = value, tint = accentColor, size = 22.dp, emojiSize = 20.sp)
+            }
+            Spacer(Modifier.width(8.dp))
+            Icon(
+                imageVector        = Icons.Outlined.ChevronRight,
+                contentDescription = null,
+                tint               = MaterialTheme.colorScheme.outlineVariant,
+                modifier           = Modifier.size(18.dp),
+            )
+        }
+    }
+}
+
 private val doneDateFmt: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM yyyy")
 
 // ── Reorder sections sheet ────────────────────────────────────────────────────
@@ -1197,6 +1239,7 @@ private fun ProjectEditSheet(
     var title       by remember(project.id) { mutableStateOf(project.title) }
     var note        by remember(project.id) { mutableStateOf(project.note) }
     var colorHex    by remember(project.id) { mutableStateOf(project.colorHex) }
+    var showIconPicker by remember { mutableStateOf(false) }
 
     val colorCtx     = LocalContext.current
     val colorScope   = rememberCoroutineScope()
@@ -1230,16 +1273,10 @@ private fun ProjectEditSheet(
             )
             if (project.type == ProjectType.LIST) {
                 Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
-                    value         = iconEmoji,
-                    onValueChange = { new ->
-                        val emoji = new.trim()
-                        if (emoji.length <= 2) iconEmoji = emoji
-                    },
-                    label         = { Text("Icon (emoji)") },
-                    placeholder   = { Text("e.g. 📋") },
-                    singleLine    = true,
-                    modifier      = Modifier.fillMaxWidth(),
+                IconFieldRow(
+                    value       = iconEmoji,
+                    accentColor = parseHexColor(colorHex),
+                    onClick     = { showIconPicker = true },
                 )
             }
             Spacer(Modifier.height(10.dp))
@@ -1379,6 +1416,15 @@ private fun ProjectEditSheet(
             ) { Text("Archive Project") }
             Spacer(Modifier.height(8.dp))
         }
+    }
+
+    if (showIconPicker) {
+        com.onlyflows.ui.overlays.IconPickerSheet(
+            selected    = iconEmoji,
+            accentColor = parseHexColor(colorHex),
+            onSelect    = { iconEmoji = it },
+            onDismiss   = { showIconPicker = false },
+        )
     }
 
     if (showDatePicker) {
@@ -1551,7 +1597,7 @@ private fun ChildListCard(
                             modifier = Modifier.fillMaxSize().background(listColor.copy(alpha = 0.14f)),
                         ) {
                             if (list.iconEmoji.isNotBlank()) {
-                                Text(list.iconEmoji, style = MaterialTheme.typography.headlineMedium)
+                                ProjectGlyph(value = list.iconEmoji, tint = listColor, size = 28.dp, emojiSize = 26.sp)
                             } else {
                                 Icon(Icons.Outlined.FormatListBulleted, null, tint = listColor, modifier = Modifier.size(28.dp))
                             }

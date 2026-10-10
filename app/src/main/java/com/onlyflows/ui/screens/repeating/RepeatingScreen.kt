@@ -95,7 +95,8 @@ fun RepeatingScreen(
                 modifier = Modifier.fillMaxSize().padding(padding),
             ) {
                 EmptyState(
-                    emoji    = "🔁",
+                    icon     = Icons.Outlined.Autorenew,
+                    iconTint = RepeatBlue.copy(alpha = 0.6f),
                     title    = "No repeating to-dos",
                     subtitle = "Tasks you set to repeat gather here, so you can review the whole set at once.",
                 )
@@ -158,7 +159,7 @@ private fun GroupRow(project: Project?) {
                     modifier           = Modifier.size(18.dp),
                 )
             } else if (project.iconEmoji.isNotBlank()) {
-                Text(project.iconEmoji, style = MaterialTheme.typography.bodyLarge)
+                com.onlyflows.ui.components.ProjectGlyph(value = project.iconEmoji, tint = color, size = 18.dp)
             } else {
                 Icon(
                     imageVector = when (project.type) {

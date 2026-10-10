@@ -147,9 +147,10 @@ fun SmartMoveSheet(
                     // ── Projects ──────────────────────────────────────────────
                     items(projects, key = { it.id }) { project ->
                         SmartMoveRow(
-                            emoji   = project.iconEmoji.ifBlank {
-                                project.title.firstOrNull()?.uppercaseChar()?.toString() ?: "P"
-                            },
+                            emoji   = com.onlyflows.ui.components.glyphAsText(
+                                project.iconEmoji,
+                                project.title.firstOrNull()?.uppercaseChar()?.toString() ?: "P",
+                            ),
                             color   = runCatching {
                                 Color(android.graphics.Color.parseColor(project.colorHex))
                             }.getOrDefault(Color(0xFF4A90D9)),

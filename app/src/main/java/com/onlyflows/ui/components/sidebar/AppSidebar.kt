@@ -50,6 +50,8 @@ import sh.calvin.reorderable.rememberReorderableLazyListState
 import androidx.compose.ui.platform.LocalContext
 import com.onlyflows.OnlyFlowsApp
 import com.onlyflows.ui.components.ColorPickerPanel
+import com.onlyflows.ui.components.ProjectGlyph
+import com.onlyflows.ui.components.parseHexColor
 import com.onlyflows.ui.components.FlowPalette
 import com.onlyflows.ui.navigation.Screen
 import com.onlyflows.ui.theme.FlowGold
@@ -594,7 +596,7 @@ private fun ProjectItem(
             .padding(horizontal = 10.dp, vertical = 7.dp),
     ) {
         if (project.type == ProjectType.LIST && project.iconEmoji.isNotBlank()) {
-            Text(project.iconEmoji, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.size(18.dp))
+            ProjectGlyph(value = project.iconEmoji, tint = color, size = 18.dp)
         } else when (project.type) {
             ProjectType.PROJECT -> PieProgressIcon(ratio = progress.ratio, color = color, size = 18)
             ProjectType.LIST    -> Icon(Icons.Outlined.FormatListBulleted, null, tint = color, modifier = Modifier.size(18.dp))
@@ -885,6 +887,7 @@ private fun ProjectCreateSheet(
     val savedColors by appPrefs.savedColors.collectAsStateWithLifecycle(initialValue = emptyList())
     var type      by remember { mutableStateOf(ProjectType.PROJECT) }
     var iconEmoji by remember { mutableStateOf("") }
+    var showIconPicker by remember { mutableStateOf(false) }
 
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surface) {
         Column(
@@ -950,16 +953,10 @@ private fun ProjectCreateSheet(
             )
             if (type == ProjectType.LIST) {
                 Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
-                    value         = iconEmoji,
-                    onValueChange = { new ->
-                        val emoji = new.trim()
-                        if (emoji.length <= 2) iconEmoji = emoji
-                    },
-                    label         = { Text("Icon (emoji)") },
-                    placeholder   = { Text("e.g. 📋") },
-                    singleLine    = true,
-                    modifier      = Modifier.fillMaxWidth(),
+                com.onlyflows.ui.screens.project.IconFieldRow(
+                    value       = iconEmoji,
+                    accentColor = parseHexColor(selected),
+                    onClick     = { showIconPicker = true },
                 )
             }
             Spacer(Modifier.height(12.dp))
@@ -978,6 +975,15 @@ private fun ProjectCreateSheet(
             ) { Text("Create") }
             Spacer(Modifier.height(8.dp))
         }
+    }
+
+    if (showIconPicker) {
+        com.onlyflows.ui.overlays.IconPickerSheet(
+            selected    = iconEmoji,
+            accentColor = parseHexColor(selected),
+            onSelect    = { iconEmoji = it },
+            onDismiss   = { showIconPicker = false },
+        )
     }
 }
 

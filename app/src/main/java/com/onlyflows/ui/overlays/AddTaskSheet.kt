@@ -761,7 +761,11 @@ private fun ProjectLeadingIcon(project: Project) {
         else             -> Icons.Outlined.FolderOpen
     }
     if (project.iconEmoji.isNotBlank()) {
-        Text(project.iconEmoji, style = MaterialTheme.typography.bodyMedium)
+        com.onlyflows.ui.components.ProjectGlyph(
+            value = project.iconEmoji,
+            tint  = runCatching { Color(android.graphics.Color.parseColor(project.colorHex)) }
+                .getOrDefault(MaterialTheme.colorScheme.onSurfaceVariant),
+        )
     } else {
         Icon(
             imageVector        = icon,

@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.DoNotDisturbAlt
 import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.Search
@@ -295,11 +296,15 @@ fun TodayScreen(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier.fillParentMaxWidth(),
                     ) {
+                        // The finished-day state uses an icon rather than a party emoji:
+                        // it takes the theme's colour and renders the same on every device.
                         EmptyState(
-                            emoji    = if (finishedSomething) "🎉" else "⭐",
                             title    = if (finishedSomething) "All done for today" else "Nothing for today",
                             subtitle = if (finishedSomething) "Everything you planned is behind you."
                                        else "Enjoy your free time, or add a task.",
+                            emoji    = if (finishedSomething) null else "⭐",
+                            icon     = if (finishedSomething) Icons.Outlined.CheckCircle else null,
+                            iconTint = if (finishedSomething) MaterialTheme.colorScheme.primary else null,
                         )
                     }
                 }
