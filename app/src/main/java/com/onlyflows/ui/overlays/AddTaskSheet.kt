@@ -1,6 +1,7 @@
 package com.onlyflows.ui.overlays
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -124,30 +125,54 @@ fun AddTaskSheet(
                 .imePadding()
                 .padding(horizontal = 20.dp, vertical = 16.dp),
         ) {
-            // Title input
-            BasicTextField(
-                value = title,
-                onValueChange = { title = it },
-                textStyle = MaterialTheme.typography.titleMedium.copy(
-                    color      = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.Medium,
-                ),
-                cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                decorationBox = { inner ->
-                    if (title.isEmpty()) {
-                        Text(
-                            "New To-Do",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                        )
-                    }
-                    inner()
-                },
-                singleLine = false,
-                modifier   = Modifier
-                    .fillMaxWidth()
-                    .focusRequester(focusRequester),
-            )
+            // Title line — the empty checkbox states what is being written without a label,
+            // and the close button gives a way out that does not depend on the scrim.
+            Row(verticalAlignment = Alignment.Top, modifier = Modifier.fillMaxWidth()) {
+                Box(
+                    modifier = Modifier
+                        .padding(top = 3.dp)
+                        .size(18.dp)
+                        .clip(RoundedCornerShape(5.dp))
+                        .border(1.5.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(5.dp)),
+                )
+                Spacer(Modifier.width(12.dp))
+                BasicTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    textStyle = MaterialTheme.typography.titleMedium.copy(
+                        color      = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.Medium,
+                    ),
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                    decorationBox = { inner ->
+                        if (title.isEmpty()) {
+                            Text(
+                                "New To-Do",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                            )
+                        }
+                        inner()
+                    },
+                    singleLine = false,
+                    modifier   = Modifier
+                        .weight(1f)
+                        .focusRequester(focusRequester),
+                )
+                Spacer(Modifier.width(8.dp))
+                Surface(
+                    onClick = onDismiss,
+                    shape   = CircleShape,
+                    color   = MaterialTheme.colorScheme.surfaceVariant,
+                ) {
+                    Icon(
+                        imageVector        = Icons.Outlined.Close,
+                        contentDescription = "Close",
+                        tint               = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier           = Modifier.padding(4.dp).size(16.dp),
+                    )
+                }
+            }
 
             // ── Inline #tag completion ───────────────────────────────────────────
             // Typing "#yo" at a word boundary offers the matching tags instead of forcing a
@@ -238,31 +263,47 @@ fun AddTaskSheet(
                     inner()
                 },
                 singleLine = false,
-                modifier   = Modifier.fillMaxWidth(),
+                modifier   = Modifier.fillMaxWidth().padding(start = 30.dp),
             )
 
             // ── Checklist items (shown when toggled) ─────────────────────────────
             if (showChecklist) {
                 Spacer(Modifier.height(8.dp))
                 checklistItems.forEachIndexed { index, item ->
+                    HorizontalDivider(
+                        modifier  = Modifier.padding(start = 30.dp),
+                        color     = MaterialTheme.colorScheme.outlineVariant,
+                        thickness = 0.5.dp,
+                    )
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                        modifier = Modifier.fillMaxWidth().padding(start = 30.dp, top = 7.dp, bottom = 7.dp),
                     ) {
-                        Icon(Icons.Outlined.CheckBoxOutlineBlank, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Spacer(Modifier.width(8.dp))
+                        // Open circle, same mark the real checklist uses once the task exists
+                        Box(
+                            modifier = Modifier
+                                .size(15.dp)
+                                .clip(CircleShape)
+                                .border(1.5.dp, MaterialTheme.colorScheme.primary, CircleShape),
+                        )
+                        Spacer(Modifier.width(10.dp))
                         Text(item, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                         IconButton(onClick = { checklistItems = checklistItems.toMutableList().also { it.removeAt(index) } }, modifier = Modifier.size(24.dp)) {
-                            Icon(Icons.Outlined.Close, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Icon(Icons.Outlined.Close, null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f))
                         }
                     }
                 }
+                HorizontalDivider(
+                    modifier  = Modifier.padding(start = 30.dp),
+                    color     = MaterialTheme.colorScheme.outlineVariant,
+                    thickness = 0.5.dp,
+                )
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                    modifier = Modifier.fillMaxWidth().padding(start = 30.dp, top = 7.dp, bottom = 2.dp),
                 ) {
-                    Icon(Icons.Outlined.Add, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
-                    Spacer(Modifier.width(8.dp))
+                    Icon(Icons.Outlined.Add, null, modifier = Modifier.size(15.dp), tint = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.width(10.dp))
                     BasicTextField(
                         value = checklistDraft,
                         onValueChange = { checklistDraft = it },
@@ -430,14 +471,18 @@ fun AddTaskSheet(
                 }
             }
 
-            // ── Action buttons row ───────────────────────────────────────────────
-            // Date chip plus seven icons overflow 360dp, which is what clipped the last
-            // button before. Scrolling the row keeps every action reachable.
+            // ── Footer ───────────────────────────────────────────────────────────
+            // Save never scrolls away: the actions take whatever width is left and scroll
+            // among themselves, which is what used to clip the last button off the screen.
+            Spacer(Modifier.height(10.dp))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
+            Spacer(Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Row(
                 verticalAlignment     = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
                 modifier = Modifier
-                    .fillMaxWidth()
+                    .weight(1f)
                     .horizontalScroll(rememberScrollState()),
             ) {
                 // Date group chip
@@ -568,28 +613,25 @@ fun AddTaskSheet(
                             MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
                     )
                 }
-                // Submit button
-                IconButton(
-                    onClick  = {
+            }
+
+                Spacer(Modifier.width(8.dp))
+                Button(
+                    onClick = {
                         if (title.isNotBlank()) {
                             val finalItems = if (checklistDraft.isNotBlank()) checklistItems + checklistDraft.trim() else checklistItems
                             onAdd(taskId, title.trim(), note.trim(), group, dueDate, dueTime, endTime, priority, selectedProjectId, selectedSectionId, finalItems, selectedTagIds)
-                                pendingReminder?.let { (at, locId, rec) ->
-                                    onAddReminderForTask?.invoke(taskId, at, locId, rec)
-                                }
+                            pendingReminder?.let { (at, locId, rec) ->
+                                onAddReminderForTask?.invoke(taskId, at, locId, rec)
+                            }
                             onDismiss()
                         }
                     },
                     enabled  = title.isNotBlank(),
+                    shape    = CircleShape,
+                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
                 ) {
-                    Icon(
-                        imageVector        = Icons.Outlined.Send,
-                        contentDescription = "Add task",
-                        tint               = if (title.isNotBlank())
-                            MaterialTheme.colorScheme.primary
-                        else
-                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
-                    )
+                    Text("Save", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
                 }
             }
         }

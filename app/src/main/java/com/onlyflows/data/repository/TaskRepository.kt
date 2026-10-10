@@ -187,6 +187,9 @@ class TaskRepository(
     fun observeOverdue(): Flow<List<Task>> =
         taskDao.observeOverdueWithItems(java.time.LocalDate.now().toString()).map { list -> list.map { it.toDomain() } }
 
+    fun observeRecurring(): Flow<List<Task>> =
+        taskDao.observeRecurringWithItems().map { list -> list.map { it.toDomain() } }
+
     fun observeInbox(): Flow<List<Task>> =
         taskDao.observeInboxWithItems().map { list -> list.map { it.toDomain() } }
 

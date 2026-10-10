@@ -5,6 +5,37 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.81.0] — 2026-10-10 · Couleurs, créneaux horaires, liste Repeating
+
+### Ajouté
+
+- **Une seule palette de couleurs pour les listes et les tags.** Trois strips codées en dur cohabitaient (12 couleurs pour les tags, 8 pour la création de liste, 8 pour l'édition de projet) : « le bleu » désignait trois bleus différents selon l'écran, et un projet ne pouvait pas recevoir la couleur d'un tag. `ColorPickerPanel` apporte 30 couleurs (10 teintes × 3 nuances — les nuances comptent plus que des teintes supplémentaires : douze couleurs saturées crient toutes aussi fort), un mixeur Teinte/Saturation/Luminosité sur rails dégradés, un champ hex, et une rangée « My colours » de 24 couleurs sauvegardées. Les couleurs sauvegardées sont locales à l'appareil (DataStore), pas synchronisées.
+- **Liste « Repeating ».** Toutes les tâches récurrentes au même endroit, groupées par projet. Une règle de récurrence est un engagement pris une fois puis perdu de vue : elle ne refaisait surface que sous la forme de l'occurrence du moment, éparpillée entre Today et Upcoming. Accessible depuis la sidebar, masquable dans Réglages → Général.
+- **Today se découpe par créneau horaire.** Les tâches sans heure ouvrent la liste sans en-tête, puis viennent This Morning (< 12 h), This Afternoon (12–18 h) et This Evening (≥ 18 h), chaque section nommée disparaît lorsqu'elle est vide. Un choix explicite « This Evening » l'emporte sur l'horloge : l'utilisateur a déjà dit quand il comptait s'y mettre.
+- **Compteur sur les sections de checklist** d'une tâche, comme sur les sections de projet.
+
+### Modifié
+
+- **L'icône de récurrence passe devant le titre**, en couleur d'accent et en 15dp. C'était un glyphe gris de 13dp perdu parmi huit indicateurs en fin de ligne — « ça revient » était la seule chose sur la tâche qu'on ne pouvait pas voir d'un coup d'œil.
+- **Feuille d'ajout réagencée.** Checkbox vide + titre + croix de fermeture sur la première ligne, notes alignées dessous, sous-tâches en cercles ouverts avec séparateurs (la même marque que la vraie checklist), et un pied séparé où les actions défilent à gauche pendant que le bouton **Save** reste épinglé à droite. Tous les boutons existants sont conservés.
+- **Today : l'état de fin revient.** Il était supprimé dès qu'une tâche était cochée, ce qui laissait une unique ligne « Completed (n) » repliée flottant au milieu de l'écran. Dès qu'il n'y a plus rien en attente, l'état s'affiche et Completed / Won't do s'ouvrent d'eux-mêmes sous un en-tête simple.
+- **Onglet Archived d'un projet : Restore prend la place de la checkbox.** Cocher une tâche archivée n'a aucun sens, et le bouton « Restore » détaché doublait la hauteur de chaque item. Même traitement pour la section « Won't do » de Today, dont la checkbox ne faisait rien.
+
+### Corrigé
+
+- **L'animation de la checkbox ne pouvait jamais jouer.** Elle était pilotée par `isCompleted`, et cocher une tâche retire sa ligne de la liste sur la frame même où le nouvel état arrive : le problème n'était pas l'absence d'animation mais l'absence de temps pour l'animer. La checkbox part désormais du tap et non de l'aller-retour base de données, avec un effet de squash-and-stretch sur 600 ms.
+
+### Technique
+
+- `Motion` (nouveau) : durées et easing partagés, tous branchés sur `rememberReducedMotion`.
+- FAB : enfoncement à l'appui, icône qui pivote, apparition en scale+fade au lieu d'un retrait brutal du layout.
+- Anneau de progression d'un projet : balaye vers son nouvel angle au lieu de sauter.
+- `TaskItem` reçoit un `leadingAction` qui remplace la checkbox.
+- `TaskDao.observeRecurringWithItems()` + `TaskRepository.observeRecurring()`.
+- Pas de migration de base : aucun changement de schéma dans cette version.
+
+---
+
 ## [0.80.0] — 2026-10-10 · Dossiers de tags, pièces jointes réelles, années visibles
 
 ### Ajouté

@@ -2,6 +2,8 @@ package com.onlyflows.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
@@ -34,6 +36,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -64,6 +67,9 @@ fun TaskItem(
      *  so the drag gesture isn't consumed before the reorderable library can intercept it. */
     isDraggable: Boolean = false,
     checkboxColor: Color = MaterialTheme.colorScheme.primary,
+    /** Replaces the checkbox. Archived rows use it for Restore: ticking a task that is out of
+     *  circulation means nothing, and a checkbox there only invites a pointless tap. */
+    leadingAction: (@Composable () -> Unit)? = null,
     dragHandle: (@Composable () -> Unit)? = null,
     projectName: String? = null,
     onToggleComplete: (String) -> Unit = {},
@@ -123,13 +129,19 @@ fun TaskItem(
             Spacer(Modifier.width(10.dp))
         }
 
-        // ── Checkbox ──────────────────────────────────────────────────────────
-        TaskCheckbox(
-            isCompleted = task.isCompleted,
-            isSelected  = isSelected,
-            accentColor = checkboxColor,
-            onToggle    = { onToggleComplete(task.id) },
-        )
+        // ── Checkbox (or the row's own leading action) ────────────────────────
+        if (leadingAction != null) {
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.size(22.dp)) {
+                leadingAction()
+            }
+        } else {
+            TaskCheckbox(
+                isCompleted = task.isCompleted,
+                isSelected  = isSelected,
+                accentColor = checkboxColor,
+                onToggle    = { onToggleComplete(task.id) },
+            )
+        }
 
         Spacer(Modifier.width(14.dp))
 
@@ -174,6 +186,23 @@ fun TaskItem(
                     Spacer(Modifier.width(6.dp))
                 }
 
+                // Recurrence — inline before the title, in the accent colour. It used to be
+                // one grey 13dp glyph among eight trailing indicators, where "this comes back"
+                // was the one thing about the task you could not see at a glance.
+                if (task.recurrence != null) {
+                    Box(contentAlignment = Alignment.Center, modifier = Modifier.height(firstLineHeight)) {
+                        Icon(
+                            imageVector        = Icons.Outlined.Autorenew,
+                            contentDescription = "Repeats",
+                            tint               = if (task.isCompleted)
+                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                            else checkboxColor,
+                            modifier           = Modifier.size(15.dp),
+                        )
+                    }
+                    Spacer(Modifier.width(5.dp))
+                }
+
                 Text(
                     text       = task.title,
                     style      = MaterialTheme.typography.bodyLarge,
@@ -199,10 +228,6 @@ fun TaskItem(
                     if (task.hasChecklist || task.checklistItems.isNotEmpty()) {
                         Spacer(Modifier.width(3.dp))
                         Icon(Icons.Outlined.ChecklistRtl, null, tint = iconTint, modifier = Modifier.size(13.dp))
-                    }
-                    if (task.recurrence != null) {
-                        Spacer(Modifier.width(3.dp))
-                        Icon(Icons.Outlined.Repeat, null, tint = iconTint, modifier = Modifier.size(13.dp))
                     }
                     if (task.hasReminders) {
                         Spacer(Modifier.width(3.dp))
@@ -487,7 +512,26 @@ fun TaskCheckbox(
 ) {
     val haptic        = LocalHapticFeedback.current
     val reducedMotion = rememberReducedMotion()
-    val checked       = isCompleted || isSelected
+
+    // The checkbox drives itself from the tap instead of waiting for the database round-trip.
+    // Checking a task usually removes its row from the list on the very frame the new state
+    // arrives, so an animation keyed on [isCompleted] never got to play a single frame — the
+    // row simply vanished. The optimistic value is dropped as soon as the real state changes.
+    var optimistic by remember { mutableStateOf<Boolean?>(null) }
+    LaunchedEffect(isCompleted, isSelected) { optimistic = null }
+    val checked = optimistic ?: (isCompleted || isSelected)
+
+    // Squash and stretch, ported from the reference CSS `jelly` keyframes: one linear clock
+    // feeding two opposed scale curves. At rest it sits at 1f, so it costs nothing when idle.
+    val jelly = remember { Animatable(1f) }
+    LaunchedEffect(checked) {
+        if (checked && !reducedMotion) {
+            jelly.snapTo(0f)
+            jelly.animateTo(1f, tween(JELLY_DURATION_MS, easing = LinearEasing))
+        } else {
+            jelly.snapTo(1f)
+        }
+    }
 
     val background by animateColorAsState(
         targetValue = when {
@@ -520,12 +564,17 @@ fun TaskCheckbox(
                 .clip(CircleShape)
                 .clickable {
                     if (!isCompleted) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    optimistic = !checked
                     onToggle()
                 },
         ) {
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
+                    .graphicsLayer {
+                        scaleX = sampleCurve(JELLY_X, jelly.value)
+                        scaleY = sampleCurve(JELLY_Y, jelly.value)
+                    }
                     .size(22.dp)
                     .clip(RoundedCornerShape(5.dp))
                     .background(background),
@@ -549,6 +598,35 @@ fun TaskCheckbox(
             }
         }
     }
+}
+
+// ── Checkbox jelly curves ─────────────────────────────────────────────────────
+
+private const val JELLY_DURATION_MS = 600
+
+/** `(progress, scale)` stops, straight from the reference CSS keyframes. */
+private val JELLY_X = listOf(
+    0f to 1f, 0.30f to 1.25f, 0.40f to 0.75f, 0.50f to 1.15f,
+    0.65f to 0.95f, 0.75f to 1.05f, 1f to 1f,
+)
+private val JELLY_Y = listOf(
+    0f to 1f, 0.30f to 0.75f, 0.40f to 1.25f, 0.50f to 0.85f,
+    0.65f to 1.05f, 0.75f to 0.95f, 1f to 1f,
+)
+
+/** Linear interpolation between the surrounding stops of a keyframe table. */
+private fun sampleCurve(stops: List<Pair<Float, Float>>, t: Float): Float {
+    if (t <= 0f) return stops.first().second
+    if (t >= 1f) return stops.last().second
+    for (i in 1 until stops.size) {
+        val (endAt, endValue)     = stops[i]
+        if (t > endAt) continue
+        val (startAt, startValue) = stops[i - 1]
+        val span = endAt - startAt
+        if (span <= 0f) return endValue
+        return startValue + (endValue - startValue) * ((t - startAt) / span)
+    }
+    return stops.last().second
 }
 
 // ── Date badge ────────────────────────────────────────────────────────────────

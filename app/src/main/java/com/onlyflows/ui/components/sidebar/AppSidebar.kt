@@ -47,10 +47,15 @@ import com.onlyflows.domain.model.Project
 import com.onlyflows.domain.model.ProjectType
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
+import androidx.compose.ui.platform.LocalContext
+import com.onlyflows.OnlyFlowsApp
+import com.onlyflows.ui.components.ColorPickerPanel
+import com.onlyflows.ui.components.FlowPalette
 import com.onlyflows.ui.navigation.Screen
 import com.onlyflows.ui.theme.FlowGold
 import com.onlyflows.ui.theme.FlowRed
 import com.onlyflows.ui.theme.OnlyFlowsTheme
+import kotlinx.coroutines.launch
 
 // ── Top-level sidebar entries (folders + root projects) ──────────────────────
 
@@ -180,6 +185,7 @@ fun AppSidebar(
                 if ("nav_goals" !in hidden)       item(key = "nav_goals")       { NavItem(Icons.Outlined.TrackChanges, Color(0xFFFF9500),  "Goals",            isSelected = route == Screen.Goals.route)        { navigateTab(navController, Screen.Goals.route);        onItemSelected() } }
                 if ("nav_rss" !in hidden)         item(key = "nav_rss")         { NavItem(Icons.Outlined.RssFeed,      Color(0xFFFF6B35),  "RSS",              isSelected = route == Screen.Rss.route)          { navigateTab(navController, Screen.Rss.route);          onItemSelected() } }
                 if ("nav_datetracker" !in hidden) item(key = "nav_datetracker") { NavItem(Icons.Outlined.Timer,        Color(0xFFFF6B6B),  "Dates & Countdowns",  isSelected = route == Screen.DateTracker.route)  { navigateTab(navController, Screen.DateTracker.route);  onItemSelected() } }
+                if ("nav_repeating" !in hidden)   item(key = "nav_repeating")   { NavItem(Icons.Outlined.Autorenew,    Color(0xFF4A90D9),  "Repeating",        isSelected = route == Screen.Repeating.route)    { navigateTab(navController, Screen.Repeating.route);    onItemSelected() } }
                 if ("nav_trash" !in hidden)       item(key = "nav_trash")       { NavItem(Icons.Outlined.Delete, MaterialTheme.colorScheme.onSurfaceVariant, "Trash", isSelected = route == Screen.Trash.route) { navigateTab(navController, Screen.Trash.route);        onItemSelected() } }
                 if ("nav_archived" !in hidden)    item(key = "nav_archived")    { NavItem(Icons.Outlined.Archive, MaterialTheme.colorScheme.onSurfaceVariant, "Archived", isSelected = route == Screen.Archived.route) { navigateTab(navController, Screen.Archived.route); onItemSelected() } }
             }
@@ -870,12 +876,13 @@ private fun ProjectCreateSheet(
     onCreate: (title: String, colorHex: String, type: ProjectType, iconEmoji: String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val presetColors = listOf(
-        "#4A90D9", "#EC4899", "#F59E0B", "#10B981",
-        "#8B5CF6", "#EF4444", "#6366F1", "#0EA5E9",
-    )
     var title     by remember { mutableStateOf("") }
-    var selected  by remember { mutableStateOf(presetColors.first()) }
+    var selected  by remember { mutableStateOf(FlowPalette[15]) }
+
+    val ctx         = LocalContext.current
+    val colorScope  = rememberCoroutineScope()
+    val appPrefs    = remember { (ctx.applicationContext as OnlyFlowsApp).container.appPreferences }
+    val savedColors by appPrefs.savedColors.collectAsStateWithLifecycle(initialValue = emptyList())
     var type      by remember { mutableStateOf(ProjectType.PROJECT) }
     var iconEmoji by remember { mutableStateOf("") }
 
@@ -956,22 +963,13 @@ private fun ProjectCreateSheet(
                 )
             }
             Spacer(Modifier.height(12.dp))
-            Text("Color", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                presetColors.forEach { hex ->
-                    val color = try { Color(android.graphics.Color.parseColor(hex)) } catch (e: Exception) { Color.Gray }
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .size(28.dp)
-                            .clip(CircleShape)
-                            .background(color)
-                            .clickable { selected = hex }
-                            .then(if (selected == hex) Modifier.border(2.dp, MaterialTheme.colorScheme.onSurface, CircleShape) else Modifier),
-                    ) {}
-                }
-            }
+            ColorPickerPanel(
+                selected           = selected,
+                onSelect           = { selected = it },
+                savedColors        = savedColors,
+                onSaveColor        = { colorScope.launch { appPrefs.saveColor(it) } },
+                onRemoveSavedColor = { colorScope.launch { appPrefs.removeSavedColor(it) } },
+            )
             Spacer(Modifier.height(16.dp))
             Button(
                 onClick  = { if (title.isNotBlank()) { onCreate(title.trim(), selected, type, iconEmoji.trim()); onDismiss() } },

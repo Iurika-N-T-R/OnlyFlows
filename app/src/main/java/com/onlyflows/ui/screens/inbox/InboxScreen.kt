@@ -120,9 +120,10 @@ fun InboxScreen(
             )
         },
         floatingActionButton = {
-            if (!isSelectionMode) {
-                FlowFab(onClick = { viewModel.onEvent(InboxEvent.ShowAddTask) })
-            }
+            FlowFab(
+                onClick = { viewModel.onEvent(InboxEvent.ShowAddTask) },
+                visible = !isSelectionMode,
+            )
         },
         bottomBar = {
             SelectionBar(

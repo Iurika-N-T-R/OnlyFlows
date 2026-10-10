@@ -9,6 +9,7 @@ sealed class Screen(val route: String) {
     data object Logbook       : Screen("logbook")
     data object Trash         : Screen("trash")
     data object Archived      : Screen("archived")
+    data object Repeating     : Screen("repeating")
     data object Projects      : Screen("projects")
     data object Search        : Screen("search?q={query}") {
         fun createRoute(query: String = "") = "search?q=${java.net.URLEncoder.encode(query, "UTF-8")}"

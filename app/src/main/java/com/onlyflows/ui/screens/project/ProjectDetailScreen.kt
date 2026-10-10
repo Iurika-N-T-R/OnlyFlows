@@ -27,9 +27,12 @@ import kotlinx.coroutines.launch
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Unarchive
 import androidx.compose.material.icons.outlined.ArrowDropDown
 import androidx.compose.material.icons.outlined.Article
 import androidx.compose.material.icons.outlined.CalendarToday
@@ -61,6 +64,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.ui.graphics.SolidColor
 import com.onlyflows.domain.model.ProjectStatus
+import com.onlyflows.ui.components.ColorPickerPanel
+import com.onlyflows.ui.theme.Motion
 import com.onlyflows.domain.model.ProjectType
 import com.onlyflows.domain.model.Section
 import com.onlyflows.domain.model.StatusLogEntry
@@ -189,6 +194,13 @@ fun ProjectDetailScreen(
     val completedCount = allTasks.count { it.isCompleted }
     val totalCount     = allTasks.size
     val progressRatio  = if (totalCount == 0) 0f else completedCount.toFloat() / totalCount
+    // Ticking a task used to snap the ring to its new angle; sweeping there is the only
+    // feedback the header gives that the completion landed.
+    val animatedProgress by animateFloatAsState(
+        targetValue   = progressRatio,
+        animationSpec = tween(Motion.EmphasizedMs, easing = Motion.Decelerate),
+        label          = "projectProgress",
+    )
 
     // Tags available in this project's tasks
     val availableTags = remember(state.tasksBySection, state.tags) {
@@ -247,7 +259,7 @@ fun ProjectDetailScreen(
                             if (project.type == ProjectType.LIST && project.iconEmoji.isNotBlank()) {
                                 Text(project.iconEmoji, style = MaterialTheme.typography.headlineSmall)
                             } else when (project.type) {
-                                ProjectType.PROJECT -> ProjectPieIcon(ratio = progressRatio, color = projectColor)
+                                ProjectType.PROJECT -> ProjectPieIcon(ratio = animatedProgress, color = projectColor)
                                 ProjectType.LIST    -> Icon(Icons.Outlined.FormatListBulleted, null, tint = projectColor, modifier = Modifier.size(24.dp))
                                 ProjectType.NOTE    -> Icon(Icons.Outlined.Article, null, tint = projectColor, modifier = Modifier.size(24.dp))
                             }
@@ -726,23 +738,31 @@ fun ProjectDetailScreen(
                 }
             } else {
                 items(state.archivedTasks, key = { "archived_${it.id}" }) { task ->
+                    // Restore sits where the checkbox would be: an archived task cannot be
+                    // ticked, and the old trailing button cost a second row per item.
                     TaskItem(
                         task            = task,
                         tags            = state.tags,
                         checkboxColor   = projectColor,
+                        leadingAction   = {
+                            IconButton(
+                                onClick  = { viewModel.onEvent(ProjectDetailEvent.UnarchiveTask(task.id)) },
+                                modifier = Modifier.requiredSize(40.dp),
+                            ) {
+                                Icon(
+                                    imageVector        = Icons.Outlined.Unarchive,
+                                    contentDescription = "Restore",
+                                    tint               = projectColor,
+                                    modifier           = Modifier.size(20.dp),
+                                )
+                            }
+                        },
                         onToggleComplete      = {},
                         onToggleChecklistItem = { _, _ -> },
                         onEditClick     = {},
                         onLongClick     = {},
+                        modifier        = Modifier.animateItem(),
                     )
-                    Row(
-                        horizontalArrangement = Arrangement.End,
-                        modifier = Modifier.fillMaxWidth().padding(end = 16.dp),
-                    ) {
-                        TextButton(onClick = { viewModel.onEvent(ProjectDetailEvent.UnarchiveTask(task.id)) }) {
-                            Text("Restore", style = MaterialTheme.typography.labelSmall)
-                        }
-                    }
                     HorizontalDivider(
                         modifier  = Modifier.padding(start = 56.dp, end = 20.dp),
                         color     = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
@@ -1174,13 +1194,14 @@ private fun ProjectEditSheet(
     onArchive: () -> Unit = {},
     onDismiss: () -> Unit,
 ) {
-    val presetColors = listOf(
-        "#4A90D9", "#EC4899", "#F59E0B", "#10B981",
-        "#8B5CF6", "#EF4444", "#6366F1", "#0EA5E9",
-    )
     var title       by remember(project.id) { mutableStateOf(project.title) }
     var note        by remember(project.id) { mutableStateOf(project.note) }
     var colorHex    by remember(project.id) { mutableStateOf(project.colorHex) }
+
+    val colorCtx     = LocalContext.current
+    val colorScope   = rememberCoroutineScope()
+    val appPrefs     = remember { (colorCtx.applicationContext as com.onlyflows.OnlyFlowsApp).container.appPreferences }
+    val savedColors by appPrefs.savedColors.collectAsStateWithLifecycle(initialValue = emptyList())
     var dueDate     by remember(project.id) { mutableStateOf(project.dueDate) }
     var iconEmoji   by remember(project.id) { mutableStateOf(project.iconEmoji) }
     var showDatePicker by remember { mutableStateOf(false) }
@@ -1230,22 +1251,13 @@ private fun ProjectEditSheet(
                 modifier      = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(12.dp))
-            Text("Color", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                presetColors.forEach { hex ->
-                    val color = try { Color(android.graphics.Color.parseColor(hex)) } catch (e: Exception) { Color.Gray }
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .size(28.dp)
-                            .clip(androidx.compose.foundation.shape.CircleShape)
-                            .background(color)
-                            .clickable { colorHex = hex }
-                            .then(if (colorHex == hex) Modifier.border(2.dp, MaterialTheme.colorScheme.onSurface, androidx.compose.foundation.shape.CircleShape) else Modifier),
-                    ) {}
-                }
-            }
+            ColorPickerPanel(
+                selected           = colorHex,
+                onSelect           = { colorHex = it },
+                savedColors        = savedColors,
+                onSaveColor        = { colorScope.launch { appPrefs.saveColor(it) } },
+                onRemoveSavedColor = { colorScope.launch { appPrefs.removeSavedColor(it) } },
+            )
             Spacer(Modifier.height(12.dp))
             // Deadline row
             Row(

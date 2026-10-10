@@ -74,7 +74,9 @@ fun GeneralSettingsScreen(
                 Triple("nav_goals",       "Goals",             "Goal tracking"),
                 Triple("nav_rss",         "RSS",               "News feed"),
                 Triple("nav_datetracker", "Dates & Countdowns","Anniversaries & countdowns"),
+                Triple("nav_repeating",   "Repeating",         "Every repeating to-do in one list"),
                 Triple("nav_trash",       "Trash",             "Deleted items"),
+                Triple("nav_archived",    "Archived",          "Archived projects"),
             ).forEachIndexed { index, (key, label, subtitle) ->
                 if (index > 0) HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
                 SwitchSettingsRow(

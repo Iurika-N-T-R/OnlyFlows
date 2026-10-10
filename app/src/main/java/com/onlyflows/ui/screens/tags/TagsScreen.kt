@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -30,8 +31,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.onlyflows.OnlyFlowsApp
+import kotlinx.coroutines.launch
 import com.onlyflows.domain.model.Tag
 import com.onlyflows.ui.components.TagChip
+import com.onlyflows.ui.components.ColorPickerPanel
 import com.onlyflows.ui.components.byFolder
 import com.onlyflows.ui.components.folderNames
 import com.onlyflows.ui.components.parseTagColor
@@ -411,11 +414,19 @@ private fun TagEditDialog(
     var selectedColor by remember { mutableStateOf(initialColor) }
     var folder        by remember { mutableStateOf(initialFolder) }
 
+    val context     = LocalContext.current
+    val scope       = rememberCoroutineScope()
+    val appPrefs    = remember { (context.applicationContext as OnlyFlowsApp).container.appPreferences }
+    val savedColors by appPrefs.savedColors.collectAsStateWithLifecycle(initialValue = emptyList())
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title   = { Text(title, fontWeight = FontWeight.SemiBold) },
         text    = {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+            ) {
                 OutlinedTextField(
                     value         = name,
                     onValueChange = { name = it },
@@ -460,45 +471,14 @@ private fun TagEditDialog(
                     }
                 }
 
-                // Color palette grid
-                Text(
-                    "Color",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                // Shared palette + custom mixer + the user's saved swatches
+                ColorPickerPanel(
+                    selected           = selectedColor,
+                    onSelect           = { selectedColor = it },
+                    savedColors        = savedColors,
+                    onSaveColor        = { scope.launch { appPrefs.saveColor(it) } },
+                    onRemoveSavedColor = { scope.launch { appPrefs.removeSavedColor(it) } },
                 )
-                val rows = TAG_PALETTE.chunked(6)
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    rows.forEach { row ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            row.forEach { hex ->
-                                val base = parseColor(hex)
-                                val isSelected = hex.equals(selectedColor, ignoreCase = true)
-                                Box(
-                                    contentAlignment = Alignment.Center,
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .clip(CircleShape)
-                                        .background(base)
-                                        .then(
-                                            if (isSelected)
-                                                Modifier.border(2.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
-                                            else Modifier
-                                        )
-                                        .clickable { selectedColor = hex },
-                                ) {
-                                    if (isSelected) {
-                                        Icon(
-                                            Icons.Outlined.Check,
-                                            null,
-                                            tint     = Color.White,
-                                            modifier = Modifier.size(18.dp),
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
             }
         },
         confirmButton = {

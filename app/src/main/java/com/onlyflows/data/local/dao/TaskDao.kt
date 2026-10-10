@@ -277,6 +277,15 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE dueDate IS NOT NULL AND isCompleted = 0 AND isArchived = 0 AND deletedAt IS NULL ORDER BY dueDate ASC, sortOrder ASC")
     fun observeUpcomingWithItems(): Flow<List<TaskWithChecklistItems>>
 
+    /** Every live repeating task — the rule itself, not the occurrences it has produced. */
+    @Transaction
+    @Query("""
+        SELECT * FROM tasks
+        WHERE recurrenceJson IS NOT NULL AND isCompleted = 0 AND isArchived = 0 AND deletedAt IS NULL
+        ORDER BY dueDate ASC, sortOrder ASC
+    """)
+    fun observeRecurringWithItems(): Flow<List<TaskWithChecklistItems>>
+
     @Transaction
     @Query("""
         SELECT * FROM tasks

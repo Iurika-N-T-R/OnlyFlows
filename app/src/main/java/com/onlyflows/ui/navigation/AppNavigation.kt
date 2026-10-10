@@ -178,6 +178,13 @@ fun AppNavigation(
             )
         }
 
+        composable(Screen.Repeating.route) {
+            com.onlyflows.ui.screens.repeating.RepeatingScreen(
+                onTaskClick = { navigateToTask(it) },
+                onBack      = { navController.popBackStack() },
+            )
+        }
+
         composable(Screen.Goals.route) {
             GoalsScreen(
                 onOpenDrawer = onOpenDrawer,

@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.DoNotDisturbAlt
 import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.*
@@ -28,6 +29,7 @@ import com.onlyflows.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.onlyflows.OnlyFlowsApp
+import com.onlyflows.domain.model.TaskGroup
 import com.onlyflows.ui.components.AgendaCard
 import com.onlyflows.ui.components.EmptyState
 import com.onlyflows.ui.components.CompletedSectionHeader
@@ -45,6 +47,14 @@ import com.onlyflows.ui.theme.flowColors
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+
+/** Today's automatic sections. Declaration order is display order. */
+private enum class DaySlot(val label: String, val emoji: String) {
+    UNTIMED("", ""),
+    MORNING("This Morning", "\uD83C\uDF05"),
+    AFTERNOON("This Afternoon", "\u2600\uFE0F"),
+    EVENING("This Evening", ""),
+}
 
 @OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
@@ -124,6 +134,26 @@ fun TodayScreen(
         state.abandonedTasks.filter { it.id != state.pendingDeleteTask?.id }
     }
 
+    // Nothing left to act on today. Done and Won't-do are then the record of the day rather
+    // than an aside, so they open on their own instead of sitting there as collapsed rows.
+    val nothingPending = filteredOverdue.isEmpty() && pendingToday.isEmpty() && pendingEvening.isEmpty()
+
+    // The day splits itself by the hour each task carries. Tasks with no hour are not "early",
+    // they are unscheduled, so they lead the list under no header at all — a section called
+    // "Anytime" would be one more thing to read for no information. An explicit This Evening
+    // choice outranks the clock: the user already said when they mean to do it.
+    val daySlots = remember(pendingToday, pendingEvening) {
+        (pendingToday + pendingEvening).groupBy { task ->
+            when {
+                task.scheduledGroup == TaskGroup.THIS_EVENING -> DaySlot.EVENING
+                task.dueTime == null                          -> DaySlot.UNTIMED
+                task.dueTime!!.hour < 12                      -> DaySlot.MORNING
+                task.dueTime!!.hour < 18                      -> DaySlot.AFTERNOON
+                else                                          -> DaySlot.EVENING
+            }
+        }
+    }
+
     Scaffold(
         topBar = {
             LargeTopAppBar(
@@ -178,9 +208,10 @@ fun TodayScreen(
             )
         },
         floatingActionButton = {
-            if (state.selectedTaskIds.isEmpty()) {
-                FlowFab(onClick = { viewModel.onEvent(TodayEvent.ShowAddTask) })
-            }
+            FlowFab(
+                onClick = { viewModel.onEvent(TodayEvent.ShowAddTask) },
+                visible = state.selectedTaskIds.isEmpty(),
+            )
         },
         bottomBar = {
             SelectionBar(
@@ -291,20 +322,27 @@ fun TodayScreen(
                 }
             }
 
-            // ── Today group ──
-            if (pendingToday.isNotEmpty()) {
-                item(key = "today_header") {
-                    GroupHeader(title = "Today", painter = painterResource(R.drawable.ic_nav_today))
-                    HorizontalDivider(
-                        modifier  = Modifier.padding(horizontal = 20.dp),
-                        color     = MaterialTheme.colorScheme.outlineVariant,
-                        thickness = 0.5.dp,
-                    )
+            // ── Time-of-day slots ────────────────────────────────────────────
+            DaySlot.entries.forEach { slot ->
+                val slotTasks = daySlots[slot].orEmpty()
+                if (slotTasks.isEmpty()) return@forEach
+
+                if (slot != DaySlot.UNTIMED) {
+                    item(key = "slot_header_${slot.name}") {
+                        if (slot == DaySlot.EVENING) {
+                            GroupHeader(title = slot.label, painter = painterResource(R.drawable.ic_nav_evening))
+                        } else {
+                            GroupHeader(title = slot.label, emoji = slot.emoji, iconSize = 24.dp)
+                        }
+                        HorizontalDivider(
+                            modifier  = Modifier.padding(horizontal = 20.dp),
+                            color     = MaterialTheme.colorScheme.outlineVariant,
+                            thickness = 0.5.dp,
+                        )
+                    }
                 }
-                items(
-                    items = pendingToday,
-                    key   = { it.id },
-                ) { task ->
+
+                items(items = slotTasks, key = { it.id }) { task ->
                     TaskItem(
                         task                  = task,
                         tags                  = state.tags,
@@ -324,50 +362,21 @@ fun TodayScreen(
                 }
             }
 
-            // ── This Evening group ──
-            if (pendingEvening.isNotEmpty()) {
-                item(key = "evening_header") {
-                    GroupHeader(title = "This Evening", painter = painterResource(R.drawable.ic_nav_evening))
-                    HorizontalDivider(
-                        modifier  = Modifier.padding(horizontal = 20.dp),
-                        color     = MaterialTheme.colorScheme.outlineVariant,
-                        thickness = 0.5.dp,
-                    )
-                }
-                items(
-                    items = pendingEvening,
-                    key   = { it.id },
-                ) { task ->
-                    TaskItem(
-                        task                  = task,
-                        tags                  = state.tags,
-                        isSelected            = task.id in state.selectedTaskIds,
-                        isSelectionMode       = state.selectedTaskIds.isNotEmpty(),
-                        onToggleComplete      = { viewModel.onEvent(TodayEvent.ToggleComplete(it, task.isCompleted)) },
-                        onToggleChecklistItem = { id, done -> viewModel.onEvent(TodayEvent.ToggleChecklistItem(id, done)) },
-                        onEditClick           = { onTaskClick(it) },
-                        onLongClick           = { viewModel.onEvent(TodayEvent.ToggleSelect(it)) },
-                        modifier              = Modifier.animateItem(),
-                    )
-                    HorizontalDivider(
-                        modifier  = Modifier.padding(start = 54.dp),
-                        color     = MaterialTheme.colorScheme.outlineVariant,
-                        thickness = 0.5.dp,
-                    )
-                }
-            }
-
-            // Empty state
-            if (filteredOverdue.isEmpty() && pendingToday.isEmpty() && pendingEvening.isEmpty() && completedTasks.isEmpty() && abandonedTasks.isEmpty()) {
+            // Closing state — it used to be suppressed as soon as one task had been ticked,
+            // which left a lone "Completed (n)" row floating mid-screen as the only content.
+            if (nothingPending) {
                 item(key = "empty") {
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 60.dp),
+                            .padding(top = 48.dp, bottom = 28.dp),
                     ) {
                         Text(
-                            text  = "All done for today 🎉",
+                            text  = if (completedTasks.isEmpty() && abandonedTasks.isEmpty())
+                                "Nothing scheduled for today"
+                            else
+                                "All done for today 🎉",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -378,14 +387,18 @@ fun TodayScreen(
             // ── Completed section ─────────────────────────────────────────────
             if (completedTasks.isNotEmpty()) {
                 item(key = "completed_header") {
-                    CompletedSectionHeader(
-                        count    = completedTasks.size,
-                        expanded = completedExpanded,
-                        onToggle = { completedExpanded = !completedExpanded },
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
+                    if (nothingPending) {
+                        GroupHeader(title = "Completed", emoji = "✅", iconSize = 22.dp)
+                    } else {
+                        CompletedSectionHeader(
+                            count    = completedTasks.size,
+                            expanded = completedExpanded,
+                            onToggle = { completedExpanded = !completedExpanded },
+                            modifier = Modifier.padding(top = 8.dp),
+                        )
+                    }
                 }
-                if (completedExpanded) {
+                if (nothingPending || completedExpanded) {
                     items(
                         items = completedTasks,
                         key   = { "completed_${it.id}" },
@@ -413,15 +426,19 @@ fun TodayScreen(
             // ── Won't do section ──────────────────────────────────────────────
             if (abandonedTasks.isNotEmpty()) {
                 item(key = "abandoned_header") {
-                    CompletedSectionHeader(
-                        count    = abandonedTasks.size,
-                        expanded = abandonedExpanded,
-                        onToggle = { abandonedExpanded = !abandonedExpanded },
-                        label    = "Won't do",
-                        modifier = Modifier.padding(top = 4.dp),
-                    )
+                    if (nothingPending) {
+                        GroupHeader(title = "Won't do", emoji = "🚫", iconSize = 22.dp)
+                    } else {
+                        CompletedSectionHeader(
+                            count    = abandonedTasks.size,
+                            expanded = abandonedExpanded,
+                            onToggle = { abandonedExpanded = !abandonedExpanded },
+                            label    = "Won't do",
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
                 }
-                if (abandonedExpanded) {
+                if (nothingPending || abandonedExpanded) {
                     items(
                         items = abandonedTasks,
                         key   = { "abandoned_${it.id}" },
@@ -431,7 +448,17 @@ fun TodayScreen(
                             tags                  = state.tags,
                             isSelected            = task.id in state.selectedTaskIds,
                             isSelectionMode       = state.selectedTaskIds.isNotEmpty(),
-                            onToggleComplete      = { /* abandoned tasks can't be toggled */ },
+                            // A won't-do task cannot be ticked, so it shows a marker rather
+                            // than a checkbox that does nothing when tapped.
+                            leadingAction         = {
+                                Icon(
+                                    imageVector        = Icons.Outlined.DoNotDisturbAlt,
+                                    contentDescription = null,
+                                    tint               = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
+                                    modifier           = Modifier.size(18.dp),
+                                )
+                            },
+                            onToggleComplete      = {},
                             onToggleChecklistItem = { _, _ -> },
                             onEditClick           = { onTaskClick(it) },
                             onLongClick           = { viewModel.onEvent(TodayEvent.ToggleSelect(it)) },
