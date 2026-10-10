@@ -400,7 +400,7 @@ fun BackupSettingsScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { filePicker.launch(arrayOf("application/octet-stream", "*/*")) }
+                    .clickable { filePicker.launch(arrayOf("application/zip", "application/octet-stream", "*/*")) }
                     .padding(horizontal = 20.dp, vertical = 14.dp),
             ) {
                 Icon(

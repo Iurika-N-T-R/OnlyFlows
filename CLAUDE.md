@@ -32,7 +32,7 @@ Domain (Models + RecurrenceScheduler)
   ↕ Repositories
 Data (Repositories + Room DAOs + DataStore + LanSyncWriter)
   ↕
-Local DB (Room v38, 24 entities) + DataStore Preferences
+Local DB (Room v40, 24 entities) + DataStore Preferences
 ```
 
 ### Key Patterns
@@ -59,7 +59,7 @@ Local DB (Room v38, 24 entities) + DataStore Preferences
 
 ### Data Layer
 
-- [AppDatabase.kt](app/src/main/java/com/onlyflows/data/local/AppDatabase.kt) — Room DB (v38, 24 entities, **non-destructive `Migration` objects since v27**, seed callback)
+- [AppDatabase.kt](app/src/main/java/com/onlyflows/data/local/AppDatabase.kt) — Room DB (v40, 24 entities, **non-destructive `Migration` objects since v27**, seed callback)
 - [Models.kt](app/src/main/java/com/onlyflows/domain/model/Models.kt) — Core domain models: `Task`, `Project`, `Section`, `Tag`, `Reminder`, `TimeEntry`, `Comment`, enums
 - [Goal.kt](app/src/main/java/com/onlyflows/domain/model/Goal.kt) / [GoalLog.kt](app/src/main/java/com/onlyflows/domain/model/GoalLog.kt) — Goals system domain models
 - [Converters.kt](app/src/main/java/com/onlyflows/data/local/Converters.kt) — Room TypeConverters for `LocalDate`, `LocalDateTime`, `LocalTime`, JSON

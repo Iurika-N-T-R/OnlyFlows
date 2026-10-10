@@ -187,6 +187,9 @@ data class Project(
     val sortOrder: Int = 0,
     val dueDate: LocalDate? = null,
     val status: ProjectStatus = ProjectStatus.NOT_STARTED,
+    // When the project was last moved to DONE — a finished project shows this instead of
+    // piling up overdue days against a due date it already met (or missed) long ago.
+    val completedAt: LocalDateTime? = null,
     val tagIds: List<String> = emptyList(),
     val isArchived: Boolean = false,
     val createdAt: LocalDateTime = LocalDateTime.now(),
@@ -221,6 +224,10 @@ data class Tag(
     val id: String,
     val name: String,
     val colorHex: String = "#4A90D9",
+    /** Folder this tag belongs to; null = ungrouped. Free text, shared by every tag in it. */
+    val groupName: String? = null,
+    /** Manual position inside the whole tag list — 0 for every tag until one is reordered. */
+    val sortOrder: Int = 0,
     @IgnoredOnParcel val updatedAt: LocalDateTime = LocalDateTime.now(),
 ) : Parcelable
 

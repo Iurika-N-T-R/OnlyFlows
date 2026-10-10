@@ -38,6 +38,7 @@ import com.onlyflows.domain.model.Project
 import com.onlyflows.domain.model.ProjectType
 import com.onlyflows.domain.model.Section
 import com.onlyflows.domain.model.Tag
+import com.onlyflows.ui.components.suggestFor
 import com.onlyflows.ui.screens.task.ReminderPickerSheet
 import com.onlyflows.domain.model.TaskGroup
 import com.onlyflows.domain.model.TaskPriority
@@ -147,6 +148,74 @@ fun AddTaskSheet(
                     .fillMaxWidth()
                     .focusRequester(focusRequester),
             )
+
+            // ── Inline #tag completion ───────────────────────────────────────────
+            // Typing "#yo" at a word boundary offers the matching tags instead of forcing a
+            // trip through the picker, and offers to create the tag when nothing matches.
+            val tagToken = remember(title) { trailingTagToken(title) }
+            if (tagToken != null) {
+                val query       = tagToken.second
+                val suggestions = remember(tags, query) { tags.suggestFor(query) }
+                val exactExists = tags.any { it.name.equals(query, ignoreCase = true) }
+
+                fun applyTag(tagId: String) {
+                    title = title.substring(0, tagToken.first)
+                    if (tagId !in selectedTagIds) selectedTagIds = selectedTagIds + tagId
+                }
+
+                if (suggestions.isNotEmpty() || query.isNotBlank()) {
+                    Spacer(Modifier.height(6.dp))
+                    Row(
+                        verticalAlignment     = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                    ) {
+                        suggestions.forEach { tag ->
+                            val tagColor = runCatching { Color(android.graphics.Color.parseColor(tag.colorHex)) }
+                                .getOrDefault(MaterialTheme.colorScheme.primary)
+                            SuggestionChip(
+                                onClick = { applyTag(tag.id) },
+                                label   = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Box(
+                                            Modifier
+                                                .size(8.dp)
+                                                .clip(CircleShape)
+                                                .background(tagColor),
+                                        )
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(tag.name, style = MaterialTheme.typography.labelMedium)
+                                        tag.groupName?.let { folder ->
+                                            Spacer(Modifier.width(4.dp))
+                                            Text(
+                                                text  = folder,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                            )
+                                        }
+                                    }
+                                },
+                            )
+                        }
+                        if (query.isNotBlank() && !exactExists) {
+                            SuggestionChip(
+                                onClick = {
+                                    val tag = Tag(id = "tag_${System.currentTimeMillis()}", name = query)
+                                    scope.launch {
+                                        (context.applicationContext as OnlyFlowsApp)
+                                            .container.tagRepository.insert(tag)
+                                    }
+                                    applyTag(tag.id)
+                                },
+                                icon  = { Icon(Icons.Outlined.Add, null, modifier = Modifier.size(14.dp)) },
+                                label = { Text("Create \"$query\"", style = MaterialTheme.typography.labelMedium) },
+                            )
+                        }
+                    }
+                }
+            }
 
             Spacer(Modifier.height(6.dp))
 
@@ -618,6 +687,21 @@ private fun AddTaskSheetPreview() {
             onDismiss = {},
         )
     }
+}
+
+// ── Inline #tag completion ────────────────────────────────────────────────────
+
+/**
+ * The `#tag` token the caret is sitting on, as (index of the `#`, text after it), or null when
+ * the text does not end in one. Only a `#` at a word boundary counts, so "C#" in a title and
+ * "#" inside a URL are left alone.
+ */
+private val TRAILING_TAG = Regex("(?:^|\\s)#([\\p{L}\\p{N}_-]*)$")
+
+internal fun trailingTagToken(text: String): Pair<Int, String>? {
+    val match = TRAILING_TAG.find(text) ?: return null
+    val group = match.groups[1] ?: return null
+    return (group.range.first - 1) to group.value
 }
 
 // ── Menu helpers ──────────────────────────────────────────────────────────────

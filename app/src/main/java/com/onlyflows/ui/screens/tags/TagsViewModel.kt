@@ -17,10 +17,13 @@ data class TagsUiState(
 )
 
 sealed interface TagsEvent {
-    data class CreateTag(val name: String, val colorHex: String) : TagsEvent
+    data class CreateTag(val name: String, val colorHex: String, val groupName: String? = null) : TagsEvent
     data class UpdateTag(val tag: Tag)                           : TagsEvent
     data class DeleteTag(val tagId: String)                      : TagsEvent
     data object DeleteUnused                                     : TagsEvent
+    /** Persists a drag result: new folder + position for every tag that actually moved. */
+    data class ApplyOrder(val tags: List<Tag>)                   : TagsEvent
+    data class RenameFolder(val oldName: String, val newName: String?) : TagsEvent
 }
 
 class TagsViewModel(
@@ -65,6 +68,9 @@ class TagsViewModel(
                         id        = "tag_${UUID.randomUUID().toString().take(8)}",
                         name      = event.name,
                         colorHex  = event.colorHex,
+                        groupName = event.groupName?.trim()?.takeIf { it.isNotEmpty() },
+                        // New tags land at the end of the manual order
+                        sortOrder = (_uiState.value.tags.maxOfOrNull { it.sortOrder } ?: 0) + 1,
                         updatedAt = LocalDateTime.now(),
                     )
                 )
@@ -77,6 +83,17 @@ class TagsViewModel(
             }
             TagsEvent.DeleteUnused -> viewModelScope.launch {
                 tagRepo.deleteUnused()
+            }
+            is TagsEvent.ApplyOrder -> viewModelScope.launch {
+                val before = _uiState.value.tags.associateBy { it.id }
+                event.tags.forEach { tag ->
+                    val old = before[tag.id] ?: return@forEach
+                    if (old.sortOrder == tag.sortOrder && old.groupName == tag.groupName) return@forEach
+                    tagRepo.update(tag.copy(updatedAt = LocalDateTime.now()))
+                }
+            }
+            is TagsEvent.RenameFolder -> viewModelScope.launch {
+                tagRepo.renameGroup(event.oldName, event.newName)
             }
         }
     }

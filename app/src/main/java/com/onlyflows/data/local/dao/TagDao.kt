@@ -3,12 +3,20 @@ package com.onlyflows.data.local.dao
 import androidx.room.*
 import com.onlyflows.data.local.entity.TagEntity
 import kotlinx.coroutines.flow.Flow
+import java.time.LocalDateTime
 
 @Dao
 interface TagDao {
 
-    @Query("SELECT * FROM tags ORDER BY name ASC")
+    // Manual order first (sortOrder is 0 everywhere until a tag is moved), name as tie-break.
+    @Query("SELECT * FROM tags ORDER BY sortOrder ASC, name ASC")
     fun observeAll(): Flow<List<TagEntity>>
+
+    @Query("SELECT * FROM tags ORDER BY sortOrder ASC, name ASC")
+    suspend fun getAll(): List<TagEntity>
+
+    @Query("UPDATE tags SET groupName = :newName, updatedAt = :now WHERE groupName = :oldName")
+    suspend fun renameGroup(oldName: String, newName: String?, now: LocalDateTime)
 
     @Query("SELECT * FROM tags WHERE id IN (:ids)")
     suspend fun getByIds(ids: List<String>): List<TagEntity>
@@ -33,7 +41,7 @@ interface TagDao {
             WHERE tagIds LIKE '%' || tags.id || '%'
               AND deletedAt IS NULL
         )
-        ORDER BY name ASC
+        ORDER BY sortOrder ASC, name ASC
     """)
     fun observeUnused(): Flow<List<TagEntity>>
 

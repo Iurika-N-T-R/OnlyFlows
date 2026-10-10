@@ -30,6 +30,17 @@ class LanSyncClient {
         }.getOrNull()
     }
 
+    /** Raw attachment bytes from a peer, or null when the peer has no file for [id]. */
+    suspend fun getAttachment(ip: String, port: Int, id: String): ByteArray? = withContext(Dispatchers.IO) {
+        runCatching {
+            val url  = "http://$ip:$port/attachment?id=${URLEncoder.encode(id, "UTF-8")}"
+            val conn = URL(url).openConnection() as HttpURLConnection
+            conn.connectTimeout = 3000; conn.readTimeout = 30_000
+            if (conn.responseCode != 200) return@runCatching null
+            conn.inputStream.use { it.readBytes() }
+        }.getOrNull()
+    }
+
     private suspend fun get(url: String, connectTimeoutMs: Int = 3000): JSONObject? = withContext(Dispatchers.IO) {
         runCatching {
             val conn = URL(url).openConnection() as HttpURLConnection

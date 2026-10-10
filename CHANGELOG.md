@@ -5,6 +5,35 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.80.0] — 2026-10-10 · Dossiers de tags, pièces jointes réelles, années visibles
+
+### Ajouté
+
+- **Dossiers de tags et ordre manuel.** `tags` gagne `groupName` (dossier, texte libre) et `sortOrder`. L'écran *Manage Tags* affiche les tags groupés par dossier, avec poignée de glissement : déposer un tag sous un autre en-tête le change de dossier et réécrit l'ordre. Chaque en-tête se renomme, et le vider dissout le dossier. Le sélecteur de tags reçoit une recherche (nom **et** dossier) et des dossiers repliables, ce qui le rend utilisable au-delà de quelques dizaines de tags.
+- **Complétion `#tag` à la création.** Taper `#yo` dans le titre propose les tags correspondants en puces sous le champ, avec le nom du dossier en rappel ; si rien ne correspond, une puce *Create "yo"* crée le tag et l'attache. Le jeton `#…` est retiré du titre à la sélection. Seul un `#` en début de mot déclenche la complétion, pour ne pas réagir à `C#` ni aux URLs.
+- **Badge de compteur sur les sections.** Chaque en-tête de section de projet porte une pastille `fait/total`, pleine et cochée quand tout est terminé. Les sections de checklist d'une tâche affichent le même compteur.
+- **Séparateur d'année dans Upcoming.** La fenêtre couvre 14 jours en arrière et 365 en avant : sans repère, la liste était une suite indifférenciée de « 12 Jan ». Un titre d'année est émis à chaque changement, et l'en-tête de semaine ou de mois est réémis juste après.
+
+### Corrigé
+
+- **Un projet terminé n'accumule plus de retard.** `projects` gagne `completedAt`, posé par `updateStatus` au passage à DONE et effacé à la sortie. Le badge d'échéance affiche alors « Done 12 mai 2026 | 3 d late » en vert au lieu de compter indéfiniment les jours de retard contre une date dépassée depuis longtemps. La migration remplit `completedAt` avec `updatedAt` pour les projets déjà DONE.
+- **Les pièces jointes étaient des liens, pas des fichiers.** La ligne ne stockait que l'URI du sélecteur : déplacer, renommer ou supprimer le fichier source cassait la pièce jointe, et rien ne pouvait être transmis à un autre appareil. Tout fichier choisi est désormais copié dans `filesDir/attachments/<id>/` (`AttachmentStore`) et servi aux autres applications via un `FileProvider`. Une copie qui échoue n'insère plus de ligne et affiche l'erreur. Les anciennes lignes continuent de s'ouvrir par leur URI d'origine.
+- **Les pièces jointes se synchronisent.** Elles étaient absentes de `buildDelta` et d'`applyDelta` : seules les métadonnées partaient, et personne ne les lisait. Le serveur LAN expose `GET /attachment?id=`, qui diffuse les octets bruts ; à la réception, la ligne n'est écrite qu'une fois le fichier sur le disque, donc un transfert raté se rejoue au cycle suivant plutôt que de laisser une pièce jointe morte. La suppression propage aussi le fichier.
+- **Les pièces jointes entrent dans la sauvegarde.** Le backup copiait le `.db` brut : restauré, chaque tâche portant un trombone s'ouvrait sur un fichier absent. L'archive est désormais un **ZIP** contenant la base *et* `filesDir/attachments`. La restauration reconnaît le format au nombre magique du fichier, donc les anciennes sauvegardes `.db` se restaurent toujours (sans pièces jointes, forcément). L'archive est décompressée dans un dossier temporaire et validée avant d'écraser quoi que ce soit, et les noms d'entrée sont bornés à la racine (zip slip).
+- **Widget : année manquante et événements d'agenda absents.** Les dates étaient formatées en « d MMM », sans moyen de distinguer une échéance de l'an prochain ; l'année est maintenant ajoutée dès que la date n'est pas dans l'année en cours. Les lignes d'événement n'affichaient que l'heure ou « All day » : elles portent désormais leur date. Surtout, l'horizon des événements était de 30 jours alors que les tâches allaient bien au-delà, ce qui masquait silencieusement les anniversaires — il passe à 365 jours, comme l'écran Upcoming.
+- **Événements « journée entière » perdus aux bornes de la plage.** `CalendarContract` stocke leur début à minuit UTC, ce qui peut tomber hors d'une fenêtre construite sur des minuits locaux. La requête prend un jour de marge de chaque côté et filtre après calcul de la date réelle.
+
+### Technique
+
+- Base de données v39 → **v40** (`migration39to40`) : `projects.completedAt`, `tags.groupName`, `tags.sortOrder`.
+- `AttachmentStore` (nouveau) : copie, écriture d'octets reçus, suppression et URI `FileProvider` pour les pièces jointes.
+- `AttachmentRepository` prend un `Context` et renvoie un `Boolean` depuis `add()`.
+- `applyDelta` prend l'IP de l'émetteur, nécessaire pour aller chercher les fichiers joints.
+- Format de sauvegarde : `onlyflows_backup_<ts>.db` → `onlyflows_backup_<ts>.zip` (`application/zip`).
+- Suppression du bouchon mort `LanSyncWriter.copyAttachmentFile`.
+
+---
+
 ## [0.79.0] — 2026-09-20 · Tags sélectionnés visibles à la création
 
 ### Ajouté

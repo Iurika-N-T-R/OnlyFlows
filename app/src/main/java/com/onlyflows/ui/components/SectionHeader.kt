@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material3.*
@@ -15,7 +16,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -33,6 +36,9 @@ fun SectionHeader(
     isCollapsed: Boolean = false,
     onToggleCollapse: (() -> Unit)? = null,
     onAddTask: (() -> Unit)? = null,
+    /** Tasks done / tasks in this section — rendered as a pill next to the title. */
+    doneCount: Int? = null,
+    totalCount: Int? = null,
     modifier: Modifier = Modifier,
 ) {
     val chevronAngle by animateFloatAsState(targetValue = if (isCollapsed) 0f else 90f, label = "chevron")
@@ -64,8 +70,15 @@ fun SectionHeader(
             style      = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
             color      = accentColor,
-            modifier   = Modifier.weight(1f),
+            maxLines   = 1,
+            overflow   = TextOverflow.Ellipsis,
+            modifier   = Modifier.weight(1f, fill = false),
         )
+        if (doneCount != null && totalCount != null && totalCount > 0) {
+            Spacer(Modifier.width(8.dp))
+            SectionCountBadge(doneCount, totalCount, accentColor)
+        }
+        Spacer(Modifier.weight(1f))
         if (onAddTask != null) {
             IconButton(onClick = onAddTask, modifier = Modifier.size(36.dp)) {
                 Icon(
@@ -88,6 +101,38 @@ fun SectionHeader(
                 }
                 menuContent()
             }
+        }
+    }
+}
+
+/** `done / total` for a section — turns solid once everything inside is finished. */
+@Composable
+private fun SectionCountBadge(done: Int, total: Int, accentColor: Color) {
+    val allDone = done >= total
+    Surface(
+        color = if (allDone) accentColor.copy(alpha = 0.18f)
+                else MaterialTheme.colorScheme.surfaceVariant,
+        shape = RoundedCornerShape(8.dp),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
+        ) {
+            if (allDone) {
+                Icon(
+                    imageVector        = Icons.Outlined.Check,
+                    contentDescription = null,
+                    tint               = accentColor,
+                    modifier           = Modifier.size(11.dp),
+                )
+                Spacer(Modifier.width(3.dp))
+            }
+            Text(
+                text       = "$done/$total",
+                style      = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.SemiBold,
+                color      = if (allDone) accentColor else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

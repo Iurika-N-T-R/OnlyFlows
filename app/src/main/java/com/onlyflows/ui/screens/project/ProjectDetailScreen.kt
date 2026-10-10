@@ -400,7 +400,12 @@ fun ProjectDetailScreen(
                         }
                     }
                     project.dueDate?.let { due ->
-                        DeadlineBadge(dueDate = due, createdAt = project.createdAt.toLocalDate())
+                        DeadlineBadge(
+                            dueDate     = due,
+                            createdAt   = project.createdAt.toLocalDate(),
+                            completedAt = project.completedAt?.toLocalDate()
+                                ?.takeIf { project.status == ProjectStatus.DONE },
+                        )
                     }
                 }
                 // Note/description
@@ -596,9 +601,12 @@ fun ProjectDetailScreen(
                     is PdItem.Header -> {
                         if (hasFilter && item.section.id !in visibleSectionIds) return@items
                         val sectionCollapsed = item.section.id in state.collapsedSectionIds
+                        val sectionTasks = state.tasksBySection[item.section.id] ?: emptyList()
                         SectionMenuHeader(
                             section          = item.section,
                             accentColor      = projectColor,
+                            doneCount        = sectionTasks.count { it.isCompleted },
+                            totalCount       = sectionTasks.size,
                             isCollapsed      = sectionCollapsed,
                             onToggleCollapse = { viewModel.onEvent(ProjectDetailEvent.ToggleSectionCollapse(item.section.id)) },
                             onAddTask        = { viewModel.onEvent(ProjectDetailEvent.ShowAddTask(item.section.id)) },
@@ -1017,19 +1025,31 @@ private fun ProjectStatusChip(status: ProjectStatus, onClick: () -> Unit) {
 }
 
 @Composable
-private fun DeadlineBadge(dueDate: LocalDate, createdAt: LocalDate) {
+private fun DeadlineBadge(dueDate: LocalDate, createdAt: LocalDate, completedAt: LocalDate? = null) {
     val today    = LocalDate.now()
     val daysLeft = ChronoUnit.DAYS.between(today, dueDate).toInt()
     val elapsed  = ChronoUnit.DAYS.between(createdAt, today).toInt().coerceAtLeast(0)
 
-    val overdue = daysLeft < 0
+    // A finished project is never overdue: the clock stopped the day it was marked done.
+    val overdue = completedAt == null && daysLeft < 0
 
     val label: String
     val containerColor: Color
     val borderColor: Color
     val textColor: Color
 
-    if (overdue) {
+    if (completedAt != null) {
+        val lateBy = ChronoUnit.DAYS.between(dueDate, completedAt).toInt()
+        val suffix = when {
+            lateBy > 0  -> "  |  $lateBy d late"
+            lateBy < 0  -> "  |  ${-lateBy} d early"
+            else        -> "  |  on time"
+        }
+        label          = "Done ${completedAt.format(doneDateFmt)}$suffix"
+        containerColor = Color(0xFF2E9E5B)
+        borderColor    = Color(0xFF2E9E5B)
+        textColor      = Color.White
+    } else if (overdue) {
         val n = -daysLeft
         label          = if (n == 1) "1 d overdue" else "$n d overdue"
         containerColor = Color(0xFFDC3545)
@@ -1058,6 +1078,8 @@ private fun DeadlineBadge(dueDate: LocalDate, createdAt: LocalDate) {
         )
     }
 }
+
+private val doneDateFmt: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM yyyy")
 
 // ── Reorder sections sheet ────────────────────────────────────────────────────
 
@@ -1377,6 +1399,8 @@ private fun ProjectEditSheet(
 private fun SectionMenuHeader(
     section: com.onlyflows.domain.model.Section,
     accentColor: Color,
+    doneCount: Int? = null,
+    totalCount: Int? = null,
     isCollapsed: Boolean = false,
     onToggleCollapse: () -> Unit = {},
     onAddTask: () -> Unit = {},
@@ -1389,6 +1413,8 @@ private fun SectionMenuHeader(
     SectionHeader(
         title            = section.title,
         accentColor      = accentColor,
+        doneCount        = doneCount,
+        totalCount       = totalCount,
         showMenu         = true,
         onMenuClick      = { menuExpanded = true },
         isCollapsed      = isCollapsed,

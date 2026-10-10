@@ -1,6 +1,7 @@
 package com.onlyflows.data.lan
 
 import android.content.Context
+import com.onlyflows.data.local.AttachmentStore
 import com.onlyflows.data.local.dao.PairedDeviceDao
 import com.onlyflows.data.local.dao.SyncDao
 import com.onlyflows.data.local.entity.*
@@ -240,6 +241,7 @@ class LanSyncCoordinator(
             put("goals",          syncDao.getGoalsChangedSince(since).toJsonArray { it.toJson() })
             put("goalLogs",       syncDao.getGoalLogsChangedSince(since).toJsonArray { it.toJson() })
             put("dateTrackers",   syncDao.getDateTrackersChangedSince(since).toJsonArray { it.toJson() })
+            put("attachments",    syncDao.getAttachmentsChangedSince(since).toJsonArray { it.toJson() })
             put("tombstones",     syncDao.getTombstonesSince(since).toJsonArray {
                 JSONObject().put("entityType", it.entityType).put("entityId", it.entityId).put("deletedAt", it.deletedAt.toString())
             })
@@ -253,7 +255,7 @@ class LanSyncCoordinator(
                 val paired = pairedDeviceDao.getAll()
                 paired.find { it.lastKnownIp == senderIp }
                     ?: paired.firstOrNull()?.also { pairedDeviceDao.updateIp(it.id, senderIp) }
-                applyDelta(JSONObject(bodyStr))
+                applyDelta(JSONObject(bodyStr), senderIp)
             }
         }
     }
@@ -263,10 +265,16 @@ class LanSyncCoordinator(
         val paired = pairedDeviceDao.getAll()
         paired.find { it.lastKnownIp == senderIp }
             ?: paired.firstOrNull()?.also { pairedDeviceDao.updateIp(it.id, senderIp) }
-        applyDelta(delta)
+        applyDelta(delta, senderIp)
     }
 
-    suspend fun applyDelta(delta: JSONObject) = withContext(Dispatchers.IO) {
+    /** Local bytes for an attachment the peer is asking for, or null when we hold no file. */
+    suspend fun readAttachmentBytes(id: String): ByteArray? = withContext(Dispatchers.IO) {
+        val file = AttachmentStore.existingFile(context, id) ?: return@withContext null
+        runCatching { file.readBytes() }.getOrNull()
+    }
+
+    suspend fun applyDelta(delta: JSONObject, senderIp: String? = null) = withContext(Dispatchers.IO) {
         // Tombstones FIRST so a delete always beats a stale re-create in the same batch
         delta.forEachArray("tombstones") { obj ->
             val type      = obj.optString("entityType")
@@ -291,6 +299,10 @@ class LanSyncCoordinator(
         delta.forEachArray("goals")          { o -> upsertIfNewer(o, "goals", "updatedAt", syncDao::getGoalUpdatedAt) { syncDao.upsertGoal(goalEntityFromJson(o)) } }
         delta.forEachArray("goalLogs")       { o -> upsertIfNewer(o, "goal_logs", "loggedAt", syncDao::getGoalLogLoggedAt) { syncDao.upsertGoalLog(goalLogEntityFromJson(o)) } }
         delta.forEachArray("dateTrackers")   { o -> upsertIfNewer(o, "date_trackers", "updatedAt", syncDao::getDateTrackerCreatedAt) { syncDao.upsertDateTracker(dateTrackerEntityFromJson(o)) } }
+        // Attachments carry no URI across the wire: the bytes are fetched from the peer and
+        // stored locally, and the row is only written once the file is actually on disk, so a
+        // failed transfer retries on the next poll instead of leaving a dead attachment.
+        delta.forEachArray("attachments")    { o -> applyAttachment(o, senderIp) }
         // Remote deltas bypass the repositories, so refresh widgets + re-arm alarms explicitly
         com.onlyflows.ui.widget.WidgetUpdater.updateAll(context)
         if (alarmsDirty) com.onlyflows.data.notifications.AlarmReconciler.reconcile(context)
@@ -314,6 +326,26 @@ class LanSyncCoordinator(
         return true
     }
 
+    private suspend fun applyAttachment(json: JSONObject, senderIp: String?) {
+        val id = json.optString("id")
+        if (id.isBlank() || syncDao.isTombstoned(id, "attachments")) return
+        val fileName = json.optString("fileName", "file")
+
+        val existing = AttachmentStore.existingFile(context, id)
+        val localFile = if (existing != null) existing else {
+            val ip    = senderIp ?: return
+            val bytes = client.getAttachment(ip, PORT, id) ?: return
+            AttachmentStore.writeBytes(context, id, fileName, bytes) ?: return
+        }
+
+        val incoming = runCatching { LocalDateTime.parse(json.optString("updatedAt")) }.getOrNull()
+        val local    = syncDao.getAttachmentUpdatedAt(id)
+        if (local != null && incoming != null && !incoming.isAfter(local)) return
+        syncDao.upsertAttachment(
+            attachmentEntityFromJson(json, AttachmentStore.shareUri(context, localFile).toString())
+        )
+    }
+
     private suspend fun applyDelete(type: String, id: String) = when (type) {
         "tasks"           -> syncDao.deleteTask(id)
         "projects"        -> syncDao.deleteProject(id)
@@ -333,6 +365,10 @@ class LanSyncCoordinator(
         "goals"           -> syncDao.deleteGoal(id)
         "goal_logs"       -> syncDao.deleteGoalLog(id)
         "date_trackers"   -> syncDao.deleteDateTracker(id)
+        "attachments"     -> {
+            syncDao.deleteAttachment(id)
+            AttachmentStore.deleteFor(context, id)
+        }
         else              -> Unit
     }
 
@@ -357,7 +393,7 @@ class LanSyncCoordinator(
     // Full-state bidirectional sync. No cursor — LWW guard in applyDelta dedupes/protects.
     private suspend fun syncWithPeer(ip: String, port: Int) {
         val delta = client.getDelta(ip, port, LocalDateTime.MIN) ?: return
-        applyDelta(delta)
+        applyDelta(delta, ip)
         client.postApply(ip, port, buildDelta(LocalDateTime.MIN))
     }
 

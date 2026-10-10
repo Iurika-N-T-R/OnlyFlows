@@ -455,7 +455,11 @@ private fun ProjectBoardCard(
             }
             Spacer(Modifier.height(4.dp))
             if (project.dueDate != null) {
-                ProjectDeadlineBadge(dueDate = project.dueDate!!)
+                ProjectDeadlineBadge(
+                    dueDate     = project.dueDate!!,
+                    completedAt = project.completedAt?.toLocalDate()
+                        ?.takeIf { project.status == ProjectStatus.DONE },
+                )
             } else {
                 Text(
                     text  = "No deadline",
@@ -759,25 +763,38 @@ private fun ProjectPieIcon(
 // ── Deadline badge ────────────────────────────────────────────────────────────
 
 @Composable
-private fun ProjectDeadlineBadge(dueDate: LocalDate) {
+private fun ProjectDeadlineBadge(dueDate: LocalDate, completedAt: LocalDate? = null) {
     val today    = LocalDate.now()
     val daysLeft = ChronoUnit.DAYS.between(today, dueDate).toInt()
-    val overdue  = daysLeft < 0
+    // A finished project is never overdue: the clock stopped the day it was marked done.
+    val overdue  = completedAt == null && daysLeft < 0
 
+    val filled = overdue || completedAt != null
     Surface(
-        color  = if (overdue) Color(0xFFDC3545) else Color.Transparent,
+        color  = when {
+            completedAt != null -> Color(0xFF2E9E5B)
+            overdue             -> Color(0xFFDC3545)
+            else                -> Color.Transparent
+        },
         shape  = RoundedCornerShape(6.dp),
-        border = if (!overdue) androidx.compose.foundation.BorderStroke(
+        border = if (!filled) androidx.compose.foundation.BorderStroke(
             width = 1.dp,
             color = MaterialTheme.colorScheme.outline,
         ) else null,
     ) {
-        val label = if (overdue) "${-daysLeft} d overdue" else "$daysLeft d left"
+        val label = when {
+            completedAt != null -> "Done ${completedAt.format(cardDoneFmt)}"
+            overdue             -> "${-daysLeft} d overdue"
+            else                -> "$daysLeft d left"
+        }
         Text(
             text     = label,
             style    = MaterialTheme.typography.labelSmall,
-            color    = if (overdue) Color.White else MaterialTheme.colorScheme.onSurface,
+            color    = if (filled) Color.White else MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
         )
     }
 }
+
+private val cardDoneFmt: java.time.format.DateTimeFormatter =
+    java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy")

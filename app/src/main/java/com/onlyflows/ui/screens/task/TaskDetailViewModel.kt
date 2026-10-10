@@ -76,6 +76,8 @@ data class TaskDetailUiState(
     val comments: List<Comment>               = emptyList(),
     val reminders: List<Reminder>             = emptyList(),
     val attachments: List<Attachment>         = emptyList(),
+    /** Transient — set when a picked file could not be copied into app storage. */
+    val attachmentError: String?              = null,
     val showSmartMove: Boolean                = false,
     val projects: List<Project>               = emptyList(),
     val showGoalPicker: Boolean               = false,
@@ -160,6 +162,7 @@ sealed interface TaskDetailEvent {
         val fileSize: Long,
     ) : TaskDetailEvent
     data class DeleteAttachment(val id: String)                                 : TaskDetailEvent
+    data object ClearAttachmentError                                            : TaskDetailEvent
     data object ShowGoalPicker                                                  : TaskDetailEvent
     data object HideGoalPicker                                                  : TaskDetailEvent
     data class SetGoals(val goalIds: List<String>)                              : TaskDetailEvent
@@ -274,7 +277,8 @@ class TaskDetailViewModel(app: Application) : AndroidViewModel(app) {
                 _uiState.update { current ->
                     newState.copy(
                         reminders      = current.reminders,
-                        attachments    = current.attachments,
+                        attachments     = current.attachments,
+                        attachmentError = current.attachmentError,
                         allGoals       = current.allGoals,
                         projects       = current.projects,
                         showGoalPicker            = current.showGoalPicker,
@@ -679,9 +683,15 @@ class TaskDetailViewModel(app: Application) : AndroidViewModel(app) {
                     uri      = event.uri,
                     fileSize = event.fileSize,
                 )
-                attachmentRepo.add(attachment)
-                taskRepo.update(task.copy(hasAttachments = true, updatedAt = LocalDateTime.now()))
+                // The repository copies the bytes into app storage; a failed copy must not
+                // leave the task flagged as having an attachment that does not exist.
+                if (attachmentRepo.add(attachment)) {
+                    taskRepo.update(task.copy(hasAttachments = true, updatedAt = LocalDateTime.now()))
+                } else {
+                    _uiState.update { it.copy(attachmentError = "Could not copy \"${event.fileName}\"") }
+                }
             }
+            TaskDetailEvent.ClearAttachmentError -> _uiState.update { it.copy(attachmentError = null) }
             is TaskDetailEvent.DeleteAttachment -> viewModelScope.launch {
                 attachmentRepo.delete(event.id)
                 val remaining = _uiState.value.attachments.filter { it.id != event.id }

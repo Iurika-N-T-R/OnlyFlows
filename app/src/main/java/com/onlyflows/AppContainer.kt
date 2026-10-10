@@ -35,6 +35,7 @@ import com.onlyflows.data.lan.LanSyncPreferences
 import com.onlyflows.data.lan.LanSyncWriter
 
 class AppContainer(context: Context) {
+    private val appContext = context.applicationContext
     private val db = AppDatabase.getInstance(context)
     private val syncDao = db.syncDao()
 
@@ -152,6 +153,7 @@ class AppContainer(context: Context) {
         com.onlyflows.data.repository.ChecklistItemReminderRepository(db.checklistItemReminderDao(), syncDao, lanSyncWriter)
 
     val attachmentRepository: AttachmentRepository = AttachmentRepository(
+        context         = appContext,
         dao             = db.attachmentDao(),
         syncDao         = syncDao,
         lanSyncWriter = lanSyncWriter,

@@ -116,6 +116,12 @@ fun TaskDetailScreen(
     var showMoreMenu by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
+    LaunchedEffect(state.attachmentError) {
+        val message = state.attachmentError ?: return@LaunchedEffect
+        android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_LONG).show()
+        viewModel.onEvent(TaskDetailEvent.ClearAttachmentError)
+    }
+
     val filePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
     ) { uri: Uri? ->
@@ -415,9 +421,24 @@ fun TaskDetailScreen(
                                 onAdd       = { filePicker.launch(arrayOf("*/*")) },
                                 onDelete    = { viewModel.onEvent(TaskDetailEvent.DeleteAttachment(it)) },
                                 onOpen      = { att ->
-                                    val uri = Uri.parse(att.uri)
-                                    val intent = Intent(Intent.ACTION_VIEW).apply { setDataAndType(uri, att.mimeType); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+                                    // Attachments stored by AttachmentStore are served through our
+                                    // own FileProvider; older rows still hold the picker's URI, so
+                                    // fall back to whatever the row carries.
+                                    val stored = com.onlyflows.data.local.AttachmentStore
+                                        .existingFile(context, att.id)
+                                    val uri = if (stored != null)
+                                        com.onlyflows.data.local.AttachmentStore.shareUri(context, stored)
+                                    else Uri.parse(att.uri)
+                                    val intent = Intent(Intent.ACTION_VIEW).apply {
+                                        setDataAndType(uri, att.mimeType)
+                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    }
                                     runCatching { context.startActivity(intent) }
+                                        .onFailure {
+                                            android.widget.Toast.makeText(
+                                                context, "No app can open this file", android.widget.Toast.LENGTH_SHORT,
+                                            ).show()
+                                        }
                                 },
                             )
                         }
@@ -624,8 +645,21 @@ fun TaskDetailScreen(
                                 is com.onlyflows.domain.model.ChecklistSection -> {
                                     item(key = rowKey(row)) {
                                         var showSectionMenu by remember { mutableStateOf(false) }
+                                        val sectionItems = itemsBySection[row.id].orEmpty()
                                         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 16.dp, bottom = 4.dp)) {
-                                            Text(row.title, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f), fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                                            Text(row.title, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f), fontWeight = FontWeight.SemiBold)
+                                            if (sectionItems.isNotEmpty()) {
+                                                Spacer(Modifier.width(6.dp))
+                                                Text(
+                                                    text       = "${sectionItems.count { it.isCompleted }}/${sectionItems.size}",
+                                                    style      = MaterialTheme.typography.labelSmall,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color      = if (sectionItems.all { it.isCompleted })
+                                                        MaterialTheme.colorScheme.primary
+                                                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
+                                                )
+                                            }
+                                            Spacer(Modifier.weight(1f))
                                             Box {
                                                 IconButton(onClick = { showSectionMenu = true }, modifier = Modifier.size(28.dp)) {
                                                     Icon(Icons.Outlined.MoreVert, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))

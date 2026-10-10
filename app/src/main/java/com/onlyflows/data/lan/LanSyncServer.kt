@@ -73,6 +73,22 @@ class LanSyncServer(private val port: Int, private val coordinator: LanSyncCoord
             String(buf, 0, read, Charsets.UTF_8)
         } else ""
 
+        // Attachment bytes are binary and can be large, so they bypass the JSON/String path
+        // below and stream straight onto the socket.
+        if (method == "GET" && path == "/attachment") {
+            val bytes = params["id"]?.let { id -> runBlocking { coordinator.readAttachmentBytes(id) } }
+            if (bytes == null) {
+                val msg = "Not found".toByteArray()
+                out.write(httpHeader("404 Not Found", "text/plain", msg.size).toByteArray())
+                out.write(msg)
+            } else {
+                out.write(httpHeader("200 OK", "application/octet-stream", bytes.size).toByteArray())
+                out.write(bytes)
+            }
+            out.flush()
+            return
+        }
+
         val (status, mime, body2) = try {
             when {
                 method == "GET"  && path == "/info"  -> Triple("200 OK", "application/json",
@@ -104,4 +120,7 @@ class LanSyncServer(private val port: Int, private val coordinator: LanSyncCoord
         out.write(bytes)
         out.flush()
     }
+
+    private fun httpHeader(status: String, mime: String, length: Int): String =
+        "HTTP/1.1 $status\r\nContent-Type: $mime\r\nContent-Length: $length\r\nConnection: close\r\n\r\n"
 }

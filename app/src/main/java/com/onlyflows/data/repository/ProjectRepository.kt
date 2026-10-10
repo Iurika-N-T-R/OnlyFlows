@@ -163,7 +163,14 @@ class ProjectRepository(
         }
 
     suspend fun updateStatus(id: String, status: ProjectStatus) {
-        projectDao.updateStatus(id, status.name, LocalDateTime.now().toString())
+        val now = LocalDateTime.now()
+        // Keep the original completion timestamp when DONE is re-applied; clear it on any
+        // move back out of DONE so the deadline badge resumes counting.
+        val completedAt = when {
+            status != ProjectStatus.DONE -> null
+            else -> projectDao.getById(id)?.completedAt ?: now.toString()
+        }
+        projectDao.updateStatus(id, status.name, completedAt, now.toString())
         statusLogDao.insert(
             StatusLogEntity(
                 id        = "log_${id}_${System.currentTimeMillis()}",
@@ -266,5 +273,13 @@ class TagRepository(
             lanSyncWriter.writeTombstone("tags", id, now)
         }
         tagDao.deleteUnused()
+    }
+
+    /** Renames a folder across every tag in it; a blank [newName] dissolves the folder. */
+    suspend fun renameGroup(oldName: String, newName: String?) {
+        val now     = LocalDateTime.now()
+        val cleaned = newName?.trim()?.takeIf { it.isNotEmpty() }
+        tagDao.renameGroup(oldName, cleaned, now)
+        tagDao.getAll().filter { it.groupName == cleaned }.forEach { lanSyncWriter.writeTag(it) }
     }
 }

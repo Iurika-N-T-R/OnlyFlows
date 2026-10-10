@@ -58,7 +58,7 @@ import com.onlyflows.data.local.entity.AttachmentEntity
         ChecklistSectionEntity::class,
         ChecklistItemReminderEntity::class,
     ],
-    version = 39,
+    version = 40,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -202,12 +202,21 @@ abstract class AppDatabase : RoomDatabase() {
                 val migration38to39 = Migration(38, 39) { db ->
                     db.execSQL("ALTER TABLE tasks ADD COLUMN startTime TEXT")
                 }
+                val migration39to40 = Migration(39, 40) { db ->
+                    // Projects remember when they were marked DONE so a past due date reads
+                    // "completed on X" instead of accumulating overdue days forever.
+                    db.execSQL("ALTER TABLE projects ADD COLUMN completedAt TEXT")
+                    db.execSQL("UPDATE projects SET completedAt = updatedAt WHERE status = 'DONE'")
+                    // Tag folders + manual ordering
+                    db.execSQL("ALTER TABLE tags ADD COLUMN groupName TEXT")
+                    db.execSQL("ALTER TABLE tags ADD COLUMN sortOrder INTEGER NOT NULL DEFAULT 0")
+                }
                 Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "onlyflows.db",
                 )
-                .addMigrations(migration27to28, migration28to29, migration29to30, migration30to31, migration31to32, migration32to33, migration33to34, migration34to35, migration35to36, migration36to37, migration37to38, migration38to39)
+                .addMigrations(migration27to28, migration28to29, migration29to30, migration30to31, migration31to32, migration32to33, migration33to34, migration34to35, migration35to36, migration36to37, migration37to38, migration38to39, migration39to40)
                 .fallbackToDestructiveMigration()
                 .fallbackToDestructiveMigrationOnDowngrade()
                 .build()

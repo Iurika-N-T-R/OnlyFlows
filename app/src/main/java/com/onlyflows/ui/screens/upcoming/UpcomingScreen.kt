@@ -260,6 +260,7 @@ fun UpcomingScreen(
                     key         = { it.lazyKey },
                     contentType = { item ->
                         when (item) {
+                            is UpcomingItem.YearHeader  -> "year_header"
                             is UpcomingItem.WeekHeader  -> "week_header"
                             is UpcomingItem.MonthHeader -> "month_header"
                             is UpcomingItem.DayHeader   -> "day_header"
@@ -272,6 +273,7 @@ fun UpcomingScreen(
                     },
                 ) { item ->
                     when (item) {
+                        is UpcomingItem.YearHeader  -> UpcomingYearHeader(item.year)
                         is UpcomingItem.WeekHeader  -> UpcomingGroupHeader(item.label, isWeek = true)
                         is UpcomingItem.MonthHeader -> UpcomingGroupHeader(item.label, isWeek = false)
                         is UpcomingItem.DayHeader   -> UpcomingDayHeader(date = item.date, label = item.label)
@@ -481,6 +483,35 @@ private fun UpcomingGroupHeader(label: String, isWeek: Boolean) {
         Spacer(Modifier.width(10.dp))
         HorizontalDivider(
             color    = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+// ── Year separator ────────────────────────────────────────────────────────────
+
+@Composable
+private fun UpcomingYearHeader(year: Int) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 20.dp, end = 20.dp, top = 28.dp, bottom = 2.dp),
+    ) {
+        HorizontalDivider(
+            color    = MaterialTheme.colorScheme.outlineVariant,
+            modifier = Modifier.width(16.dp),
+        )
+        Spacer(Modifier.width(10.dp))
+        Text(
+            text       = year.toString(),
+            style      = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            color      = MaterialTheme.colorScheme.onSurface,
+        )
+        Spacer(Modifier.width(10.dp))
+        HorizontalDivider(
+            color    = MaterialTheme.colorScheme.outlineVariant,
             modifier = Modifier.weight(1f),
         )
     }

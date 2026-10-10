@@ -33,6 +33,7 @@ enum class UpcomingViewMode { WEEK, MONTH }
 // ── Flat item model ───────────────────────────────────────────────────────────
 
 sealed interface UpcomingItem {
+    data class YearHeader(val year: Int)                                        : UpcomingItem
     data class WeekHeader(val key: String, val label: String)                   : UpcomingItem
     data class MonthHeader(val key: String, val label: String)                  : UpcomingItem
     data class DayHeader(val date: LocalDate, val label: String)                : UpcomingItem
@@ -51,6 +52,7 @@ sealed interface UpcomingItem {
 
 /** The same key used in `items(key = { ... })` — single source of truth. */
 val UpcomingItem.lazyKey: String get() = when (this) {
+    is UpcomingItem.YearHeader  -> "year_${this.year}"
     is UpcomingItem.WeekHeader  -> this.key
     is UpcomingItem.MonthHeader -> this.key
     is UpcomingItem.DayHeader   -> "day_${this.date}"
@@ -194,9 +196,20 @@ class UpcomingViewModel(app: Application) : AndroidViewModel(app) {
         var todayIndex = 0
 
         var currentGroupKey: String? = null
+        var currentYear: Int? = null
         var cursor = windowStart
 
         while (!cursor.isAfter(windowEnd)) {
+            // ── Year separator ───────────────────────────────────────────────
+            // The window spans a full year ahead, so without this the list reads as one
+            // undifferentiated run of "12 Jan" days with no way to tell 2026 from 2027.
+            if (cursor.year != currentYear) {
+                currentYear = cursor.year
+                items += UpcomingItem.YearHeader(cursor.year)
+                // Force the week/month header to re-emit under the new year
+                currentGroupKey = null
+            }
+
             // ── Group header (week or month) ─────────────────────────────────
             val groupKey = when (mode) {
                 UpcomingViewMode.WEEK  -> {

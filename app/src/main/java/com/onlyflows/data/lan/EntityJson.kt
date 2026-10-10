@@ -157,6 +157,7 @@ fun ProjectEntity.toJson(): JSONObject = JSONObject().apply {
     put("sortOrder", sortOrder)
     putNullable("dueDate", dueDate)
     put("status", status)
+    putNullable("completedAt", completedAt)
     put("tagIds", tagIds.toJsonArray())
     put("isArchived", isArchived)
     put("createdAt", createdAt)
@@ -177,6 +178,7 @@ fun projectEntityFromJson(j: JSONObject) = ProjectEntity(
     sortOrder       = j.optInt("sortOrder", 0),
     dueDate         = if (j.isNull("dueDate")) null else j.optString("dueDate"),
     status          = j.optString("status", "NOT_STARTED"),
+    completedAt     = if (j.isNull("completedAt")) null else j.optString("completedAt"),
     tagIds          = j.getStringList("tagIds"),
     isArchived      = j.optBoolean("isArchived", false),
     createdAt       = j.optString("createdAt", LocalDateTime.now().toString()),
@@ -207,6 +209,8 @@ fun TagEntity.toJson(): JSONObject = JSONObject().apply {
     put("id", id)
     put("name", name)
     put("colorHex", colorHex)
+    putNullable("groupName", groupName)
+    put("sortOrder", sortOrder)
     put("updatedAt", updatedAt.toString())
 }
 
@@ -214,6 +218,8 @@ fun tagEntityFromJson(j: JSONObject) = TagEntity(
     id        = j.getString("id"),
     name      = j.optString("name", ""),
     colorHex  = j.optString("colorHex", "#4A90D9"),
+    groupName = if (j.isNull("groupName")) null else j.optString("groupName").takeIf { it.isNotBlank() },
+    sortOrder = j.optInt("sortOrder", 0),
     updatedAt = j.getLocalDateTime("updatedAt"),
 )
 

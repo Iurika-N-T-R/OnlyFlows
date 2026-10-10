@@ -25,8 +25,4 @@ class LanSyncWriter(private val coordinator: LanSyncCoordinator) {
 
     fun writeTombstone(entityType: String, entityId: String, deletedAt: LocalDateTime) =
         coordinator.enqueueTombstone(entityType, entityId, deletedAt)
-
-    // Attachments: physical file copy not supported in LAN sync v1
-    // ponytail: skipped file transfer, add when needed
-    suspend fun copyAttachmentFile(id: String, fileName: String, sourceUri: android.net.Uri): String? = null
 }

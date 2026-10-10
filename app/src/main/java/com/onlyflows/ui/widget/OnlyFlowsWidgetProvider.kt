@@ -190,7 +190,7 @@ private fun buildEventRow(context: Context, e: AgendaEvent, c: WColors): RemoteV
         setImageViewResource(R.id.widget_checkbox, R.drawable.ic_event_dot)
         setInt(R.id.widget_checkbox, "setColorFilter", dotColor)
 
-        setTextViewText(R.id.widget_meta, e.time ?: "All day")
+        setTextViewText(R.id.widget_meta, eventMeta(e))
         setTextColor(R.id.widget_meta, c.text2)
         setViewVisibility(R.id.widget_meta, View.VISIBLE)
 
@@ -206,9 +206,18 @@ private fun buildEventRow(context: Context, e: AgendaEvent, c: WColors): RemoteV
     }
 }
 
+/** Events beyond today carry their date — without it a birthday a year out read "All day". */
+private fun eventMeta(e: AgendaEvent): String {
+    val date = eventSortKey(e).toLocalDate()
+    val time = e.time ?: "All day"
+    return if (date == LocalDate.now()) time else "${formatRowDate(date)} · $time"
+}
+
 // ── Data ──────────────────────────────────────────────────────────────────────
 
-private const val UPCOMING_EVENT_DAYS = 30L
+// Matches the Upcoming screen's forward window: a 30-day horizon silently hid yearly
+// all-day events (birthdays, anniversaries) while showing tasks far beyond them.
+private const val UPCOMING_EVENT_DAYS = 365L
 
 private suspend fun loadEvents(context: Context, prefs: WidgetPrefs): List<AgendaEvent> {
     val repo = CalendarRepository(context)
@@ -245,13 +254,18 @@ private suspend fun resolveLabel(db: AppDatabase, prefs: WidgetPrefs): String = 
     else -> "All"
 }
 
-private val dateFmt = DateTimeFormatter.ofPattern("d MMM", Locale.getDefault())
-private val timeFmt = DateTimeFormatter.ofPattern("HH:mm", Locale.getDefault())
+private val dateFmt     = DateTimeFormatter.ofPattern("d MMM", Locale.getDefault())
+private val dateYearFmt = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.getDefault())
+private val timeFmt     = DateTimeFormatter.ofPattern("HH:mm", Locale.getDefault())
+
+/** Year is only noise for the current one, and essential for every other. */
+private fun formatRowDate(date: LocalDate): String =
+    date.format(if (date.year == LocalDate.now().year) dateFmt else dateYearFmt)
 
 private fun buildMeta(t: TaskEntity, projectNames: Map<String, String>, tagNames: Map<String, String>): String? {
     val dateTime = t.dueDate?.let { d ->
         val tt = t.dueTime?.format(timeFmt)
-        if (tt != null) "${d.format(dateFmt)} $tt" else d.format(dateFmt)
+        if (tt != null) "${formatRowDate(d)} $tt" else formatRowDate(d)
     }
     val indicators = buildString {
         if (t.isStarred) append("★")

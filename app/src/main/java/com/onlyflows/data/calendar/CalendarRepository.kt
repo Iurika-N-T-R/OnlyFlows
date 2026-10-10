@@ -58,8 +58,11 @@ class CalendarRepository(private val context: Context) {
         if (!hasPermission()) return emptyMap()
 
         val zone     = ZoneId.systemDefault()
-        val startMs  = start.atStartOfDay(zone).toInstant().toEpochMilli()
-        val endMs    = end.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        // All-day events (birthdays, anniversaries) store BEGIN at UTC midnight, which can
+        // land outside a window built from local midnights. Query one day of slack on each
+        // side and drop the extras after the real date is computed below.
+        val startMs  = start.minusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        val endMs    = end.plusDays(2).atStartOfDay(zone).toInstant().toEpochMilli()
 
         val uriBuilder = CalendarContract.Instances.CONTENT_URI.buildUpon()
         ContentUris.appendId(uriBuilder, startMs)
@@ -106,6 +109,7 @@ class CalendarRepository(private val context: Context) {
                     Instant.ofEpochMilli(beginMs).atZone(ZoneOffset.UTC).toLocalDate()
                 else
                     localStart.toLocalDate()
+                if (eventDate.isBefore(start) || eventDate.isAfter(end)) continue
                 val event = AgendaEvent(
                     id          = it.getLong(0).toString(),
                     title       = it.getString(1) ?: "",
