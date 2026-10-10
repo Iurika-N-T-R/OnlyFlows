@@ -5,6 +5,18 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.81.1] — 2026-10-10 · Correctifs
+
+### Corrigé
+
+- **Le sélecteur de tags affichait « No tags yet » depuis Today.** `TodayViewModel` ne publiait que `derivedTags` — les tags portés par les tâches actuellement à l'écran, ce qui est juste pour la barre de filtres mais faux pour la feuille d'ajout, qui recevait la même liste. Une journée vide donnait donc zéro tag. L'état porte désormais `allTags` en plus, et c'est lui qui alimente la feuille. Rien à voir avec les dossiers de tags, le bug était antérieur et se déclenchait dès que Today était vide.
+- **L'animation de la checkbox n'avait toujours pas le temps de jouer.** L'état optimiste ne suffisait pas : la ligne qui la contient quittait la liste immédiatement. `CompletionHold` retient désormais la ligne cochée 750 ms à sa position exacte (Today, Anytime, Someday). Le hold est déclenché par le callback de la checkbox et non déduit d'une ligne qui disparaît, pour qu'une suppression ou un déplacement ne laisse pas de ligne cochée fantôme.
+- **Deux états de fin se superposaient sur Today** (« Nothing for today » et « All done for today »). Fusionnés en un seul, qui distingue une journée terminée d'une journée vide.
+- **Emoji retirés des en-têtes « Completed » et « Won't do »**, ajoutés par erreur en 0.81.0.
+- Le sélecteur de tags prend l'`imePadding`, le clavier ne recouvre plus la liste.
+
+---
+
 ## [0.81.0] — 2026-10-10 · Couleurs, créneaux horaires, liste Repeating
 
 ### Ajouté

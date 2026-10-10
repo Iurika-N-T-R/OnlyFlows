@@ -54,7 +54,11 @@ data class TodayUiState(
     val overdueTasks: List<Task>            = emptyList(),
     val completedTasks: List<Task>          = emptyList(),
     val abandonedTasks: List<Task>          = emptyList(),
+    /** Only the tags worn by tasks currently in view — what the filter bar can usefully offer. */
     val tags: List<Tag>                     = emptyList(),
+    /** Every tag in the database. The add sheet must offer all of them, not just the ones
+     *  already on screen: with an empty Today that left the picker saying "No tags yet". */
+    val allTags: List<Tag>                  = emptyList(),
     val allProjects: List<com.onlyflows.domain.model.Project> = emptyList(),
     val activeTagFilter: Set<String>        = emptySet(),
     val activePriorityFilter: TaskPriority? = null,
@@ -176,6 +180,7 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
                         overdueTasks    = overdue.sortedWith(taskComparator),
                         completedTasks  = completed,
                         tags            = derivedTags,
+                        allTags         = tags,
                         activeTagFilter = state.activeTagFilter.intersect(visibleTagIds),
                         allProjects     = projects,
                         isLoading       = false,

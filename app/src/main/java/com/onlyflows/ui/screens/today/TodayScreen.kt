@@ -33,6 +33,7 @@ import com.onlyflows.domain.model.TaskGroup
 import com.onlyflows.ui.components.AgendaCard
 import com.onlyflows.ui.components.EmptyState
 import com.onlyflows.ui.components.CompletedSectionHeader
+import com.onlyflows.ui.components.rememberCompletionHold
 import com.onlyflows.ui.components.FlowFab
 import com.onlyflows.ui.components.GroupHeader
 import com.onlyflows.ui.components.QuoteCard
@@ -127,23 +128,31 @@ fun TodayScreen(
     val filteredOverdue = remember(state.overdueTasks, state.pendingDeleteTask?.id, state.activeTagFilter, state.activePriorityFilter) {
         state.overdueTasks.applyFilters()
     }
-    val completedTasks = remember(state.completedTasks, state.pendingDeleteTask?.id, state.activeTagFilter, state.activePriorityFilter, state.movingToCompletedIds) {
-        state.completedTasks.filter { it.id != state.pendingDeleteTask?.id && it.id !in state.movingToCompletedIds }
-    }
+    val completionHold = rememberCompletionHold()
+    val completedTasks = remember(state.completedTasks, state.pendingDeleteTask?.id, state.activeTagFilter, state.activePriorityFilter) {
+        state.completedTasks.filter { it.id != state.pendingDeleteTask?.id }
+    }.filterNot { it.id in completionHold }
     val abandonedTasks = remember(state.abandonedTasks, state.pendingDeleteTask?.id) {
         state.abandonedTasks.filter { it.id != state.pendingDeleteTask?.id }
     }
 
+    // A row the user just ticked stays in place for a moment, otherwise it leaves the list on
+    // the frame the write lands — before the checkbox has drawn its first animation frame.
+    val overdueRows = completionHold.apply(filteredOverdue)
+    // Applied to the union before bucketing, so a held row keeps the slot it was already in
+    // rather than reappearing somewhere else for the duration.
+    val dayTasks    = completionHold.apply(pendingToday + pendingEvening)
+
     // Nothing left to act on today. Done and Won't-do are then the record of the day rather
     // than an aside, so they open on their own instead of sitting there as collapsed rows.
-    val nothingPending = filteredOverdue.isEmpty() && pendingToday.isEmpty() && pendingEvening.isEmpty()
+    val nothingPending = overdueRows.isEmpty() && dayTasks.isEmpty()
 
     // The day splits itself by the hour each task carries. Tasks with no hour are not "early",
     // they are unscheduled, so they lead the list under no header at all — a section called
     // "Anytime" would be one more thing to read for no information. An explicit This Evening
     // choice outranks the clock: the user already said when they mean to do it.
-    val daySlots = remember(pendingToday, pendingEvening) {
-        (pendingToday + pendingEvening).groupBy { task ->
+    val daySlots = remember(dayTasks) {
+        dayTasks.groupBy { task ->
             when {
                 task.scheduledGroup == TaskGroup.THIS_EVENING -> DaySlot.EVENING
                 task.dueTime == null                          -> DaySlot.UNTIMED
@@ -275,24 +284,29 @@ fun TodayScreen(
                 }
             }
 
-            // ── Empty state ──
-            if (!state.isLoading && filteredOverdue.isEmpty() && pendingToday.isEmpty() && pendingEvening.isEmpty()) {
+            // ── Closing state ──
+            // Finishing the day and never having anything planned are not the same thing, and
+            // the old copy congratulated nobody while telling someone who just cleared eight
+            // tasks to "enjoy your free time".
+            if (!state.isLoading && nothingPending) {
                 item(key = "empty_state") {
+                    val finishedSomething = completedTasks.isNotEmpty() || abandonedTasks.isNotEmpty()
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier.fillParentMaxWidth(),
                     ) {
                         EmptyState(
-                            emoji    = "⭐",
-                            title    = "Nothing for today",
-                            subtitle = "Enjoy your free time, or add a task.",
+                            emoji    = if (finishedSomething) "🎉" else "⭐",
+                            title    = if (finishedSomething) "All done for today" else "Nothing for today",
+                            subtitle = if (finishedSomething) "Everything you planned is behind you."
+                                       else "Enjoy your free time, or add a task.",
                         )
                     }
                 }
             }
 
             // ── Overdue group ──
-            if (filteredOverdue.isNotEmpty()) {
+            if (overdueRows.isNotEmpty()) {
                 item(key = "overdue_header") {
                     GroupHeader(title = "Overdue", emoji = "🔴", iconSize = 24.dp)
                     HorizontalDivider(
@@ -301,14 +315,17 @@ fun TodayScreen(
                         thickness = 0.5.dp,
                     )
                 }
-                items(items = filteredOverdue, key = { "overdue_${it.id}" }) { task ->
+                items(items = overdueRows, key = { "overdue_${it.id}" }) { task ->
                     TaskItem(
                         task                  = task,
                         tags                  = state.tags,
                         isSelected            = task.id in state.selectedTaskIds,
                         isSelectionMode       = state.selectedTaskIds.isNotEmpty(),
                         checkboxColor         = MaterialTheme.colorScheme.error,
-                        onToggleComplete      = { viewModel.onEvent(TodayEvent.ToggleComplete(it, task.isCompleted)) },
+                        onToggleComplete      = {
+                            completionHold.onToggle(task, overdueRows)
+                            viewModel.onEvent(TodayEvent.ToggleComplete(it, task.isCompleted))
+                        },
                         onToggleChecklistItem = { id, done -> viewModel.onEvent(TodayEvent.ToggleChecklistItem(id, done)) },
                         onEditClick           = { onTaskClick(it) },
                         onLongClick           = { viewModel.onEvent(TodayEvent.ToggleSelect(it)) },
@@ -348,7 +365,10 @@ fun TodayScreen(
                         tags                  = state.tags,
                         isSelected            = task.id in state.selectedTaskIds,
                         isSelectionMode       = state.selectedTaskIds.isNotEmpty(),
-                        onToggleComplete      = { viewModel.onEvent(TodayEvent.ToggleComplete(it, task.isCompleted)) },
+                        onToggleComplete      = {
+                            completionHold.onToggle(task, slotTasks)
+                            viewModel.onEvent(TodayEvent.ToggleComplete(it, task.isCompleted))
+                        },
                         onToggleChecklistItem = { id, done -> viewModel.onEvent(TodayEvent.ToggleChecklistItem(id, done)) },
                         onEditClick           = { onTaskClick(it) },
                         onLongClick           = { viewModel.onEvent(TodayEvent.ToggleSelect(it)) },
@@ -362,33 +382,11 @@ fun TodayScreen(
                 }
             }
 
-            // Closing state — it used to be suppressed as soon as one task had been ticked,
-            // which left a lone "Completed (n)" row floating mid-screen as the only content.
-            if (nothingPending) {
-                item(key = "empty") {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 48.dp, bottom = 28.dp),
-                    ) {
-                        Text(
-                            text  = if (completedTasks.isEmpty() && abandonedTasks.isEmpty())
-                                "Nothing scheduled for today"
-                            else
-                                "All done for today 🎉",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-            }
-
             // ── Completed section ─────────────────────────────────────────────
             if (completedTasks.isNotEmpty()) {
                 item(key = "completed_header") {
                     if (nothingPending) {
-                        GroupHeader(title = "Completed", emoji = "✅", iconSize = 22.dp)
+                        GroupHeader(title = "Completed")
                     } else {
                         CompletedSectionHeader(
                             count    = completedTasks.size,
@@ -427,7 +425,7 @@ fun TodayScreen(
             if (abandonedTasks.isNotEmpty()) {
                 item(key = "abandoned_header") {
                     if (nothingPending) {
-                        GroupHeader(title = "Won't do", emoji = "🚫", iconSize = 22.dp)
+                        GroupHeader(title = "Won't do")
                     } else {
                         CompletedSectionHeader(
                             count    = abandonedTasks.size,
@@ -480,7 +478,7 @@ fun TodayScreen(
         val reminderCtx = LocalContext.current.applicationContext
         AddTaskSheet(
             defaultGroup  = com.onlyflows.domain.model.TaskGroup.TODAY,
-            tags          = state.tags,
+            tags          = state.allTags,
             projects      = state.allProjects,
             onAdd         = { id, title, note, group, dueDate, dueTime, endTime, priority, projectId, sectionId, checklistItems, tagIds ->
                 viewModel.onEvent(TodayEvent.AddTask(id, title, note, priority, projectId, sectionId, checklistItems, group, dueDate, dueTime, endTime, tagIds))

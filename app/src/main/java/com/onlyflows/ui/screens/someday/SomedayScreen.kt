@@ -23,6 +23,7 @@ import com.onlyflows.ui.components.CompletedSectionHeader
 import com.onlyflows.ui.components.EmptyState
 import com.onlyflows.ui.components.SelectionBar
 import com.onlyflows.ui.components.TaskItem
+import com.onlyflows.ui.components.rememberCompletionHold
 import com.onlyflows.ui.components.TaskFilterBar
 import com.onlyflows.ui.overlays.BulkMoreSheet
 import com.onlyflows.ui.overlays.SmartMoveSheet
@@ -89,6 +90,11 @@ fun SomedayScreen(
         (state.activePriorityFilter == null || task.priority == state.activePriorityFilter)
     }
     var completedExpanded by remember { mutableStateOf(false) }
+
+    // A ticked row stays in place long enough for the checkbox animation; without it the row
+    // leaves the list on the frame the database write lands.
+    val completionHold = rememberCompletionHold()
+    val taskRows       = completionHold.apply(filteredTasks)
 
     Scaffold(
         topBar = {
@@ -169,7 +175,7 @@ fun SomedayScreen(
                     }
                 }
             } else {
-                items(filteredTasks, key = { it.id }) { task ->
+                items(taskRows, key = { it.id }) { task ->
                     TaskItem(
                         task             = task,
                         tags             = state.tags,
@@ -178,7 +184,10 @@ fun SomedayScreen(
                         projectName      = task.projectId?.let { pid -> state.projects.find { it.id == pid }?.title },
                         onToggleComplete = { _ ->
                             if (isSelectionMode) viewModel.onEvent(SomedayEvent.ToggleSelect(task.id))
-                            else viewModel.onEvent(SomedayEvent.ToggleComplete(task.id, task.isCompleted))
+                            else {
+                                completionHold.onToggle(task, taskRows)
+                                viewModel.onEvent(SomedayEvent.ToggleComplete(task.id, task.isCompleted))
+                            }
                         },
                         onLongClick = { viewModel.onEvent(SomedayEvent.ToggleSelect(it)) },
                         onEditClick = { if (!isSelectionMode) onTaskClick(it) },
@@ -203,7 +212,7 @@ fun SomedayScreen(
                     )
                 }
                 if (completedExpanded) {
-                    items(state.completedTasks, key = { "completed_${it.id}" }) { task ->
+                    items(state.completedTasks.filterNot { it.id in completionHold }, key = { "completed_${it.id}" }) { task ->
                         TaskItem(
                             task             = task,
                             tags             = state.tags,

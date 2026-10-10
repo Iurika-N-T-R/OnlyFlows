@@ -60,6 +60,10 @@ fun TagsPickerModal(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                // The picker is usually opened from the add-task sheet with the keyboard up.
+                // Without this the search field pushes the list behind the IME and the sheet
+                // looks empty — the tags are there, just off-screen.
+                .imePadding()
                 .padding(bottom = 24.dp),
         ) {
             // Header
