@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.ArrowForwardIos
 import androidx.compose.material.icons.outlined.BarChart
+import androidx.compose.material.icons.outlined.UploadFile
 import androidx.compose.material.icons.outlined.RssFeed
 import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.CalendarMonth
@@ -55,12 +56,29 @@ fun SettingsScreen(
     var quoteImportMsg by remember { mutableStateOf<String?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
 
+    var importSummary by remember { mutableStateOf<com.onlyflows.data.smartadd.ContentWriter.Summary?>(null) }
+    var importing by remember { mutableStateOf(false) }
+    val importPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        importing = true
+        scope.launch { importSummary = com.onlyflows.data.smartadd.importFromUri(context, uri); importing = false }
+    }
+
     val quotePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri ?: return@rememberLauncherForActivityResult
         scope.launch {
             val count = try { quoteRepo.importFromUri(uri) } catch (_: Exception) { 0 }
             snackbarHostState.showSnackbar("$count quotes imported")
         }
+    }
+
+    importSummary?.let { summary ->
+        AlertDialog(
+            onDismissRequest = { importSummary = null },
+            title            = { Text("Import") },
+            text             = { com.onlyflows.ui.overlays.ImportSummaryCard(summary) },
+            confirmButton    = { TextButton(onClick = { importSummary = null }) { Text("OK") } },
+        )
     }
 
     Scaffold(
@@ -152,6 +170,12 @@ fun SettingsScreen(
                 icon    = Icons.Outlined.RssFeed,
                 label   = "RSS",
                 onClick = onRssSettingsClick,
+            )
+            Divider()
+            SettingsRow(
+                icon    = Icons.Outlined.UploadFile,
+                label   = if (importing) "Importing…" else "Import tasks, projects & lists",
+                onClick = { if (!importing) importPicker.launch(com.onlyflows.data.smartadd.IMPORT_MIME_TYPES) },
             )
             Divider()
             SettingsRow(

@@ -159,7 +159,21 @@ fun AddTaskSheet(
                         .weight(1f)
                         .focusRequester(focusRequester),
                 )
-                Spacer(Modifier.width(8.dp))
+                // Smart add (natural language) and voice: what is typed so far goes along
+                val smartContext = LocalContext.current
+                IconButton(
+                    onClick  = { onDismiss(); (smartContext.applicationContext as com.onlyflows.OnlyFlowsApp).requestSmartAdd(title) },
+                    modifier = Modifier.size(28.dp),
+                ) {
+                    Icon(Icons.Outlined.AutoAwesome, contentDescription = "Smart add", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                }
+                IconButton(
+                    onClick  = { onDismiss(); (smartContext.applicationContext as com.onlyflows.OnlyFlowsApp).requestSmartAdd(title, voice = true) },
+                    modifier = Modifier.size(28.dp),
+                ) {
+                    Icon(Icons.Outlined.Mic, contentDescription = "Voice input", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                }
+                Spacer(Modifier.width(4.dp))
                 Surface(
                     onClick = onDismiss,
                     shape   = CircleShape,

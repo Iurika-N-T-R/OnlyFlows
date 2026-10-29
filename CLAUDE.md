@@ -17,7 +17,7 @@ On Windows with Git Bash (required for JAVA_HOME resolution):
 export JAVA_HOME="/c/Program Files/Android/Android Studio/jbr" && ./gradlew assembleDebug 2>&1 | tail -80
 ```
 
-There are no unit or instrumented tests in this project.
+Unit tests: `./gradlew testDebugUnitTest` (only the natural-language parser, `app/src/test/.../smartadd/NaturalLanguageTest.kt`). No instrumented tests.
 
 ## Architecture Overview
 

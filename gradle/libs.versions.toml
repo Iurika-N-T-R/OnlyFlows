@@ -12,7 +12,7 @@ datastorePreferences = "1.1.2"
 coroutines = "1.9.0"
 adaptiveVersion = "1.1.0"
 windowVersion = "1.3.0"
-reorderable = "2.1.0"
+reorderable = "2.4.3"
 workManager = "2.10.0"
 playServicesLocation = "21.3.0"
 

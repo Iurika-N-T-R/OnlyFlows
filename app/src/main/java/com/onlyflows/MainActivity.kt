@@ -99,9 +99,13 @@ class MainActivity : ComponentActivity() {
             OnlyFlowsTheme(darkTheme = darkTheme) {
                 val sysDensity = LocalDensity.current
                 var showGlobalAddTask by remember { mutableStateOf(false) }
+                var smartAdd by remember { mutableStateOf<OnlyFlowsApp.SmartAddRequest?>(null) }
 
                 LaunchedEffect(Unit) {
                     app.addTaskRequested.collect { showGlobalAddTask = true }
+                }
+                LaunchedEffect(Unit) {
+                    app.smartAddRequested.collect { smartAdd = it }
                 }
 
                 androidx.compose.runtime.CompositionLocalProvider(
@@ -132,6 +136,14 @@ class MainActivity : ComponentActivity() {
                         isTablet      = isTablet,
                         modifier      = Modifier.fillMaxSize(),
                     )
+
+                    smartAdd?.let { req ->
+                        com.onlyflows.ui.overlays.SmartAddSheet(
+                            initialText = req.text,
+                            startVoice  = req.voice,
+                            onDismiss   = { smartAdd = null },
+                        )
+                    }
 
                     if (showGlobalAddTask) {
                         val globalTags by app.container.tagRepository.observeAll()

@@ -5,6 +5,31 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.84.0] — 2026-10-29 · Import, langage naturel et voix
+
+### Ajouté
+
+- **Import de fichiers** (Settings → « Import tasks, projects & lists », ou « Import file » dans Smart add). JSON, CSV / TSV, texte et Markdown. Reconnaît les tâches, projets, checklists (listes) et listes de notes, par leur type explicite ou leur forme. Rien n'est dupliqué : un projet, une section, une tâche ou une note dont le titre existe déjà est complété (date, priorité, description, éléments de checklist, étiquettes) au lieu d'être recréé. Un résumé indique ce qui a été créé, mis à jour ou ignoré. Les noms de champs et les valeurs sont acceptés en anglais ou en français, avec ou sans accents ; les CSV d'Excel en français (point-virgule, Windows-1252) sont lus correctement.
+- **Smart add en langage naturel** (bouton ✨ de la feuille d'ajout). Une ligne par élément, en anglais ou en français : « Call John tomorrow at 9 AM », « Buy groceries every Monday », « Create a project for my website », « Ajoute lait, oeufs et pain à ma liste de courses », « Rappelle-moi de payer le loyer vendredi prochain ». Dates, heures, récurrence, rappels, #étiquettes et !priorité sont compris. Un aperçu montre ce qui sera créé ; une question n'apparaît que si la phrase est ambiguë (rappel sans heure, plusieurs listes au même nom).
+- **Saisie vocale** (bouton 🎤 de la feuille d'ajout et de Smart add) : la reconnaissance vocale d'Android remplit le champ, modifiable avant d'ajouter, puis passe par le même moteur.
+
+### Corrigé
+
+- **Replier un dossier de la sidebar faisait sauter et chevaucher les éléments en dessous.** L'animation de position de la liste réordonnable se battait avec celle du repli. Elle ne joue plus que pendant un glisser-déposer, et les projets du dossier se replient en un seul bloc.
+- **Les boutons + et ⋯ des sections n'étaient pas alignés à droite** : leur position dépendait de la longueur du titre.
+
+### Modifié
+
+- **Compteur des sections** : vert quand tout est fait, rouge quand une tâche non faite est en retard, gris sinon.
+
+### Technique
+
+- `domain/smartadd` (`NaturalLanguage`, brouillons), `data/smartadd` (`FileImporter`, `ContentWriter`), `ui/overlays/SmartAddSheet`.
+- Reorderable 2.1.0 -> 2.4.3 (pour `animateItemModifier`).
+- Premier test unitaire : `NaturalLanguageTest` (`./gradlew testDebugUnitTest`).
+
+---
+
 ## [0.83.0] — 2026-10-10 · Palette synchronisée
 
 ### Ajouté

@@ -20,6 +20,13 @@ class OnlyFlowsApp : Application() {
 
     fun requestAddTask() { _addTaskRequested.tryEmit(Unit) }
 
+    /** Opens Smart Add (natural language / voice) with [text] already typed, listening when [voice]. */
+    data class SmartAddRequest(val text: String = "", val voice: Boolean = false)
+    private val _smartAddRequested = MutableSharedFlow<SmartAddRequest>(extraBufferCapacity = 1)
+    val smartAddRequested: SharedFlow<SmartAddRequest> = _smartAddRequested.asSharedFlow()
+
+    fun requestSmartAdd(text: String = "", voice: Boolean = false) { _smartAddRequested.tryEmit(SmartAddRequest(text, voice)) }
+
     override fun onCreate() {
         super.onCreate()
         AppLog.init(filesDir)

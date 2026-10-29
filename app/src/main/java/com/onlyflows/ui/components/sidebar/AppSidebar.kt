@@ -1,7 +1,11 @@
 package com.onlyflows.ui.components.sidebar
 
 import androidx.compose.animation.*
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -207,7 +211,17 @@ fun AppSidebar(
             // ── Folders + Projects (reorderable) ─────────────────────────────
             @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
             items(localTopLevel, key = { it.key }) { entry ->
-                ReorderableItem(reorderState, key = entry.key) { _ ->
+                // Items only slide while a drag is reordering them. Left on all the time, the slide
+                // fought the folder's expand/collapse: the rows below jumped and overlapped.
+                ReorderableItem(
+                    reorderState,
+                    key = entry.key,
+                    animateItemModifier = Modifier.animateItem(
+                        placementSpec = if (reorderState.isAnyItemDragging)
+                            spring(stiffness = Spring.StiffnessMediumLow, visibilityThreshold = IntOffset.VisibilityThreshold)
+                        else null,
+                    ),
+                ) { _ ->
                     val dragMod = Modifier.longPressDraggableHandle()
                     when (entry) {
                         is TopLevelEntry.FolderNode -> {
@@ -222,19 +236,22 @@ fun AppSidebar(
                                     onAddProject       = { createProjectFolderId = entry.folder.id; showCreateProject = true },
                                     dragHandleModifier = dragMod,
                                 )
-                                entry.children.forEach { progress ->
-                                    AnimatedVisibility(
-                                        visible = expanded,
-                                        enter   = expandVertically() + fadeIn(),
-                                        exit    = shrinkVertically() + fadeOut(),
-                                    ) {
-                                        ProjectItem(
-                                            progress    = progress,
-                                            indented    = true,
-                                            isSelected  = currentProjectId == progress.project.id,
-                                            onClick     = { onProjectClick(progress.project.id); onItemSelected() },
-                                            onLongPress = { contextProject = progress.project },
-                                        )
+                                // One block that folds up under the folder, rather than each row on its own
+                                AnimatedVisibility(
+                                    visible = expanded,
+                                    enter   = expandVertically(expandFrom = Alignment.Top) + fadeIn(),
+                                    exit    = shrinkVertically(shrinkTowards = Alignment.Top) + fadeOut(),
+                                ) {
+                                    Column {
+                                        entry.children.forEach { progress ->
+                                            ProjectItem(
+                                                progress    = progress,
+                                                indented    = true,
+                                                isSelected  = currentProjectId == progress.project.id,
+                                                onClick     = { onProjectClick(progress.project.id); onItemSelected() },
+                                                onLongPress = { contextProject = progress.project },
+                                            )
+                                        }
                                     }
                                 }
                             }

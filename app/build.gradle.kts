@@ -14,8 +14,8 @@ android {
         applicationId = "com.onlyflows"
         minSdk = 26
         targetSdk = 35
-        versionCode = 127
-        versionName = "0.83.0"
+        versionCode = 128
+        versionName = "0.84.0"
     }
 
     signingConfigs {
@@ -111,4 +111,6 @@ dependencies {
 
     // Location + Geofencing
     implementation(libs.play.services.location)
+
+    testImplementation("junit:junit:4.13.2")
 }
