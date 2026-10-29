@@ -9,6 +9,7 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.ArrowForwardIos
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.UploadFile
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.RssFeed
 import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.CalendarMonth
@@ -58,6 +59,7 @@ fun SettingsScreen(
 
     var importSummary by remember { mutableStateOf<com.onlyflows.data.smartadd.ContentWriter.Summary?>(null) }
     var importing by remember { mutableStateOf(false) }
+    var showImportGuide by remember { mutableStateOf(false) }
     val importPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri ?: return@rememberLauncherForActivityResult
         importing = true
@@ -71,6 +73,8 @@ fun SettingsScreen(
             snackbarHostState.showSnackbar("$count quotes imported")
         }
     }
+
+    if (showImportGuide) com.onlyflows.ui.overlays.ImportGuideSheet(onDismiss = { showImportGuide = false })
 
     importSummary?.let { summary ->
         AlertDialog(
@@ -176,6 +180,12 @@ fun SettingsScreen(
                 icon    = Icons.Outlined.UploadFile,
                 label   = if (importing) "Importing…" else "Import tasks, projects & lists",
                 onClick = { if (!importing) importPicker.launch(com.onlyflows.data.smartadd.IMPORT_MIME_TYPES) },
+            )
+            Divider()
+            SettingsRow(
+                icon    = Icons.Outlined.AutoAwesome,
+                label   = "Import guide & AI prompt",
+                onClick = { showImportGuide = true },
             )
             Divider()
             SettingsRow(

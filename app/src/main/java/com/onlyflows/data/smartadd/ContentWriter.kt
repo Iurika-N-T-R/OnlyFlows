@@ -193,3 +193,16 @@ suspend fun importFromUri(context: Context, uri: android.net.Uri): ContentWriter
 
 /** What the file picker offers for an import. */
 val IMPORT_MIME_TYPES = arrayOf("application/json", "text/csv", "text/comma-separated-values", "text/tab-separated-values", "text/plain", "text/markdown", "text/*", "*/*")
+
+/** Imports text pasted from an AI assistant or anywhere else: same formats as a file, ```fences``` removed. */
+suspend fun importFromText(context: Context, pasted: String): ContentWriter.Summary = withContext(Dispatchers.IO) {
+    // Assistants wrap their answer in ```json … ```: keep what is inside the first fenced block.
+    val text = Regex("```[a-zA-Z]*\\s*\\n([\\s\\S]*?)```").find(pasted)?.groupValues?.get(1) ?: pasted
+    try {
+        val batch = FileImporter.parse(text.trim())
+        if (batch.isEmpty) ContentWriter.Summary(lines = listOf("Nothing to import was found in the pasted text"))
+        else ContentWriter(context).write(batch)
+    } catch (e: Exception) {
+        ContentWriter.Summary(lines = listOf("Could not import: ${e.message ?: e.javaClass.simpleName}"))
+    }
+}
