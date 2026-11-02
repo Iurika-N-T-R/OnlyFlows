@@ -140,7 +140,6 @@ class MainActivity : ComponentActivity() {
                             defaultGroup = TaskGroup.TODAY,
                             tags         = globalTags,
                             onAdd = { id, title, note, group, dueDate, dueTime, endTime, priority, projectId, sectionId, checklistItems, tagIds ->
-                                showGlobalAddTask = false
                                 val repo = app.container.taskRepository
                                 CoroutineScope(Dispatchers.IO).launch {
                                     repo.insert(Task(

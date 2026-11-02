@@ -382,7 +382,6 @@ class TodayViewModel(app: Application) : AndroidViewModel(app) {
                     sortOrder = index,
                 ))
             }
-            _uiState.update { it.copy(showAddTask = false) }
         }
     }
 

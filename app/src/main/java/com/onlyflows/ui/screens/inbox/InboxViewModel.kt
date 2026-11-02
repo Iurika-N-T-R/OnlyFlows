@@ -151,8 +151,7 @@ class InboxViewModel(app: Application) : AndroidViewModel(app) {
                         sortOrder = index,
                     ))
                 }
-                _uiState.update { it.copy(showAddTask = false) }
-            }
+                }
             is InboxEvent.ToggleChecklistItem -> viewModelScope.launch {
                 taskRepo.toggleChecklistItem(event.itemId, event.completed)
             }

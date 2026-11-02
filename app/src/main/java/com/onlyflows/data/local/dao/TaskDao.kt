@@ -250,6 +250,7 @@ interface TaskDao {
           AND (
             scheduledGroup IN ('TODAY', 'THIS_EVENING')
             OR dueDate = :today
+            OR dueDate < :today  -- was in Today's Overdue group when it was ticked
             OR (startDate <= :today AND (dueDate IS NULL OR dueDate >= :today))
           )
         ORDER BY completedAt DESC

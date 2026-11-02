@@ -20,7 +20,9 @@ import kotlinx.coroutines.launch
 import com.onlyflows.R
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.onlyflows.ui.components.CompletedSectionHeader
+import com.onlyflows.ui.components.CompletedChip
+import com.onlyflows.ui.components.DoneSectionLabel
+import com.onlyflows.ui.components.rememberShowDone
 import com.onlyflows.ui.components.EmptyState
 import com.onlyflows.ui.components.FlowFab
 import com.onlyflows.ui.components.SelectionBar
@@ -141,7 +143,7 @@ fun InboxScreen(
         val visibleTasks = remember(state.tasks, state.pendingDeleteTask?.id) {
             state.tasks.filter { it.id != state.pendingDeleteTask?.id }
         }
-        var completedExpanded by remember { mutableStateOf(false) }
+        var showDone by rememberShowDone("inbox")
         if (!state.isLoading && visibleTasks.isEmpty() && state.completedTasks.isEmpty()) {
             Box(
                 contentAlignment = Alignment.Center,
@@ -163,6 +165,21 @@ fun InboxScreen(
                 ),
                 modifier = Modifier.fillMaxSize(),
             ) {
+                if (!isSelectionMode && state.completedTasks.isNotEmpty()) {
+                    item(key = "filter_bar") {
+                        CompletedChip(
+                            count    = state.completedTasks.size,
+                            shown    = showDone,
+                            onToggle = { showDone = !showDone },
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
+                        )
+                    }
+                }
+                if (visibleTasks.isEmpty()) {
+                    item(key = "empty") {
+                        EmptyState(emoji = "📥", title = "Inbox empty", subtitle = "All tasks processed.")
+                    }
+                }
                 items(visibleTasks, key = { it.id }) { task ->
                     TaskItem(
                         task             = task,
@@ -191,31 +208,24 @@ fun InboxScreen(
                 }
 
                 // ── Completed today ───────────────────────────────────────────
-                if (state.completedTasks.isNotEmpty()) {
+                if (showDone && state.completedTasks.isNotEmpty()) {
                     item(key = "completed_header") {
-                        CompletedSectionHeader(
-                            count    = state.completedTasks.size,
-                            expanded = completedExpanded,
-                            onToggle = { completedExpanded = !completedExpanded },
-                            modifier = Modifier.padding(top = 8.dp),
-                        )
+                        DoneSectionLabel("Completed", state.completedTasks.size, Modifier.animateItem())
                     }
-                    if (completedExpanded) {
-                        items(state.completedTasks, key = { "completed_${it.id}" }) { task ->
-                            TaskItem(
-                                task             = task,
-                                tags             = state.tags,
-                                isSelectionMode  = false,
-                                onToggleComplete = { viewModel.onEvent(InboxEvent.ToggleComplete(task.id, task.isCompleted)) },
-                                onEditClick      = { onTaskClick(it) },
-                                modifier         = Modifier.animateItem(),
-                            )
-                            HorizontalDivider(
-                                modifier  = Modifier.padding(start = 54.dp),
-                                color     = MaterialTheme.colorScheme.outlineVariant,
-                                thickness = 0.5.dp,
-                            )
-                        }
+                    items(state.completedTasks, key = { "completed_${it.id}" }) { task ->
+                        TaskItem(
+                            task             = task,
+                            tags             = state.tags,
+                            isSelectionMode  = false,
+                            onToggleComplete = { viewModel.onEvent(InboxEvent.ToggleComplete(task.id, task.isCompleted)) },
+                            onEditClick      = { onTaskClick(it) },
+                            modifier         = Modifier.animateItem(),
+                        )
+                        HorizontalDivider(
+                            modifier  = Modifier.padding(start = 54.dp),
+                            color     = MaterialTheme.colorScheme.outlineVariant,
+                            thickness = 0.5.dp,
+                        )
                     }
                 }
             }

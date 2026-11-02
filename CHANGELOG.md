@@ -5,6 +5,24 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.86.0] — 2026-11-02 · Listes en collections, terminées à la demande
+
+### Modifié
+
+- **Une liste est une collection.** Plus d'onglets Lists / Tasks / Archived / Comments : une seule page. Les sous-listes viennent en premier (« Lists » pour une liste de tâches, « Groups » pour une liste de notes), en grille décalée sur deux colonnes. Chaque carte montre son contenu : progression, premiers éléments ouverts à cocher directement, puis « +N » ; pour un groupe de notes, les titres des premières notes. Les éléments de la liste elle-même suivent sous `ITEMS · N` (ou `NOTES · N`). Une liste sans sous-liste s'ouvre directement sur ses éléments, avec un lien « + New list ». Archived et Comments passent dans le menu ⋯ et s'ouvrent en feuille. Les projets gardent leurs onglets.
+- **Chip « Completed N »** à côté de Priority sur Today, Anytime, Someday et Inbox : les tâches terminées sont masquées, ou affichées en bas sous `COMPLETED · N`. Le choix est mémorisé par écran. Remplace le repli avec chevron. Priority et Completed passent avant les étiquettes pour rester visibles.
+- **Citation du jour** : plus de boîte grise, une barre d'accent et le texte, l'auteur en dessous.
+- **Saisie vocale retirée** de la feuille d'ajout, ainsi que la permission micro.
+
+### Corrigé
+
+- **Entrée (✓ du clavier) fermait la feuille d'ajout** au lieu d'enregistrer et de passer à l'élément suivant, sur tous les écrans.
+- **Une tâche en retard cochée depuis Today disparaissait** au lieu d'aller dans les terminées.
+- **Le badge de Today ignorait les tâches en retard** (« 1/1 » alors qu'il en restait quatre).
+- **Anytime et Someday restaient blancs** quand toutes les tâches étaient terminées et masquées : le message vide s'affiche.
+
+---
+
 ## [0.85.0] — 2026-11-02 · Smart add intégré, voix hors ligne
 
 ### Modifié

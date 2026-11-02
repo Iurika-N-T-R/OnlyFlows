@@ -29,10 +29,20 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
+
+/** What a child list holds, for its card in the collection view. */
+data class ChildPreview(
+    val done: Int,
+    val total: Int,
+    /** First open items (tasks) or first notes, in list order. */
+    val items: List<Pair<String, String>>,
+)
 
 data class ProjectDetailUiState(
     val project: Project?                        = null,
@@ -42,6 +52,8 @@ data class ProjectDetailUiState(
     val childLists: List<Project>                = emptyList(),
     /** taskCount per projectId — used for the item count on child list cards */
     val childListCounts: Map<String, Int>        = emptyMap(),
+    /** Content preview per child list id, shown on its card. */
+    val childPreviews: Map<String, ChildPreview> = emptyMap(),
     val selectedTaskIds: Set<String>             = emptySet(),
     val movingToCompletedIds: Set<String>        = emptySet(),
     val showAddTask: Boolean                     = false,
@@ -68,7 +80,10 @@ data class ProjectDetailUiState(
     val hideCompleted: Boolean                   = false,
 )
 
+private const val PREVIEW_ITEMS = 5
+
 sealed interface ProjectDetailEvent {
+    data class CompleteChildTask(val taskId: String)                    : ProjectDetailEvent
     data class ToggleComplete(val taskId: String, val current: Boolean) : ProjectDetailEvent
     data class ToggleSelect(val taskId: String)                         : ProjectDetailEvent
     data object ClearSelection                                          : ProjectDetailEvent
@@ -129,6 +144,7 @@ sealed interface ProjectDetailEvent {
     data object AbandonSelected                                             : ProjectDetailEvent
 }
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class ProjectDetailViewModel(app: Application) : AndroidViewModel(app) {
 
     private val container     = (app as OnlyFlowsApp).container
@@ -203,6 +219,29 @@ class ProjectDetailViewModel(app: Application) : AndroidViewModel(app) {
                 _uiState.update { it.copy(childListCounts = progress.associate { p -> p.projectId to p.total }) }
             }
         }
+        // Card previews: each child list's first open items (or first notes) and its progress
+        viewModelScope.launch {
+            projectRepo.observeChildren(projectId)
+                .map { kids -> kids.map { it.id to it.type } }
+                .distinctUntilChanged()
+                .flatMapLatest { kids ->
+                    if (kids.isEmpty()) flowOf(emptyMap())
+                    else combine(kids.map { (id, type) ->
+                        if (type == ProjectType.NOTE) noteRepo.observeByProject(id).map { notes ->
+                            id to ChildPreview(0, notes.size, notes.take(PREVIEW_ITEMS).map { n ->
+                                n.id to n.title.ifBlank { n.content.lineSequence().firstOrNull { it.isNotBlank() }.orEmpty() }
+                            })
+                        } else taskRepo.observeByProject(id).map { tasks ->
+                            id to ChildPreview(
+                                done  = tasks.count { it.isCompleted },
+                                total = tasks.size,
+                                items = tasks.filter { !it.isCompleted }.sortedBy { it.sortOrder }.take(PREVIEW_ITEMS).map { it.id to it.title },
+                            )
+                        }
+                    }) { it.toMap() }
+                }
+                .collect { previews -> _uiState.update { it.copy(childPreviews = previews) } }
+        }
         viewModelScope.launch {
             noteRepo.observeCountsByProject().collectLatest { counts ->
                 _uiState.update { it.copy(noteCountsByProject = counts) }
@@ -274,6 +313,7 @@ class ProjectDetailViewModel(app: Application) : AndroidViewModel(app) {
                         // Preserve state managed by independent coroutines
                         comments              = state.comments,
                         childListCounts       = state.childListCounts,
+                        childPreviews         = state.childPreviews,
                         noteCountsByProject   = state.noteCountsByProject,
                         collapsedSectionIds   = state.collapsedSectionIds,
                         hideCompleted         = state.hideCompleted,
@@ -439,6 +479,8 @@ class ProjectDetailViewModel(app: Application) : AndroidViewModel(app) {
                 val p = _uiState.value.project ?: return@launch
                 projectRepo.update(p.copy(note = event.note))
             }
+            // Ticked from a card in the collection view: the task belongs to a child list
+            is ProjectDetailEvent.CompleteChildTask -> viewModelScope.launch { taskRepo.complete(event.taskId) }
             is ProjectDetailEvent.CreateChildList -> viewModelScope.launch {
                 val project = _uiState.value.project ?: return@launch
                 val child = Project(
@@ -604,7 +646,6 @@ class ProjectDetailViewModel(app: Application) : AndroidViewModel(app) {
                     sortOrder = index,
                 ))
             }
-            _uiState.update { it.copy(showAddTask = false) }
         }
     }
 

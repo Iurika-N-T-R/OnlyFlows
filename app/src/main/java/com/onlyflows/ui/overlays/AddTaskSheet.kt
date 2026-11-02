@@ -15,7 +15,6 @@ import androidx.compose.material.icons.automirrored.outlined.Article
 import androidx.compose.material.icons.automirrored.outlined.FormatListBulleted
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Flag
-import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -204,7 +203,6 @@ fun AddTaskSheet(
     }
     val canSave = if (smart != null) smartBatch != null else title.isNotBlank()
 
-    val dictation = rememberDictation { heard -> title = if (title.isBlank()) heard else title.trimEnd() + " " + heard }
 
     val selectedProject: Project? = projects.find { it.id == selectedProjectId }
     val selectedSection: Section? = selectedProject?.sections?.find { it.id == selectedSectionId }
@@ -689,16 +687,6 @@ fun AddTaskSheet(
                                 onClick = { priority = p; showPriorityMenu = false },
                             )
                         }
-                    }
-                }
-                // Voice typing, on-device only — hidden when the phone has no offline model
-                if (dictation.available) {
-                    IconButton(onClick = dictation.toggle) {
-                        Icon(
-                            if (dictation.listening) Icons.Filled.Mic else Icons.Outlined.Mic,
-                            contentDescription = "Voice typing",
-                            tint = if (dictation.listening) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
                     }
                 }
                 // Open in full view button

@@ -33,13 +33,14 @@ import com.onlyflows.OnlyFlowsApp
 import com.onlyflows.domain.model.TaskGroup
 import com.onlyflows.ui.components.AgendaCard
 import com.onlyflows.ui.components.EmptyState
-import com.onlyflows.ui.components.CompletedSectionHeader
+import com.onlyflows.ui.components.DoneSectionLabel
 import com.onlyflows.ui.components.rememberCompletionHold
 import com.onlyflows.ui.components.FlowFab
 import com.onlyflows.ui.components.GroupHeader
 import com.onlyflows.ui.components.QuoteCard
 import com.onlyflows.ui.components.SelectionBar
 import com.onlyflows.ui.components.TaskFilterBar
+import com.onlyflows.ui.components.rememberShowDone
 import com.onlyflows.ui.components.TaskItem
 import com.onlyflows.ui.overlays.AddTaskSheet
 import com.onlyflows.ui.overlays.BulkMoreSheet
@@ -99,8 +100,9 @@ fun TodayScreen(
 
     val scrollBehavior    = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val fc                = MaterialTheme.flowColors
-    var completedExpanded by remember { mutableStateOf(false) }
-    var abandonedExpanded by remember { mutableStateOf(false) }
+    // "Completed" chip next to Priority: done and won't-do tasks are shown, or not at all.
+    // Kept across launches — it is a way of looking at the day, not a one-off.
+    var showDone by rememberShowDone("today")
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(state.pendingDeleteTask) {
@@ -183,7 +185,8 @@ fun TodayScreen(
                             color      = MaterialTheme.colorScheme.onSurface,
                         )
                         val completedCount = state.completedTasks.size
-                        val totalCount = state.todayTasks.size + state.eveningTasks.size + completedCount
+                        // Overdue tasks sit on Today too: leaving them out showed "1/1" with four still to do
+                        val totalCount = state.todayTasks.size + state.eveningTasks.size + state.overdueTasks.size + completedCount
                         if (totalCount > 0) {
                             Spacer(Modifier.width(10.dp))
                             Surface(
@@ -260,6 +263,9 @@ fun TodayScreen(
                     activePriorityFilter = state.activePriorityFilter,
                     onToggleTag          = { viewModel.onEvent(TodayEvent.ToggleTagFilter(it)) },
                     onSetPriority        = { viewModel.onEvent(TodayEvent.SetPriorityFilter(it)) },
+                    doneCount            = completedTasks.size + abandonedTasks.size,
+                    showDone             = showDone,
+                    onToggleDone         = { showDone = !showDone },
                 )
             }
 
@@ -388,91 +394,68 @@ fun TodayScreen(
             }
 
             // ── Completed section ─────────────────────────────────────────────
-            if (completedTasks.isNotEmpty()) {
+            if (showDone && completedTasks.isNotEmpty()) {
                 item(key = "completed_header") {
-                    if (nothingPending) {
-                        GroupHeader(title = "Completed")
-                    } else {
-                        CompletedSectionHeader(
-                            count    = completedTasks.size,
-                            expanded = completedExpanded,
-                            onToggle = { completedExpanded = !completedExpanded },
-                            modifier = Modifier.padding(top = 8.dp),
-                        )
-                    }
+                    DoneSectionLabel("Completed", completedTasks.size, Modifier.animateItem())
                 }
-                if (nothingPending || completedExpanded) {
-                    items(
-                        items = completedTasks,
-                        key   = { "completed_${it.id}" },
-                    ) { task ->
-                        TaskItem(
-                            task                  = task,
-                            tags                  = state.tags,
-                            isSelected            = task.id in state.selectedTaskIds,
-                            isSelectionMode       = state.selectedTaskIds.isNotEmpty(),
-                            onToggleComplete      = { viewModel.onEvent(TodayEvent.ToggleComplete(it, task.isCompleted)) },
-                            onToggleChecklistItem = { id, done -> viewModel.onEvent(TodayEvent.ToggleChecklistItem(id, done)) },
-                            onEditClick           = { onTaskClick(it) },
-                            onLongClick           = { viewModel.onEvent(TodayEvent.ToggleSelect(it)) },
-                            modifier              = Modifier.animateItem(),
-                        )
-                        HorizontalDivider(
-                            modifier  = Modifier.padding(start = 54.dp),
-                            color     = MaterialTheme.colorScheme.outlineVariant,
-                            thickness = 0.5.dp,
-                        )
-                    }
+                items(
+                    items = completedTasks,
+                    key   = { "completed_${it.id}" },
+                ) { task ->
+                    TaskItem(
+                        task                  = task,
+                        tags                  = state.tags,
+                        isSelected            = task.id in state.selectedTaskIds,
+                        isSelectionMode       = state.selectedTaskIds.isNotEmpty(),
+                        onToggleComplete      = { viewModel.onEvent(TodayEvent.ToggleComplete(it, task.isCompleted)) },
+                        onToggleChecklistItem = { id, done -> viewModel.onEvent(TodayEvent.ToggleChecklistItem(id, done)) },
+                        onEditClick           = { onTaskClick(it) },
+                        onLongClick           = { viewModel.onEvent(TodayEvent.ToggleSelect(it)) },
+                        modifier              = Modifier.animateItem(),
+                    )
+                    HorizontalDivider(
+                        modifier  = Modifier.padding(start = 54.dp),
+                        color     = MaterialTheme.colorScheme.outlineVariant,
+                        thickness = 0.5.dp,
+                    )
                 }
             }
 
             // ── Won't do section ──────────────────────────────────────────────
-            if (abandonedTasks.isNotEmpty()) {
+            if (showDone && abandonedTasks.isNotEmpty()) {
                 item(key = "abandoned_header") {
-                    if (nothingPending) {
-                        GroupHeader(title = "Won't do")
-                    } else {
-                        CompletedSectionHeader(
-                            count    = abandonedTasks.size,
-                            expanded = abandonedExpanded,
-                            onToggle = { abandonedExpanded = !abandonedExpanded },
-                            label    = "Won't do",
-                            modifier = Modifier.padding(top = 4.dp),
-                        )
-                    }
+                    DoneSectionLabel("Won't do", abandonedTasks.size, Modifier.animateItem())
                 }
-                if (nothingPending || abandonedExpanded) {
-                    items(
-                        items = abandonedTasks,
-                        key   = { "abandoned_${it.id}" },
-                    ) { task ->
-                        TaskItem(
-                            task                  = task,
-                            tags                  = state.tags,
-                            isSelected            = task.id in state.selectedTaskIds,
-                            isSelectionMode       = state.selectedTaskIds.isNotEmpty(),
-                            // A won't-do task cannot be ticked, so it shows a marker rather
-                            // than a checkbox that does nothing when tapped.
-                            leadingAction         = {
-                                Icon(
-                                    imageVector        = Icons.Outlined.DoNotDisturbAlt,
-                                    contentDescription = null,
-                                    tint               = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
-                                    modifier           = Modifier.size(18.dp),
-                                )
-                            },
-                            onToggleComplete      = {},
-                            onToggleChecklistItem = { _, _ -> },
-                            onEditClick           = { onTaskClick(it) },
-                            onLongClick           = { viewModel.onEvent(TodayEvent.ToggleSelect(it)) },
-                            modifier              = Modifier.animateItem(),
-                        )
-                        HorizontalDivider(
-                            modifier  = Modifier.padding(start = 54.dp),
-                            color     = MaterialTheme.colorScheme.outlineVariant,
-                            thickness = 0.5.dp,
-                        )
-                    }
+                items(
+                    items = abandonedTasks,
+                    key   = { "abandoned_${it.id}" },
+                ) { task ->
+                    TaskItem(
+                        task                  = task,
+                        tags                  = state.tags,
+                        isSelected            = task.id in state.selectedTaskIds,
+                        isSelectionMode       = state.selectedTaskIds.isNotEmpty(),
+                        // A won't-do task cannot be ticked, so it shows a marker rather
+                        // than a checkbox that does nothing when tapped.
+                        leadingAction         = {
+                            Icon(
+                                imageVector        = Icons.Outlined.DoNotDisturbAlt,
+                                contentDescription = null,
+                                tint               = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
+                                modifier           = Modifier.size(18.dp),
+                            )
+                        },
+                        onToggleComplete      = {},
+                        onToggleChecklistItem = { _, _ -> },
+                        onEditClick           = { onTaskClick(it) },
+                        onLongClick           = { viewModel.onEvent(TodayEvent.ToggleSelect(it)) },
+                        modifier              = Modifier.animateItem(),
+                    )
+                    HorizontalDivider(
+                        modifier  = Modifier.padding(start = 54.dp),
+                        color     = MaterialTheme.colorScheme.outlineVariant,
+                        thickness = 0.5.dp,
+                    )
                 }
             }
         }

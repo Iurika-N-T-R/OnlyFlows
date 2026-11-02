@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
 import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
 import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -150,6 +151,9 @@ fun ProjectDetailScreen(
     // Opened straight from the sidebar's long-press menu, which has no detail screen of its own.
     LaunchedEffect(openEditOnStart) { if (openEditOnStart) showEditProject = true }
     var showAddSection        by remember { mutableStateOf(false) }
+    /** Lists and note lists are collections: their archive and comments open as sheets (2, 3). */
+    var collectionSheet       by remember { mutableStateOf<Int?>(null) }
+    var showNewChild          by remember { mutableStateOf(false) }
     var showReorderSections   by remember { mutableStateOf(false) }
 
     // Cover picker for child list cards
@@ -336,6 +340,23 @@ fun ProjectDetailScreen(
                                 text    = { Text(if (state.hideCompleted) "Show completed" else "Hide completed") },
                                 onClick = { showProjectMenu = false; viewModel.onEvent(ProjectDetailEvent.ToggleHideCompleted) },
                             )
+                            if (project != null && project.type != ProjectType.PROJECT) {
+                                val isNotes = project.type == ProjectType.NOTE
+                                HorizontalDivider()
+                                DropdownMenuItem(
+                                    text    = { Text(if (isNotes) "New group" else "New list") },
+                                    onClick = { showProjectMenu = false; showNewChild = true },
+                                )
+                                val archived = if (isNotes) state.archivedNotes.size else state.archivedTasks.size
+                                DropdownMenuItem(
+                                    text    = { Text("Archived" + if (archived > 0) " ($archived)" else "") },
+                                    onClick = { showProjectMenu = false; collectionSheet = 2 },
+                                )
+                                DropdownMenuItem(
+                                    text    = { Text("Comments" + if (state.comments.isNotEmpty()) " (${state.comments.size})" else "") },
+                                    onClick = { showProjectMenu = false; collectionSheet = 3 },
+                                )
+                            }
                         }
                     }
                 },
@@ -451,24 +472,20 @@ fun ProjectDetailScreen(
             )
         }
 
-        // LIST projects get a Lists tab; NOTE projects a Groups tab. Page kinds below:
-        // 0 = child card grid (LIST/NOTE only), 1 = tasks/notes, 2 = archived, 3 = comments
+        // Lists and note lists are collections: one page (child lists/groups, then their own
+        // items). Projects keep their tabs: Tasks, Archived, Comments.
         val isNoteType   = project?.type == ProjectType.NOTE
         val hasChildGrid = project?.type == ProjectType.LIST || isNoteType
-        val archivedCount = if (isNoteType) state.archivedNotes.size else state.archivedTasks.size
-        val tabTitles = buildList {
-            if (hasChildGrid) {
-                val label = if (isNoteType) "Groups" else "Lists"
-                add(label + if (state.childLists.isNotEmpty()) " (${state.childLists.size})" else "")
-            }
-            add(if (isNoteType) "Notes" else "Tasks")
-            add("Archived" + if (archivedCount > 0) " ($archivedCount)" else "")
-            add("Comments" + if (state.comments.isNotEmpty()) " (${state.comments.size})" else "")
-        }
+        val childWord    = if (isNoteType) "Groups" else "Lists"
+        val tabTitles = listOf(
+            "Tasks",
+            "Archived" + if (state.archivedTasks.isNotEmpty()) " (${state.archivedTasks.size})" else "",
+            "Comments" + if (state.comments.isNotEmpty()) " (${state.comments.size})" else "",
+        )
         val pagerState = rememberPagerState(initialPage = 0) { tabTitles.size }
         val pagerScope = rememberCoroutineScope()
 
-        TabRow(selectedTabIndex = pagerState.currentPage.coerceAtMost(tabTitles.size - 1)) {
+        if (!hasChildGrid) TabRow(selectedTabIndex = pagerState.currentPage.coerceAtMost(tabTitles.size - 1)) {
             tabTitles.forEachIndexed { i, title ->
                 Tab(
                     selected = pagerState.currentPage == i,
@@ -478,56 +495,13 @@ fun ProjectDetailScreen(
             }
         }
 
-        HorizontalPager(
-            state    = pagerState,
-            modifier = Modifier.fillMaxSize(),
-        ) { page ->
-        when (if (hasChildGrid) page else page + 1) {
-
-        // ── Lists / Groups tab — child card grid ──────────────────────────────
-        0 -> LazyColumn(
-            contentPadding = PaddingValues(
-                top    = 4.dp,
-                bottom = padding.calculateBottomPadding() + 88.dp,
-            ),
-            modifier = Modifier.fillMaxSize(),
-        ) {
-            // cells = child lists + trailing "add" slot (null)
-            val cells: List<Project?> = state.childLists + null
-            items(cells.chunked(gridColumns), key = { row -> "cardrow_" + row.joinToString("_") { it?.id ?: "add" } }) { row ->
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp),
-                ) {
-                    row.forEach { child ->
-                        if (child == null) {
-                            AddListCard(
-                                onCreate = { title -> viewModel.onEvent(ProjectDetailEvent.CreateChildList(title)) },
-                                modifier = Modifier.weight(1f),
-                            )
-                        } else {
-                            ChildListCard(
-                                list          = child,
-                                count         = if (child.type == ProjectType.NOTE) state.noteCountsByProject[child.id] ?: 0
-                                                else state.childListCounts[child.id] ?: 0,
-                                onClick       = { onListClick(child.id) },
-                                onSetCover    = {
-                                    coverTargetListId = child.id
-                                    coverPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                                },
-                                onRemoveCover = { viewModel.onEvent(ProjectDetailEvent.SetChildListCover(child.id, null)) },
-                                modifier      = Modifier.weight(1f),
-                            )
-                        }
-                    }
-                    repeat(gridColumns - row.size) { Spacer(Modifier.weight(1f)) }
-                }
-            }
-        }
+        // 1 = items / notes, 2 = archived, 3 = comments
+        val pageContent: @Composable (Int) -> Unit = { kind ->
+        when (kind) {
 
         // ── Notes tab — masonry grid (NOTE type) ──────────────────────────────
         1 -> if (isNoteType) {
-            if (!state.isLoading && state.notes.isEmpty()) {
+            if (!state.isLoading && state.notes.isEmpty() && state.childLists.isEmpty()) {
                 Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                     EmptyState(
                         emoji    = "📝",
@@ -548,6 +522,29 @@ fun ProjectDetailScreen(
                     ),
                     modifier = Modifier.fillMaxSize(),
                 ) {
+                    if (state.childLists.isNotEmpty()) {
+                        item(key = "groups_label", span = StaggeredGridItemSpan.FullLine) {
+                            CollectionLabel(childWord, state.childLists.size, first = true, start = 8.dp)
+                        }
+                        items(state.childLists, key = { "group_${it.id}" }) { child ->
+                            CollectionCard(
+                                list       = child,
+                                preview    = state.childPreviews[child.id],
+                                onClick    = { onListClick(child.id) },
+                                onComplete = {},
+                                onSetCover = {
+                                    coverTargetListId = child.id
+                                    coverPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                                },
+                                onRemoveCover = { viewModel.onEvent(ProjectDetailEvent.SetChildListCover(child.id, null)) },
+                                modifier   = Modifier.animateItem(),
+                            )
+                        }
+                        item(key = "add_group") { AddListCard("New group", onClick = { showNewChild = true }) }
+                        if (state.notes.isNotEmpty()) item(key = "notes_label", span = StaggeredGridItemSpan.FullLine) {
+                            CollectionLabel("Notes", state.notes.size, start = 8.dp)
+                        }
+                    }
                     items(state.notes, key = { "note_${it.id}" }) { note ->
                         NoteCard(
                             note     = note,
@@ -567,6 +564,9 @@ fun ProjectDetailScreen(
                             modifier        = Modifier.animateItem(),
                         )
                     }
+                    if (state.childLists.isEmpty()) item(key = "new_group_link", span = StaggeredGridItemSpan.FullLine) {
+                        Box(Modifier.fillMaxWidth()) { NewChildLink("New group") { showNewChild = true } }
+                    }
                 }
             }
         }
@@ -579,14 +579,68 @@ fun ProjectDetailScreen(
             ),
             modifier = Modifier.fillMaxSize().imePadding(),
         ) {
-            // Empty state when project has no tasks at all
-            if (!state.isLoading && localItems.none { it is PdItem.TaskRow }) {
+            val hasOwnItems = localItems.any { it is PdItem.TaskRow }
+            if (hasChildGrid && state.childLists.isNotEmpty()) {
+                item(key = "lists_label") { CollectionLabel(childWord, state.childLists.size, first = true) }
+                // Masonry: each card goes to the shortest column, so a long list never leaves
+                // a hole next to a short one
+                item(key = "list_cards") {
+                    val columns = List(gridColumns) { mutableListOf<Project?>() }
+                    val heights = IntArray(gridColumns)
+                    (state.childLists + null).forEach { child ->
+                        val p = child?.let { state.childPreviews[it.id] }
+                        val weight = when {
+                            child == null -> 2
+                            else -> 3 + (p?.items?.size ?: 1) + (if (child.coverImage != null) 4 else 0)
+                        }
+                        val col = heights.indices.minBy { heights[it] }
+                        columns[col] += child
+                        heights[col] += weight
+                    }
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp),
+                    ) {
+                        columns.forEach { col ->
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.weight(1f)) {
+                                col.forEach { child ->
+                                    if (child == null) {
+                                        AddListCard("New list", onClick = { showNewChild = true })
+                                    } else {
+                                        CollectionCard(
+                                            list          = child,
+                                            preview       = state.childPreviews[child.id],
+                                            onClick       = { onListClick(child.id) },
+                                            onComplete    = { viewModel.onEvent(ProjectDetailEvent.CompleteChildTask(it)) },
+                                            onSetCover    = {
+                                                coverTargetListId = child.id
+                                                coverPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                                            },
+                                            onRemoveCover = { viewModel.onEvent(ProjectDetailEvent.SetChildListCover(child.id, null)) },
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                if (hasOwnItems) item(key = "items_label") {
+                    CollectionLabel("Items", localItems.count { it is PdItem.TaskRow })
+                }
+            }
+
+            // Empty state when there is nothing at all
+            if (!state.isLoading && !hasOwnItems && !(hasChildGrid && state.childLists.isNotEmpty())) {
                 item(key = "empty_state") {
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier.fillParentMaxWidth(),
                     ) {
-                        EmptyState(
+                        if (hasChildGrid) EmptyState(
+                            emoji    = "☑️",
+                            title    = "Empty list",
+                            subtitle = "Add an item, or a list to make it a collection.",
+                        ) else EmptyState(
                             emoji    = "📋",
                             title    = "No tasks",
                             subtitle = "Add a task to start this project.",
@@ -673,13 +727,14 @@ fun ProjectDetailScreen(
             }
 
             item(key = "add_section_btn") {
-                TextButton(
-                    onClick  = { showAddSection = true },
-                    modifier = Modifier.padding(start = 12.dp, top = 4.dp),
-                ) {
-                    Icon(Icons.Outlined.Add, null, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text("Add Section", style = MaterialTheme.typography.labelMedium)
+                Row(modifier = Modifier.padding(start = 12.dp, top = 4.dp)) {
+                    TextButton(onClick = { showAddSection = true }) {
+                        Icon(Icons.Outlined.Add, null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Add Section", style = MaterialTheme.typography.labelMedium)
+                    }
+                    // A plain list becomes a collection from here: no empty grid to stare at
+                    if (hasChildGrid && state.childLists.isEmpty()) NewChildLink("New list") { showNewChild = true }
                 }
             }
 
@@ -833,7 +888,27 @@ fun ProjectDetailScreen(
             }
         }
         }
-        } // end HorizontalPager
+        } // end pageContent
+
+        if (hasChildGrid) pageContent(1)
+        else HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page -> pageContent(page + 1) }
+
+        collectionSheet?.let { kind ->
+            ModalBottomSheet(
+                onDismissRequest = { collectionSheet = null },
+                sheetState       = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+                containerColor   = MaterialTheme.colorScheme.background,
+            ) {
+                Text(
+                    text       = if (kind == 2) "Archived" else "Comments",
+                    style      = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier   = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+                )
+                // Fixed height: the comments input is pinned to the bottom of its page
+                Box(Modifier.fillMaxWidth().height((LocalConfiguration.current.screenHeightDp * 0.7f).dp)) { pageContent(kind) }
+            }
+        }
 
         } // end Column
 
@@ -854,6 +929,30 @@ fun ProjectDetailScreen(
                     com.onlyflows.data.notifications.ReminderCreator.attach(reminderCtx, id, at, locId, rec)
                 }
             },
+        )
+    }
+
+    if (showNewChild) {
+        var childTitle by remember { mutableStateOf("") }
+        val word = if (project?.type == ProjectType.NOTE) "group" else "list"
+        AlertDialog(
+            onDismissRequest = { showNewChild = false },
+            title = { Text("New $word") },
+            text  = {
+                OutlinedTextField(
+                    value         = childTitle,
+                    onValueChange = { childTitle = it },
+                    singleLine    = true,
+                    placeholder   = { Text(word.replaceFirstChar { it.uppercase() } + " name") },
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = childTitle.isNotBlank(),
+                    onClick = { viewModel.onEvent(ProjectDetailEvent.CreateChildList(childTitle.trim())); showNewChild = false },
+                ) { Text("Create") }
+            },
+            dismissButton = { TextButton(onClick = { showNewChild = false }) { Text("Cancel") } },
         )
     }
 
@@ -1553,19 +1652,48 @@ private fun formatProjectDuration(totalSeconds: Long): String {
     return if (h > 0) "${h}h ${m}m" else "${m}m"
 }
 
-// ── Child list cards (LIST-type projects) ─────────────────────────────────────
+// ── Collection view (LIST / NOTE projects) ────────────────────────────────────
 
+/** "LISTS · 3" — quiet small-caps label above a block of the collection. */
+@Composable
+private fun CollectionLabel(label: String, count: Int, first: Boolean = false, start: androidx.compose.ui.unit.Dp = 20.dp) {
+    Text(
+        text          = "${label.uppercase()} · $count",
+        style         = MaterialTheme.typography.labelMedium,
+        fontWeight    = FontWeight.SemiBold,
+        letterSpacing = 1.sp,
+        color         = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+        modifier      = Modifier.padding(start = start, end = 20.dp, top = if (first) 8.dp else 24.dp, bottom = 6.dp),
+    )
+}
+
+/** "+ New list" as a text link, for a list that has no child lists yet. */
+@Composable
+private fun NewChildLink(label: String, onClick: () -> Unit) {
+    TextButton(onClick = onClick) {
+        Icon(Icons.Outlined.Add, null, modifier = Modifier.size(16.dp))
+        Spacer(Modifier.width(4.dp))
+        Text(label, style = MaterialTheme.typography.labelMedium)
+    }
+}
+
+/**
+ * A child list as a card that shows what is in it: cover if set, title, progress, and its first
+ * open items (tickable from here) or first notes. Long press: cover menu.
+ */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-private fun ChildListCard(
+private fun CollectionCard(
     list: Project,
-    count: Int,
+    preview: ChildPreview?,
     onClick: () -> Unit,
+    onComplete: (taskId: String) -> Unit,
     onSetCover: () -> Unit,
     onRemoveCover: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var showMenu by remember { mutableStateOf(false) }
+    val isNotes = list.type == ProjectType.NOTE
     val listColor = remember(list.colorHex) {
         runCatching { Color(android.graphics.Color.parseColor(list.colorHex)) }.getOrDefault(Color(0xFF4A90D9))
     }
@@ -1577,6 +1705,7 @@ private fun ChildListCard(
             }.getOrNull()
         }
     }
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
 
     Box(modifier = modifier) {
         Surface(
@@ -1589,32 +1718,23 @@ private fun ChildListCard(
                 .combinedClickable(onClick = onClick, onLongClick = { showMenu = true }),
         ) {
             Column {
-                // Cover — image if set, otherwise tinted block with the list icon/emoji
-                Box(modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f)) {
-                    if (cover != null) {
-                        Image(
-                            bitmap             = cover,
-                            contentDescription = null,
-                            contentScale       = ContentScale.Crop,
-                            modifier           = Modifier.fillMaxSize(),
-                        )
-                    } else {
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier.fillMaxSize().background(listColor.copy(alpha = 0.14f)),
-                        ) {
-                            if (list.iconEmoji.isNotBlank()) {
-                                ProjectGlyph(value = list.iconEmoji, tint = listColor, size = 28.dp, emojiSize = 26.sp)
-                            } else {
-                                Icon(Icons.Outlined.FormatListBulleted, null, tint = listColor, modifier = Modifier.size(28.dp))
-                            }
-                        }
-                    }
+                if (cover != null) {
+                    Image(
+                        bitmap             = cover,
+                        contentDescription = null,
+                        contentScale       = ContentScale.Crop,
+                        modifier           = Modifier.fillMaxWidth().aspectRatio(16f / 9f),
+                    )
                 }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                    modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 6.dp),
                 ) {
+                    if (cover == null) {
+                        if (list.iconEmoji.isNotBlank()) ProjectGlyph(value = list.iconEmoji, tint = listColor, size = 16.dp, emojiSize = 15.sp)
+                        else Icon(if (isNotes) Icons.Outlined.Article else Icons.Outlined.FormatListBulleted, null, tint = listColor, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                    }
                     Text(
                         text       = list.title,
                         style      = MaterialTheme.typography.bodyMedium,
@@ -1624,15 +1744,62 @@ private fun ChildListCard(
                         overflow   = TextOverflow.Ellipsis,
                         modifier   = Modifier.weight(1f),
                     )
-                    if (count > 0) {
+                    preview?.takeIf { it.total > 0 }?.let { p ->
                         Spacer(Modifier.width(6.dp))
                         Text(
-                            text  = "$count",
+                            text  = if (isNotes) "${p.total}" else "${p.done}/${p.total}",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            color = muted.copy(alpha = 0.7f),
                         )
                     }
                 }
+                val items = preview?.items.orEmpty()
+                items.forEach { (id, title) ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 3.dp),
+                    ) {
+                        if (isNotes) {
+                            Box(Modifier.size(4.dp).clip(RoundedCornerShape(2.dp)).background(muted.copy(alpha = 0.5f)))
+                        } else {
+                            Box(
+                                Modifier
+                                    .size(14.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .border(1.2.dp, listColor.copy(alpha = 0.7f), RoundedCornerShape(4.dp))
+                                    .clickable { onComplete(id) },
+                            )
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text     = title,
+                            style    = MaterialTheme.typography.bodySmall,
+                            color    = muted,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+                val hidden = when {
+                    preview == null -> 0
+                    isNotes         -> preview.total - items.size
+                    else            -> preview.total - preview.done - items.size
+                }
+                when {
+                    hidden > 0 -> Text(
+                        text     = "+$hidden",
+                        style    = MaterialTheme.typography.labelSmall,
+                        color    = muted.copy(alpha = 0.6f),
+                        modifier = Modifier.padding(start = 34.dp, top = 2.dp),
+                    )
+                    items.isEmpty() -> Text(
+                        text     = if (preview != null && preview.total > 0) "All done" else "Empty",
+                        style    = MaterialTheme.typography.labelSmall,
+                        color    = muted.copy(alpha = 0.6f),
+                        modifier = Modifier.padding(horizontal = 12.dp),
+                    )
+                }
+                Spacer(Modifier.height(10.dp))
             }
         }
         DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
@@ -1650,63 +1817,29 @@ private fun ChildListCard(
     }
 }
 
+/** Dashed-outline slot at the end of the grid: "+ New list" / "+ New group". */
 @Composable
 private fun AddListCard(
-    onCreate: (String) -> Unit,
+    label: String,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var showDialog by remember { mutableStateOf(false) }
-
     Surface(
         shape  = RoundedCornerShape(14.dp),
         color  = Color.Transparent,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = modifier
             .clip(RoundedCornerShape(14.dp))
-            .clickable { showDialog = true },
+            .clickable(onClick = onClick),
     ) {
-        Column {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f),
-            ) {
-                Icon(
-                    imageVector        = Icons.Outlined.Add,
-                    contentDescription = "Add list",
-                    tint               = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                    modifier           = Modifier.size(36.dp),
-                )
-            }
-            Text(
-                text     = "Add list",
-                style    = MaterialTheme.typography.bodyMedium,
-                color    = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-            )
+        Row(
+            verticalAlignment     = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxWidth().padding(vertical = 18.dp),
+        ) {
+            Icon(Icons.Outlined.Add, null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f), modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-    }
-
-    if (showDialog) {
-        var title by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { showDialog = false },
-            title = { Text("New list") },
-            text  = {
-                OutlinedTextField(
-                    value         = title,
-                    onValueChange = { title = it },
-                    singleLine    = true,
-                    placeholder   = { Text("List name") },
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    enabled = title.isNotBlank(),
-                    onClick = { onCreate(title.trim()); showDialog = false },
-                ) { Text("Create") }
-            },
-            dismissButton = { TextButton(onClick = { showDialog = false }) { Text("Cancel") } },
-        )
     }
 }
