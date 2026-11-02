@@ -35,6 +35,7 @@ class ProjectRepository(
     private val actionLog: ActionLogRepository,
     private val syncDao: SyncDao,
     private val lanSyncWriter: LanSyncWriter,
+    private val onTaskMutated: suspend () -> Unit,
 ) {
 
     private suspend fun tombstone(id: String, type: String) {
@@ -137,7 +138,9 @@ class ProjectRepository(
     suspend fun delete(id: String) {
         tombstone(id, "projects")
         projectDao.delete(id)
+        syncDao.softDeleteOfDeletedProjects(LocalDateTime.now().toString())
         log(ActionType.PROJECT_DELETED, id, id)
+        onTaskMutated()
     }
 
     suspend fun archive(id: String) {
@@ -201,6 +204,7 @@ class ProjectRepository(
         taskDao.softDeleteBySection(sectionId, now)
         sectionDao.delete(sectionId)
         log(ActionType.SECTION_DELETED, sectionId, sectionId)
+        onTaskMutated()
     }
 
     fun observeStatusLog(projectId: String): Flow<List<StatusLogEntry>> =

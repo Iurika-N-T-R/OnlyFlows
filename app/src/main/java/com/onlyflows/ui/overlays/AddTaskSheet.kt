@@ -13,7 +13,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Article
 import androidx.compose.material.icons.automirrored.outlined.FormatListBulleted
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -29,7 +31,25 @@ import androidx.compose.ui.res.painterResource
 import com.onlyflows.OnlyFlowsApp
 import com.onlyflows.R
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TransformedText
+import com.onlyflows.domain.smartadd.NaturalLanguage
+import com.onlyflows.domain.smartadd.Batch
+import com.onlyflows.domain.smartadd.Interpretation
+import com.onlyflows.domain.smartadd.TaskDraft
+import com.onlyflows.data.smartadd.ContentWriter
+import android.widget.Toast
+import androidx.compose.foundation.clickable
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.onlyflows.data.mock.MockData
@@ -85,6 +105,12 @@ fun AddTaskSheet(
     var pendingReminder    by remember { mutableStateOf<Triple<LocalDateTime, String?, ReminderRecurrence>?>(null) }
     var checklistItems     by remember { mutableStateOf(listOf<String>()) }
     var checklistDraft     by remember { mutableStateOf("") }
+    /** A date picked by hand wins over one read from the title. */
+    var dateTouched        by remember { mutableStateOf(false) }
+    /** The user asked to keep the title as typed: nothing is read out of it. */
+    var nlOff              by remember { mutableStateOf(false) }
+    /** Answers to the questions a sentence raised ("Which list?"), by line. */
+    val choices            = remember { mutableStateMapOf<Int, Int>() }
     val focusRequester = remember { FocusRequester() }
 
     val context      = LocalContext.current
@@ -106,7 +132,79 @@ fun AddTaskSheet(
         checklistItems  = emptyList()
         checklistDraft  = ""
         showChecklist   = false
+        dateTouched     = false
+        nlOff           = false
+        choices.clear()
     }
+
+    // ── Natural language, read as you type ("Call John tomorrow 9am !!" → date, time, priority) ──
+    val (parsed, hits) = remember(title, nlOff) { if (nlOff) TaskDraft(title.trim()) to emptyList() else NaturalLanguage.highlight(title) }
+    val nl         = hits.isNotEmpty()
+    val nlDate     = nl && !dateTouched && parsed.dueDate != null
+    val effDate    = if (nlDate) parsed.dueDate else dueDate
+    val effTime    = if (nlDate) parsed.dueTime else dueTime
+    val effGroup   = if (nlDate) (if (parsed.dueDate == LocalDate.now()) TaskGroup.TODAY else TaskGroup.ANYTIME) else group
+    val effPriority = if (priority == TaskPriority.NONE && nl) parsed.priority else priority
+    val highlightColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
+
+    /** Saves what is in the sheet and returns the new task's id, or null when there is no title. */
+    fun submit(): String? {
+        if (title.isBlank()) return null
+        val id         = taskId
+        val finalItems = if (checklistDraft.isNotBlank()) checklistItems + checklistDraft.trim() else checklistItems
+        val finalTitle = if (nl) parsed.title else title.trim()
+        val finalTags  = selectedTagIds + if (nl) parsed.tagNames.mapNotNull { n -> tags.find { it.name.equals(n, true) }?.id }.filter { it !in selectedTagIds } else emptyList()
+        onAdd(id, finalTitle, note.trim(), effGroup, effDate, effTime, endTime, effPriority, selectedProjectId, selectedSectionId, finalItems, finalTags)
+        (pendingReminder ?: parsed.reminderAt?.takeIf { nl }?.let { Triple(it, null, ReminderRecurrence.NONE) })
+            ?.let { (at, locId, rec) -> onAddReminderForTask?.invoke(id, at, locId, rec) }
+        if (nl) parsed.recurrence?.let { rule ->
+            val repo = (context.applicationContext as OnlyFlowsApp).container.taskRepository
+            // Same wait as ReminderCreator: callers insert the task asynchronously
+            CoroutineScope(Dispatchers.IO).launch {
+                withTimeoutOrNull(5_000) { repo.observeById(id).filterNotNull().first() }
+                    ?.let { repo.update(it.copy(recurrence = rule, updatedAt = LocalDateTime.now())) }
+            }
+        }
+        return id
+    }
+
+    // ── Whole sentences: several lines, "Add milk, eggs to my shopping list", "Create a project
+    // for my website", "Note: …", "Remind me to …". When the text is more than one plain task,
+    // the sheet shows what will be created instead of the date/project chips.
+    val allProjects by (context.applicationContext as OnlyFlowsApp).container.projectRepository
+        .observeAllItems().collectAsStateWithLifecycle(initialValue = emptyList())
+    val smart: List<Interpretation>? = remember(title, allProjects, nlOff) {
+        if (nlOff) return@remember null
+        val lines = title.lines().map { it.trim() }.filter { it.isNotEmpty() }
+        lines.map { NaturalLanguage.interpret(it, allProjects) }
+            .takeIf { r -> r.size > 1 || r.any { it !is Interpretation.Ready || it.batch.containers.isNotEmpty() } }
+    }
+    LaunchedEffect(smart?.size) { choices.clear() }
+    /** Everything to create, or null while a question is unanswered. */
+    val smartBatch: Batch? = smart?.let { results ->
+        var b = Batch()
+        results.forEachIndexed { i, r ->
+            when (r) {
+                is Interpretation.Ready   -> b += r.batch
+                is Interpretation.Ask     -> b += r.options[choices[i] ?: return@let null].second
+                is Interpretation.Invalid -> Unit
+            }
+        }
+        b.takeUnless { it.isEmpty }
+    }
+    fun submitSmart(): Boolean {
+        val b = smartBatch ?: return false
+        val appContext = context.applicationContext
+        // Outlives the sheet, which closes right away
+        CoroutineScope(Dispatchers.Main).launch {
+            val sum = ContentWriter(appContext).write(b)
+            Toast.makeText(appContext, if (sum.lines.size == 1) sum.lines[0] else sum.text, Toast.LENGTH_SHORT).show()
+        }
+        return true
+    }
+    val canSave = if (smart != null) smartBatch != null else title.isNotBlank()
+
+    val dictation = rememberDictation { heard -> title = if (title.isBlank()) heard else title.trimEnd() + " " + heard }
 
     val selectedProject: Project? = projects.find { it.id == selectedProjectId }
     val selectedSection: Section? = selectedProject?.sections?.find { it.id == selectedSectionId }
@@ -144,6 +242,18 @@ fun AddTaskSheet(
                         fontWeight = FontWeight.Medium,
                     ),
                     cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                    visualTransformation = {
+                        val styled = buildAnnotatedString {
+                            append(it.text)
+                            hits.forEach { r -> if (r.last < it.text.length) addStyle(SpanStyle(background = highlightColor), r.first, r.last + 1) }
+                        }
+                        TransformedText(styled, OffsetMapping.Identity)
+                    },
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done, capitalization = KeyboardCapitalization.Sentences),
+                    keyboardActions = KeyboardActions(onDone = {
+                        val saved = if (smart != null) submitSmart() else submit() != null
+                        if (saved) { resetForm(); focusRequester.requestFocus() }
+                    }),
                     decorationBox = { inner ->
                         if (title.isEmpty()) {
                             Text(
@@ -159,31 +269,22 @@ fun AddTaskSheet(
                         .weight(1f)
                         .focusRequester(focusRequester),
                 )
-                // Smart add (natural language) and voice: what is typed so far goes along
-                val smartContext = LocalContext.current
-                IconButton(
-                    onClick  = { onDismiss(); (smartContext.applicationContext as com.onlyflows.OnlyFlowsApp).requestSmartAdd(title) },
-                    modifier = Modifier.size(28.dp),
-                ) {
-                    Icon(Icons.Outlined.AutoAwesome, contentDescription = "Smart add", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-                }
-                IconButton(
-                    onClick  = { onDismiss(); (smartContext.applicationContext as com.onlyflows.OnlyFlowsApp).requestSmartAdd(title, voice = true) },
-                    modifier = Modifier.size(28.dp),
-                ) {
-                    Icon(Icons.Outlined.Mic, contentDescription = "Voice input", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-                }
-                Spacer(Modifier.width(4.dp))
-                Surface(
-                    onClick = onDismiss,
-                    shape   = CircleShape,
-                    color   = MaterialTheme.colorScheme.surfaceVariant,
+                Spacer(Modifier.width(8.dp))
+                // Plain clickable, not Surface(onClick): that one pads itself to a 48dp touch
+                // target, which pushed the ✕ below the first line and left a gap under the title.
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .clickable(onClick = onDismiss),
                 ) {
                     Icon(
                         imageVector        = Icons.Outlined.Close,
                         contentDescription = "Close",
                         tint               = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier           = Modifier.padding(4.dp).size(16.dp),
+                        modifier           = Modifier.size(16.dp),
                     )
                 }
             }
@@ -258,8 +359,8 @@ fun AddTaskSheet(
 
             Spacer(Modifier.height(6.dp))
 
-            // Note input
-            BasicTextField(
+            // Note input — a batch of lists and projects has nowhere to put one
+            if (smart == null) BasicTextField(
                 value = note,
                 onValueChange = { note = it },
                 textStyle = MaterialTheme.typography.bodyMedium.copy(
@@ -347,13 +448,54 @@ fun AddTaskSheet(
             // Project, date and reminder chips share one scrollable line; the action buttons
             // get the next one. On a single line the last button was clipped once a reminder
             // chip appeared, and splitting the chips apart cost a third line for nothing.
-            Row(
+            if (smart != null) SmartPreview(smart, choices, onKeepAsText = { nlOff = true })
+            else Row(
                 verticalAlignment     = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState()),
             ) {
+                // Date chip — shows what the title says ("tomorrow 9am", "every Monday") as you type
+                FilterChip(
+                    selected = true,
+                    onClick  = { showDatePicker = true },
+                    label    = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            val today = LocalDate.now()
+                            val (iconRes, dayLabel) = when {
+                                effGroup == TaskGroup.THIS_EVENING -> R.drawable.ic_nav_evening to "This Evening"
+                                effDate == today                   -> R.drawable.ic_nav_today   to "Today"
+                                effDate == today.plusDays(1)       -> R.drawable.ic_nav_anytime to "Tomorrow"
+                                effDate != null                    -> R.drawable.ic_nav_anytime to effDate.format(DateTimeFormatter.ofPattern("EEE d MMM"))
+                                effGroup == TaskGroup.TODAY        -> R.drawable.ic_nav_today   to "Today"
+                                effGroup == TaskGroup.SOMEDAY      -> R.drawable.ic_nav_someday to "Someday"
+                                effGroup == TaskGroup.ANYTIME      -> R.drawable.ic_nav_anytime to "Anytime"
+                                else                               -> R.drawable.ic_nav_anytime to "No date"
+                            }
+                            val timeLabel = effTime?.takeIf { effGroup != TaskGroup.THIS_EVENING }?.let { " " + it.format(DateTimeFormatter.ofPattern("HH:mm")) }.orEmpty()
+                            Icon(painter = painterResource(iconRes), contentDescription = null, tint = Color.Unspecified, modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(text = dayLabel + timeLabel, style = MaterialTheme.typography.labelMedium)
+                            if (nl && parsed.recurrence != null) {
+                                Spacer(Modifier.width(4.dp))
+                                Icon(Icons.Outlined.Repeat, contentDescription = "Repeats", modifier = Modifier.size(14.dp))
+                            }
+                        }
+                    },
+                    // Read wrong ("Today's report")? ✕ keeps the words in the title
+                    trailingIcon = if (nlDate) ({
+                        Icon(
+                            Icons.Outlined.Close, contentDescription = "Keep as text",
+                            modifier = Modifier.size(14.dp).clickable { nlOff = true },
+                        )
+                    }) else null,
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = if (nlDate) highlightColor else MaterialTheme.colorScheme.surfaceVariant,
+                        selectedLabelColor     = MaterialTheme.colorScheme.onSurface,
+                    ),
+                )
+
                 if (projects.isNotEmpty()) {
                     // Project chip
                     Box {
@@ -499,34 +641,6 @@ fun AddTaskSheet(
                     .weight(1f)
                     .horizontalScroll(rememberScrollState()),
             ) {
-                // Date group chip
-                FilterChip(
-                    selected = true,
-                    onClick  = { showDatePicker = true },
-                    label    = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            val (iconRes, chipLabel) = when {
-                                group == TaskGroup.TODAY        -> R.drawable.ic_nav_today    to "Today"
-                                group == TaskGroup.THIS_EVENING -> R.drawable.ic_nav_evening  to "This Evening"
-                                group == TaskGroup.SOMEDAY      -> R.drawable.ic_nav_someday  to "Someday"
-                                group == TaskGroup.ANYTIME && dueDate == null ->
-                                    R.drawable.ic_nav_anytime to "Anytime"
-                                dueDate != null                 -> R.drawable.ic_nav_anytime to
-                                    dueDate!!.format(DateTimeFormatter.ofPattern("d MMM"))
-                                else                            -> R.drawable.ic_nav_anytime  to "No date"
-                            }
-                            Icon(painter = painterResource(iconRes), contentDescription = null, tint = Color.Unspecified, modifier = Modifier.size(14.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text(text = chipLabel, style = MaterialTheme.typography.labelMedium)
-                        }
-                    },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        selectedLabelColor     = MaterialTheme.colorScheme.onSurface,
-                    ),
-                )
-
-
                 // Reminder icon — tinted once one is pending, the way the checklist icon works
                 IconButton(onClick = { showReminderPicker = true }) {
                     Icon(
@@ -548,9 +662,9 @@ fun AddTaskSheet(
                 Box {
                     IconButton(onClick = { showPriorityMenu = true }) {
                         Icon(
-                            imageVector = if (priority != TaskPriority.NONE) Icons.Filled.Flag else Icons.Outlined.Flag,
+                            imageVector = if (effPriority != TaskPriority.NONE) Icons.Filled.Flag else Icons.Outlined.Flag,
                             contentDescription = "Priority",
-                            tint = when (priority) {
+                            tint = when (effPriority) {
                                 TaskPriority.HIGH   -> Color(0xFFDC3545)
                                 TaskPriority.MEDIUM -> Color(0xFFFF8800)
                                 TaskPriority.LOW    -> Color(0xFF4A90D9)
@@ -577,75 +691,39 @@ fun AddTaskSheet(
                         }
                     }
                 }
+                // Voice typing, on-device only — hidden when the phone has no offline model
+                if (dictation.available) {
+                    IconButton(onClick = dictation.toggle) {
+                        Icon(
+                            if (dictation.listening) Icons.Filled.Mic else Icons.Outlined.Mic,
+                            contentDescription = "Voice typing",
+                            tint = if (dictation.listening) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
                 // Open in full view button
                 if (onTaskCreated != null) {
                     IconButton(
-                        onClick = {
-                            if (title.isNotBlank()) {
-                                val finalItems = if (checklistDraft.isNotBlank()) checklistItems + checklistDraft.trim() else checklistItems
-                                onAdd(taskId, title.trim(), note.trim(), group, dueDate, dueTime, endTime, priority, selectedProjectId, selectedSectionId, finalItems, selectedTagIds)
-                                pendingReminder?.let { (at, locId, rec) ->
-                                    onAddReminderForTask?.invoke(taskId, at, locId, rec)
-                                }
-                                onTaskCreated(taskId)
-                                onDismiss()
-                            }
-                        },
-                        enabled = title.isNotBlank(),
+                        onClick = { submit()?.let { onTaskCreated(it); onDismiss() } },
+                        enabled = title.isNotBlank() && smart == null,
                     ) {
                         Icon(
                             imageVector        = Icons.Outlined.OpenInFull,
                             contentDescription = "Save and open",
-                            tint               = if (title.isNotBlank())
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            else
-                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
+                            tint               = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (title.isNotBlank() && smart == null) 1f else 0.3f),
                         )
                     }
-                }
-                // Save & add new button
-                IconButton(
-                    onClick = {
-                        if (title.isNotBlank()) {
-                            val finalItems = if (checklistDraft.isNotBlank()) checklistItems + checklistDraft.trim() else checklistItems
-                            onAdd(taskId, title.trim(), note.trim(), group, dueDate, dueTime, endTime, priority, selectedProjectId, selectedSectionId, finalItems, selectedTagIds)
-                                pendingReminder?.let { (at, locId, rec) ->
-                                    onAddReminderForTask?.invoke(taskId, at, locId, rec)
-                                }
-                            resetForm()
-                            focusRequester.requestFocus()
-                        }
-                    },
-                    enabled = title.isNotBlank(),
-                ) {
-                    Icon(
-                        imageVector        = Icons.Outlined.AddTask,
-                        contentDescription = "Save and add new",
-                        tint               = if (title.isNotBlank())
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
-                        else
-                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
-                    )
                 }
             }
 
                 Spacer(Modifier.width(8.dp))
-                Button(
-                    onClick = {
-                        if (title.isNotBlank()) {
-                            val finalItems = if (checklistDraft.isNotBlank()) checklistItems + checklistDraft.trim() else checklistItems
-                            onAdd(taskId, title.trim(), note.trim(), group, dueDate, dueTime, endTime, priority, selectedProjectId, selectedSectionId, finalItems, selectedTagIds)
-                            pendingReminder?.let { (at, locId, rec) ->
-                                onAddReminderForTask?.invoke(taskId, at, locId, rec)
-                            }
-                            onDismiss()
-                        }
-                    },
-                    enabled  = title.isNotBlank(),
+                // Enter on the keyboard saves and keeps the sheet open for the next one
+                FilledIconButton(
+                    onClick  = { if (if (smart != null) submitSmart() else submit() != null) onDismiss() },
+                    enabled  = canSave,
                     shape    = CircleShape,
-                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
                 ) {
-                    Text("Save", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
+                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Save", modifier = Modifier.size(20.dp))
                 }
             }
         }
@@ -658,6 +736,7 @@ fun AddTaskSheet(
             initialEndTime = endTime,
             showTimeOption = true,
             onResult       = { picked, pickedDueTime, pickedEndTime ->
+                dateTouched = true
                 dueDate = picked
                 dueTime = pickedDueTime
                 endTime = pickedEndTime
@@ -671,6 +750,7 @@ fun AddTaskSheet(
                 showDatePicker = false
             },
             onAnytime = {
+                dateTouched = true
                 group   = TaskGroup.ANYTIME
                 dueDate = null
                 dueTime = null
@@ -680,6 +760,7 @@ fun AddTaskSheet(
             onThisEvening = {
                 // Without this the shortcut only set today's date, making it identical to
                 // "Today". It now carries the group and the configured evening hour.
+                dateTouched = true
                 group   = TaskGroup.THIS_EVENING
                 dueDate = LocalDate.now()
                 dueTime = runCatching { LocalTime.parse(eveningTime) }.getOrDefault(LocalTime.of(18, 0))
@@ -699,7 +780,7 @@ fun AddTaskSheet(
 
     if (showReminderPicker) {
         ReminderPickerSheet(
-            taskDueDate = dueDate,
+            taskDueDate = effDate,
             onApply     = { at, locId, rec ->
                 pendingReminder = Triple(at, locId, rec)
                 showReminderPicker = false
@@ -789,4 +870,55 @@ private fun ProjectLeadingIcon(project: Project) {
                 .getOrDefault(MaterialTheme.colorScheme.onSurfaceVariant),
         )
     }
+}
+
+// ── Smart add preview ─────────────────────────────────────────────────────────
+
+/** One short line per thing the text will create; a question as chips when a line is ambiguous. */
+@Composable
+private fun SmartPreview(results: List<Interpretation>, choices: MutableMap<Int, Int>, onKeepAsText: () -> Unit) {
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        results.forEachIndexed { i, r ->
+            when (r) {
+                is Interpretation.Ready   -> BatchLines(r.batch)
+                is Interpretation.Invalid -> Text(r.message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                is Interpretation.Ask     -> {
+                    Text(r.question, style = MaterialTheme.typography.bodySmall, color = muted)
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
+                        r.options.forEachIndexed { j, (label, _) ->
+                            FilterChip(selected = choices[i] == j, onClick = { choices[i] = j }, label = { Text(label, style = MaterialTheme.typography.labelMedium) })
+                        }
+                    }
+                    choices[i]?.let { BatchLines(r.options[it].second) }
+                }
+            }
+        }
+        Text(
+            "Keep as plain text", style = MaterialTheme.typography.labelSmall, color = muted.copy(alpha = 0.7f),
+            modifier = Modifier.clickable(onClick = onKeepAsText).padding(vertical = 2.dp),
+        )
+    }
+}
+
+@Composable
+private fun BatchLines(batch: Batch) {
+    val style = MaterialTheme.typography.bodyMedium
+    batch.containers.forEach { c ->
+        val icon = when (c.type) { ProjectType.LIST -> "☑️"; ProjectType.NOTE -> "📝"; ProjectType.PROJECT -> "📁" }
+        val items = (c.tasks.map { it.title } + c.notes.map { it.title })
+        Text("$icon ${c.title}" + if (items.isEmpty()) "" else " · " + items.joinToString(", "), style = style, maxLines = 2)
+    }
+    batch.tasks.forEach { t -> Text("☐ ${t.title}" + draftWhen(t).let { if (it.isEmpty()) "" else " · $it" }, style = style, maxLines = 1) }
+}
+
+private fun draftWhen(t: TaskDraft): String {
+    val today = LocalDate.now()
+    val day = t.dueDate?.let { d -> when (d) { today -> "Today"; today.plusDays(1) -> "Tomorrow"; else -> d.format(DateTimeFormatter.ofPattern("EEE d MMM")) } }
+    return listOfNotNull(
+        day?.plus(t.dueTime?.let { " " + it.format(DateTimeFormatter.ofPattern("HH:mm")) }.orEmpty()),
+        "🔁".takeIf { t.recurrence != null },
+        "🔔".takeIf { t.reminderAt != null },
+        "⚑".takeIf { t.priority != TaskPriority.NONE },
+    ).joinToString(" ")
 }

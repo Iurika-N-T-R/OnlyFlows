@@ -111,4 +111,15 @@ class NaturalLanguageTest {
         assertTrue(r is Interpretation.Ask)
         assertEquals(3, (r as Interpretation.Ask).options.size)
     }
+
+    @Test fun highlightsWhatWasRead() {
+        val text = "Call John tomorrow at 9 AM !!"
+        val (t, ranges) = NaturalLanguage.highlight(text, now)
+        assertEquals("Call John", t.title)
+        assertEquals(listOf("tomorrow", "at 9 AM", "!!"), ranges.map { text.substring(it) })
+    }
+
+    @Test fun plainTitleHighlightsNothing() {
+        assertEquals(emptyList<IntRange>(), NaturalLanguage.highlight("Clean the garage", now).second)
+    }
 }

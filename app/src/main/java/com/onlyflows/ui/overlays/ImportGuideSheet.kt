@@ -196,3 +196,15 @@ Voici mes éléments :
 
 """.trimStart()
 }
+
+/** Created / updated / skipped, with what happened, after an import. */
+@Composable
+fun ImportSummaryCard(s: ContentWriter.Summary) {
+    Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(12.dp)) {
+            Text(s.text, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onPrimaryContainer)
+            s.lines.take(12).forEach { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer) }
+            if (s.lines.size > 12) Text("…and ${s.lines.size - 12} more", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
+        }
+    }
+}

@@ -14,9 +14,8 @@ import java.time.temporal.TemporalAdjusters
 import java.util.Locale
 
 /**
- * Everyday sentences, in English or French, turned into what to create:
- * "Call John tomorrow at 9 AM", "Buy groceries every Monday", "Create a project for my website",
- * "Add milk, eggs, bread to my shopping checklist", "Rappelle-moi de payer le loyer vendredi prochain".
+ * Everyday task phrasing, in English or French, read into a task:
+ * "Call John tomorrow at 9 AM", "Buy groceries every Monday", "Rappelle-moi de payer le loyer vendredi prochain".
  *
  * Rule-based on purpose: it runs offline, instantly, and the same text always means the same
  * thing. Dates are local (the device's time zone, through [LocalDateTime.now]).
@@ -70,9 +69,12 @@ object NaturalLanguage {
 
     /** The text still to read; each recognised piece is cut out of it. */
     private class Work(var s: String) {
+        /** What was recognised, as typed, so the add field can highlight it. */
+        val hits = ArrayList<String>()
         fun take(r: Regex): MatchResult? {
             val m = r.find(s) ?: return null
             s = s.substring(0, m.range.first) + " " + s.substring(m.range.last + 1)
+            m.value.trim().takeIf { it.isNotEmpty() }?.let(hits::add)
             return m
         }
     }
@@ -85,8 +87,19 @@ object NaturalLanguage {
     /** Reads one task: title, date, time, recurrence, priority, #tags and "remind me". */
     fun task(text: String, now: LocalDateTime = LocalDateTime.now()): TaskDraft = parseTask(text, now).first
 
+    /** The task, and where in [text] its date, time, recurrence and priority were read. */
+    fun highlight(text: String, now: LocalDateTime = LocalDateTime.now()): Pair<TaskDraft, List<IntRange>> {
+        val hits = ArrayList<String>()
+        val draft = parseTask(text, now, hits).first
+        val ranges = hits.mapNotNull { h ->
+            val i = text.indexOf(h, ignoreCase = true).takeIf { it >= 0 } ?: return@mapNotNull null
+            i until i + h.length
+        }.sortedBy { it.first }
+        return draft to ranges
+    }
+
     /** The task plus whether a reminder was asked for without saying when. */
-    private fun parseTask(text: String, now: LocalDateTime): Pair<TaskDraft, Boolean> {
+    private fun parseTask(text: String, now: LocalDateTime, hits: MutableList<String>? = null): Pair<TaskDraft, Boolean> {
         val today = now.toLocalDate()
         val w = Work(" " + text.trim().removeSuffix(".") + " ")
         w.s = w.s.trim()
@@ -119,6 +132,7 @@ object NaturalLanguage {
         if (time != null && date == null && recurrence == null) date = if (time > now.toLocalTime()) today else today.plusDays(1)
         if (date == null) date = firstDue
 
+        hits?.addAll(w.hits)
         var title = cleanup(w.s)
         if (title.isEmpty()) title = text.trim()
         val reminderAt = if (!remind) null else when {

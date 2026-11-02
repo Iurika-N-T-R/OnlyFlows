@@ -20,13 +20,6 @@ class OnlyFlowsApp : Application() {
 
     fun requestAddTask() { _addTaskRequested.tryEmit(Unit) }
 
-    /** Opens Smart Add (natural language / voice) with [text] already typed, listening when [voice]. */
-    data class SmartAddRequest(val text: String = "", val voice: Boolean = false)
-    private val _smartAddRequested = MutableSharedFlow<SmartAddRequest>(extraBufferCapacity = 1)
-    val smartAddRequested: SharedFlow<SmartAddRequest> = _smartAddRequested.asSharedFlow()
-
-    fun requestSmartAdd(text: String = "", voice: Boolean = false) { _smartAddRequested.tryEmit(SmartAddRequest(text, voice)) }
-
     override fun onCreate() {
         super.onCreate()
         AppLog.init(filesDir)
@@ -48,6 +41,13 @@ class OnlyFlowsApp : Application() {
                     container.appPreferences.savedColors.first()
                 )
             }.onFailure { AppLog.e("OnlyFlowsApp", "Saved colour import failed", it) }
+        }
+        // Tasks orphaned by project deletes before 0.84.1 still show in widgets and views
+        CoroutineScope(Dispatchers.IO).launch {
+            runCatching {
+                container.syncDao.softDeleteOfDeletedProjects(java.time.LocalDateTime.now().toString())
+                com.onlyflows.ui.widget.WidgetUpdater.updateAll(this@OnlyFlowsApp)
+            }
         }
         ReminderReceiver.ensureChannels(this)
         // Alarms are volatile (wiped by force-stop / OEM killers); re-arm everything from DB state.

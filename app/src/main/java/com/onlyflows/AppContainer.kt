@@ -37,7 +37,7 @@ import com.onlyflows.data.lan.LanSyncWriter
 class AppContainer(context: Context) {
     private val appContext = context.applicationContext
     private val db = AppDatabase.getInstance(context)
-    private val syncDao = db.syncDao()
+    val syncDao = db.syncDao()
 
     // ── LAN sync ─────────────────────────────────────────────────────────────
     val lanSyncPreferences: LanSyncPreferences = LanSyncPreferences(context)
@@ -96,6 +96,7 @@ class AppContainer(context: Context) {
         actionLog       = actionLogRepository,
         syncDao         = syncDao,
         lanSyncWriter = lanSyncWriter,
+        onTaskMutated   = { com.onlyflows.ui.widget.WidgetUpdater.updateAll(context) },
     )
 
     val folderRepository: FolderRepository = FolderRepository(

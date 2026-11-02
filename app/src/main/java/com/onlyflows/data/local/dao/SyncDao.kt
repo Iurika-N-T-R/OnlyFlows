@@ -192,6 +192,14 @@ interface SyncDao {
     @Query("DELETE FROM projects WHERE id = :id")
     suspend fun deleteProject(id: String)
 
+    /** Tasks of a deleted project: the project row is hard-deleted, its tasks went on living. */
+    @Query("""
+        UPDATE tasks SET deletedAt = :now, updatedAt = :now
+        WHERE deletedAt IS NULL
+          AND projectId IN (SELECT entityId FROM deleted_entities WHERE entityType = 'projects')
+    """)
+    suspend fun softDeleteOfDeletedProjects(now: String)
+
     @Query("DELETE FROM sections WHERE id = :id")
     suspend fun deleteSection(id: String)
 

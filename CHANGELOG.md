@@ -5,6 +5,28 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.85.0] — 2026-11-02 · Smart add intégré, voix hors ligne
+
+### Modifié
+
+- **Smart add est intégré au champ d'ajout**, comme dans Todoist. Plus de feuille séparée ni de bouton ✨ : la phrase est lue pendant la frappe. Les mots compris (date, heure, « every Monday », `!!`) sont surlignés dans le titre, la chip de date et le drapeau de priorité se mettent à jour, et ces mots sont retirés du titre à l'enregistrement. Une date choisie à la main l'emporte ; le ✕ de la chip de date garde les mots dans le titre quand la lecture se trompe.
+- **Phrases plus larges dans le même champ** : plusieurs lignes, « Ajoute lait, oeufs à ma liste de courses », « Create a project for my website », « Note: … », « Rappelle-moi de … ». La feuille montre alors une ligne par élément créé à la place des chips, et pose la question en chips si la phrase est ambiguë. « Keep as plain text » enregistre la phrase telle quelle, comme une seule tâche.
+- **Saisie vocale 100 % sur l'appareil** : reconnaissance vocale hors ligne d'Android (Android 13+), sans fenêtre Google ni réseau. Le micro est masqué si le téléphone n'a pas de modèle vocal hors ligne. Le texte dicté va dans le titre et passe par la même lecture.
+- **Feuille d'ajout** : la date rejoint la ligne des chips, à côté du projet ; le bouton Save devient un bouton rond ➤ ; Entrée enregistre et garde la feuille ouverte pour la tâche suivante (remplace l'icône « enregistrer et ajouter »). Plus aucune icône coupée en bout de ligne.
+
+### Corrigé
+
+- **Les tâches d'un projet supprimé apparaissaient encore dans le widget** (et dans Today, Anytime, Someday). Supprimer un projet n'effaçait que le projet : ses tâches restaient actives. Elles partent maintenant à la corbeille avec lui, y compris quand la suppression arrive d'un autre appareil par le LAN, et les tâches déjà orphelines sont nettoyées au démarrage.
+- **Le widget ne se rafraîchissait pas** après la suppression d'un projet ou d'une section.
+- **Le bouton ✕ de la feuille d'ajout était décalé** sous la première ligne du titre et laissait un vide en dessous.
+
+### Technique
+
+- `SmartAddSheet` supprimée ; `NaturalLanguage.highlight` donne les plages reconnues ; `ui/overlays/Dictation` (`createOnDeviceSpeechRecognizer`) ; permission `RECORD_AUDIO`.
+- `SyncDao.softDeleteOfDeletedProjects` (s'appuie sur les tombstones `projects`).
+
+---
+
 ## [0.84.0] — 2026-10-29 · Import, langage naturel et voix
 
 ### Ajouté

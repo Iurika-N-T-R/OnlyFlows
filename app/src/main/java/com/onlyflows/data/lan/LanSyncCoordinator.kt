@@ -305,6 +305,8 @@ class LanSyncCoordinator(
         // failed transfer retries on the next poll instead of leaving a dead attachment.
         delta.forEachArray("savedColors")    { o -> upsertIfNewer(o, "saved_colors", "updatedAt", syncDao::getSavedColorUpdatedAt) { syncDao.upsertSavedColor(savedColorEntityFromJson(o)) } }
         delta.forEachArray("attachments")    { o -> applyAttachment(o, senderIp) }
+        // A remote project tombstone only drops the project row; take its tasks with it
+        syncDao.softDeleteOfDeletedProjects(LocalDateTime.now().toString())
         // Remote deltas bypass the repositories, so refresh widgets + re-arm alarms explicitly
         com.onlyflows.ui.widget.WidgetUpdater.updateAll(context)
         if (alarmsDirty) com.onlyflows.data.notifications.AlarmReconciler.reconcile(context)
