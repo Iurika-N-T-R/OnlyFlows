@@ -32,7 +32,7 @@ Domain (Models + RecurrenceScheduler)
   ↕ Repositories
 Data (Repositories + Room DAOs + DataStore + LanSyncWriter)
   ↕
-Local DB (Room v40, 24 entities) + DataStore Preferences
+Local DB (Room v42, 24 entities) + DataStore Preferences
 ```
 
 ### Key Patterns

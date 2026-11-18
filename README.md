@@ -129,7 +129,7 @@ an RSS reader, date trackers, geofence reminders, a home-screen widget and stati
 - Classic RemoteViews scrollable list — dark/light theme, per-widget filter (Today / Inbox / Anytime / Upcoming / Someday / Project / All)
 - Complete tasks from the widget (recurrence-aware), tap to open, quick-add button
 - Task metadata row (date, project, tags, indicators), overdue in red
-- Auto-refresh: instant on any in-app mutation or LAN sync delta + ~10 s self-chaining alarm
+- Auto-refresh: instant on any in-app mutation or LAN sync delta, plus a 15-minute safety refresh and one at midnight
 
 #### Time Tracking
 - Start / Pause / Stop per task in TaskDetailScreen, real-time ticker
@@ -138,7 +138,7 @@ an RSS reader, date trackers, geofence reminders, a home-screen widget and stati
 
 #### LAN Sync
 - Peer-to-peer sync between devices on the local network (no cloud, no account)
-- Device discovery + pairing, delta exchange over LAN (HTTP)
+- Device discovery + pairing with a 6-digit code; each pair of devices gets its own AES-256 key, and every exchange is encrypted and authenticated with it (AES-GCM). Unpaired devices are refused. Nothing runs while the "LAN sync active" switch is off
 - Last-Write-Wins conflict resolution on `updatedAt`, tombstone-based delete propagation
 - Everything syncs: tasks, checklists, projects, notes, comments, reminders, goals + logs, date trackers, time entries, tags, folders, locations
 - Force sync button in settings
@@ -149,7 +149,7 @@ an RSS reader, date trackers, geofence reminders, a home-screen widget and stati
 - **Statistics** — task completion stats screen
 - **QuoteCard** — offline quotes in sidebar and project screens
 - **AppLog** — in-app debug log viewer
-- **Attachments** — file attachments per task (metadata syncs; file transfer over LAN not yet supported)
+- **Attachments** — file attachments per task (files travel over LAN sync too)
 - **Backup** — export / import via WorkManager
 
 #### Tablet Support
@@ -255,7 +255,7 @@ Clean Architecture with strict Unidirectional Data Flow (UDF).
 app/src/main/java/com/onlyflows/
 ├── data/
 │   ├── local/
-│   │   ├── AppDatabase.kt          Room DB (v38, 24 entities), non-destructive migrations
+│   │   ├── AppDatabase.kt          Room DB (v42, 24 entities), non-destructive migrations
 │   │   ├── Converters.kt           LocalDate / LocalDateTime / LocalTime / JSON
 │   │   ├── entity/                 TaskEntity, ProjectEntity, GoalEntity, RssFeedEntity…
 │   │   └── dao/                    TaskDao, SyncDao, GoalDao…
@@ -302,7 +302,7 @@ app/src/main/java/com/onlyflows/
 |---|---|
 | UI | Jetpack Compose + Material Design 3 |
 | State | ViewModel + StateFlow (strict UDF) |
-| Persistence | Room 2.6.1 — local-first SQLite (schema v38, 24 entities) |
+| Persistence | Room 2.6.1 — local-first SQLite (schema v42, 24 entities) |
 | Preferences | DataStore Preferences |
 | Navigation | Navigation Compose |
 | Drag & Drop | sh.calvin.reorderable |
@@ -311,7 +311,7 @@ app/src/main/java/com/onlyflows/
 | Notifications | AlarmManager (exact alarms) + BroadcastReceiver + geofences |
 | Widget | Classic RemoteViews collection (RemoteViewsCompat) |
 | Background | WorkManager (backup, RSS sync) |
-| Sync | LAN sync (device discovery + HTTP delta exchange) |
+| Sync | LAN sync (device discovery + encrypted delta exchange) |
 | Integration | CalendarProvider, FileProvider |
 
 Kotlin 2.1.0 · AGP 8.7.3 · minSdk 26 · targetSdk 35

@@ -9,6 +9,9 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import org.json.JSONArray
 import org.json.JSONObject
 import android.util.Log
@@ -28,10 +31,15 @@ class LanSyncCoordinator(
     companion object {
         const val PORT = 47891
         private const val CODE_TTL_MS = 5 * 60 * 1000L
+        private const val CODE_TRIES = 5 // wrong codes before the shown code is dropped
     }
 
     private var pendingCode: String? = null
     private var pendingCodeExpiry = 0L
+    private var wrongCodes = 0
+
+    /** Paired devices to talk to: none while the "LAN sync active" switch is off. */
+    private suspend fun peers() = if (prefs.enabled.first()) pairedDeviceDao.getAll() else emptyList()
 
     val isImporting: StateFlow<Boolean> = MutableStateFlow(false)
 
@@ -46,9 +54,7 @@ class LanSyncCoordinator(
 
     fun forceSync() {
         scope.launch(Dispatchers.IO) {
-            pairedDeviceDao.getAll().forEach { peer ->
-                runCatching { syncWithPeer(peer.lastKnownIp, peer.port) }
-            }
+            peers().forEach { peer -> runCatching { syncWithPeer(peer) } }
         }
     }
 
@@ -122,44 +128,48 @@ class LanSyncCoordinator(
     private var server: LanSyncServer? = null
     private var discovery: LanSyncDiscovery? = null
 
+    // Server, discovery and polling run only while the switch is on; turning it off stops them at once
     fun start() {
-        server = LanSyncServer(PORT, this).also { it.start() }
         scope.launch {
-            val deviceName = prefs.getDeviceName()
-            discovery = LanSyncDiscovery(
-                context      = context,
-                port         = PORT,
-                deviceName   = deviceName,
-                onPeerFound  = { ip, port -> scope.launch { onPeerDiscovered(ip, port) } },
-                onPeerLost   = { },
-            ).also { it.start() }
-        }
-        // Poll every 3s — full-state sync, no cursor. LWW guard in applyDelta makes it idempotent.
-        scope.launch(Dispatchers.IO) {
-            while (true) {
-                delay(3_000)
-                pairedDeviceDao.getAll().forEach { peer ->
-                    runCatching { syncWithPeer(peer.lastKnownIp, peer.port) }
+            prefs.enabled.distinctUntilChanged().collectLatest { on ->
+                if (!on) return@collectLatest
+                try {
+                    server = LanSyncServer(PORT, this@LanSyncCoordinator).also { it.start() }
+                    discovery = LanSyncDiscovery(
+                        context      = context,
+                        port         = PORT,
+                        deviceName   = prefs.getDeviceName(),
+                        onPeerFound  = { ip, port -> scope.launch { onPeerDiscovered(ip, port) } },
+                        onPeerLost   = { },
+                    ).also { it.start() }
+                    // Poll every 3s — full-state sync, no cursor. LWW guard in applyDelta makes it idempotent.
+                    while (true) {
+                        delay(3_000)
+                        withContext(Dispatchers.IO) { peers().forEach { peer -> runCatching { syncWithPeer(peer) } } }
+                    }
+                } finally {
+                    stop()
                 }
             }
         }
     }
 
     fun stop() {
-        server?.stop()
-        discovery?.stop()
+        server?.stop(); server = null
+        discovery?.stop(); discovery = null
     }
 
     // Each mutation launches its own coroutine — no Channel, no consumer to die
     fun enqueue(entityType: String, json: JSONObject) {
         val delta = JSONObject().put(entityType, JSONArray().put(json))
         scope.launch(Dispatchers.IO) {
-            val peers = pairedDeviceDao.getAll()
+            val peers = peers()
+            if (peers.isEmpty()) return@launch
+            val me = prefs.getDeviceId()
             Log.d(TAG, "push $entityType to ${peers.size} peers")
             peers.forEach { peer ->
-                runCatching { client.postApply(peer.lastKnownIp, peer.port, delta) }
-                    .onSuccess { Log.d(TAG, "push OK → ${peer.lastKnownIp}") }
-                    .onFailure { Log.w(TAG, "push FAIL → ${peer.lastKnownIp}: ${it.message}") }
+                val ok = client.postApply(peer, me, delta)
+                if (ok) Log.d(TAG, "push OK → ${peer.lastKnownIp}") else Log.w(TAG, "push FAIL → ${peer.lastKnownIp}")
             }
         }
     }
@@ -168,15 +178,15 @@ class LanSyncCoordinator(
         val delta = JSONObject().put("tombstones",
             JSONArray().put(JSONObject().put("entityType", entityType).put("entityId", entityId).put("deletedAt", deletedAt.toString())))
         scope.launch(Dispatchers.IO) {
-            pairedDeviceDao.getAll().forEach { peer ->
-                runCatching { client.postApply(peer.lastKnownIp, peer.port, delta) }
-            }
+            val me = prefs.getDeviceId()
+            peers().forEach { peer -> client.postApply(peer, me, delta) }
         }
     }
 
     fun generatePairingCode(): String {
         val code = (100000..999999).random().toString()
         pendingCode = code
+        wrongCodes = 0
         pendingCodeExpiry = System.currentTimeMillis() + CODE_TTL_MS
         _pairingCode.value = code
         _pairingCodeExpiryMs.value = pendingCodeExpiry
@@ -196,9 +206,11 @@ class LanSyncCoordinator(
         val resp = client.postPair(ip, port, body) ?: return false
         val peerId   = resp.optString("deviceId")
         val peerName = resp.optString("deviceName")
-        pairedDeviceDao.upsert(PairedDeviceEntity(peerId, peerName, ip, port, LocalDateTime.now()))
+        val secret   = resp.optString("secret").takeIf { it.isNotBlank() } ?: return false // a peer still on the old protocol
+        val peer = PairedDeviceEntity(peerId, peerName, ip, port, LocalDateTime.now(), secret)
+        pairedDeviceDao.upsert(peer)
         _discoveredPeers.update { it.filter { p -> p.first != ip } }
-        scope.launch(Dispatchers.IO) { syncWithPeer(ip, port) }
+        scope.launch(Dispatchers.IO) { syncWithPeer(peer) }
         return true
     }
 
@@ -206,17 +218,25 @@ class LanSyncCoordinator(
 
     suspend fun handlePairRequest(json: JSONObject): JSONObject? {
         val code = json.optString("code")
-        if (code != pendingCode || System.currentTimeMillis() > pendingCodeExpiry) return null
+        if (pendingCode == null || System.currentTimeMillis() > pendingCodeExpiry) return null
+        if (code != pendingCode) {
+            // a 6-digit code can't take guessing: after a few misses it's gone, make a new one
+            if (++wrongCodes >= CODE_TRIES) { pendingCode = null; _pairingCode.value = null }
+            return null
+        }
         pendingCode = null
+        _pairingCode.value = null
 
         val peerId   = json.optString("deviceId")
         val peerName = json.optString("deviceName")
         val peerIp   = json.optString("ip")
         val peerPort = json.optInt("port", PORT)
 
-        pairedDeviceDao.upsert(PairedDeviceEntity(peerId, peerName, peerIp, peerPort, LocalDateTime.now()))
-        scope.launch(Dispatchers.IO) { syncWithPeer(peerIp, peerPort) }
-        return buildInfoJson()
+        if (peerId.isBlank()) return null
+        val peer = PairedDeviceEntity(peerId, peerName, peerIp, peerPort, LocalDateTime.now(), LanCrypto.newSecret())
+        pairedDeviceDao.upsert(peer)
+        scope.launch(Dispatchers.IO) { syncWithPeer(peer) }
+        return buildInfoJson().put("secret", peer.secret)
     }
 
     suspend fun buildInfoJson(): JSONObject {
@@ -249,24 +269,23 @@ class LanSyncCoordinator(
         }
     }
 
-    // Called from server thread — schedules on scope (Main) so Room Flow observers get notified
-    fun scheduleApplyDelta(senderIp: String, bodyStr: String) {
-        scope.launch {
-            runCatching {
-                val paired = pairedDeviceDao.getAll()
-                paired.find { it.lastKnownIp == senderIp }
-                    ?: paired.firstOrNull()?.also { pairedDeviceDao.updateIp(it.id, senderIp) }
-                applyDelta(JSONObject(bodyStr), senderIp)
-            }
+    /**
+     * A /sync request: opened with the key of the paired device it claims to come from, else
+     * refused (null). Unpairing a device deletes its key, so its requests stop working at once.
+     */
+    suspend fun handleSecure(deviceId: String, ip: String, sealed: ByteArray): ByteArray? {
+        val peer = pairedDeviceDao.getById(deviceId)?.takeIf { it.secret.isNotEmpty() } ?: return null
+        val req = LanCrypto.open(peer.secret, sealed)?.let { JSONObject(String(it, Charsets.UTF_8)) } ?: return null
+        if (peer.lastKnownIp != ip) pairedDeviceDao.updateIp(peer.id, ip)
+        val here = peer.copy(lastKnownIp = ip)
+        val answer = when (req.optString("p")) {
+            "delta"      -> buildDelta(LocalDateTime.MIN).toString().toByteArray()
+            "apply"      -> { applyDelta(req.getJSONObject("d"), here); "ok".toByteArray() }
+            // first byte: 1 = found, 0 = no such file here
+            "attachment" -> readAttachmentBytes(req.optString("d"))?.let { byteArrayOf(1) + it } ?: byteArrayOf(0)
+            else         -> return null
         }
-    }
-
-    // Used internally (poll loop already on scope)
-    suspend fun applyDeltaFrom(senderIp: String, delta: JSONObject) {
-        val paired = pairedDeviceDao.getAll()
-        paired.find { it.lastKnownIp == senderIp }
-            ?: paired.firstOrNull()?.also { pairedDeviceDao.updateIp(it.id, senderIp) }
-        applyDelta(delta, senderIp)
+        return LanCrypto.seal(peer.secret, answer)
     }
 
     /** Local bytes for an attachment the peer is asking for, or null when we hold no file. */
@@ -275,7 +294,7 @@ class LanSyncCoordinator(
         runCatching { file.readBytes() }.getOrNull()
     }
 
-    suspend fun applyDelta(delta: JSONObject, senderIp: String? = null) = withContext(Dispatchers.IO) {
+    suspend fun applyDelta(delta: JSONObject, sender: PairedDeviceEntity? = null) = withContext(Dispatchers.IO) {
         // Tombstones FIRST so a delete always beats a stale re-create in the same batch
         delta.forEachArray("tombstones") { obj ->
             val type      = obj.optString("entityType")
@@ -304,7 +323,7 @@ class LanSyncCoordinator(
         // stored locally, and the row is only written once the file is actually on disk, so a
         // failed transfer retries on the next poll instead of leaving a dead attachment.
         delta.forEachArray("savedColors")    { o -> upsertIfNewer(o, "saved_colors", "updatedAt", syncDao::getSavedColorUpdatedAt) { syncDao.upsertSavedColor(savedColorEntityFromJson(o)) } }
-        delta.forEachArray("attachments")    { o -> applyAttachment(o, senderIp) }
+        delta.forEachArray("attachments")    { o -> applyAttachment(o, sender) }
         // A remote project tombstone only drops the project row; take its tasks with it
         syncDao.softDeleteOfDeletedProjects(LocalDateTime.now().toString())
         // Remote deltas bypass the repositories, so refresh widgets + re-arm alarms explicitly
@@ -330,15 +349,15 @@ class LanSyncCoordinator(
         return true
     }
 
-    private suspend fun applyAttachment(json: JSONObject, senderIp: String?) {
+    private suspend fun applyAttachment(json: JSONObject, sender: PairedDeviceEntity?) {
         val id = json.optString("id")
         if (id.isBlank() || syncDao.isTombstoned(id, "attachments")) return
         val fileName = json.optString("fileName", "file")
 
         val existing = AttachmentStore.existingFile(context, id)
         val localFile = if (existing != null) existing else {
-            val ip    = senderIp ?: return
-            val bytes = client.getAttachment(ip, PORT, id) ?: return
+            val peer  = sender ?: return
+            val bytes = client.getAttachment(peer, prefs.getDeviceId(), id) ?: return
             AttachmentStore.writeBytes(context, id, fileName, bytes) ?: return
         }
 
@@ -386,7 +405,7 @@ class LanSyncCoordinator(
         val paired = pairedDeviceDao.getAll().find { it.id == peerId }
         if (paired != null) {
             pairedDeviceDao.updateIp(peerId, ip)
-            syncWithPeer(ip, paired.port)
+            if (prefs.enabled.first()) syncWithPeer(paired.copy(lastKnownIp = ip))
         } else {
             // Track for the pairing UI
             _discoveredPeers.update { current ->
@@ -396,10 +415,11 @@ class LanSyncCoordinator(
     }
 
     // Full-state bidirectional sync. No cursor — LWW guard in applyDelta dedupes/protects.
-    private suspend fun syncWithPeer(ip: String, port: Int) {
-        val delta = client.getDelta(ip, port, LocalDateTime.MIN) ?: return
-        applyDelta(delta, ip)
-        client.postApply(ip, port, buildDelta(LocalDateTime.MIN))
+    private suspend fun syncWithPeer(peer: PairedDeviceEntity) {
+        val me = prefs.getDeviceId()
+        val delta = client.getDelta(peer, me) ?: return
+        applyDelta(delta, peer)
+        if (!client.postApply(peer, me, buildDelta(LocalDateTime.MIN))) Log.w(TAG, "sync push refused or failed → ${peer.lastKnownIp}")
     }
 
     // Helpers

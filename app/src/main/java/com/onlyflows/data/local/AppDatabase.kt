@@ -59,7 +59,7 @@ import com.onlyflows.data.local.entity.AttachmentEntity
         ChecklistItemReminderEntity::class,
         SavedColorEntity::class,
     ],
-    version = 41,
+    version = 42,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -223,17 +223,41 @@ abstract class AppDatabase : RoomDatabase() {
                         )"""
                     )
                 }
+                val migration41to42 = Migration(41, 42) { db ->
+                    // LAN sync now seals every request with a key agreed at pairing. Devices
+                    // paired before have no key: they are dropped and must be paired again.
+                    db.execSQL("ALTER TABLE paired_devices ADD COLUMN secret TEXT NOT NULL DEFAULT ''")
+                    db.execSQL("DELETE FROM paired_devices")
+                }
+                backupBeforeMigration(context, 42)
                 Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "onlyflows.db",
                 )
-                .addMigrations(migration27to28, migration28to29, migration29to30, migration30to31, migration31to32, migration32to33, migration33to34, migration34to35, migration35to36, migration36to37, migration37to38, migration38to39, migration39to40, migration40to41)
-                .fallbackToDestructiveMigration()
-                .fallbackToDestructiveMigrationOnDowngrade()
+                .addMigrations(migration27to28, migration28to29, migration29to30, migration30to31, migration31to32, migration32to33, migration33to34, migration34to35, migration35to36, migration36to37, migration37to38, migration38to39, migration39to40, migration40to41, migration41to42)
+                // No destructive fallback: a missing migration must fail loudly, never wipe the user's data
                 .build()
                 .also { INSTANCE = it }
             }
+        }
+
+        /**
+         * Before a schema upgrade, copies the database files to files/db-backup-v<old>/ so a
+         * failed migration can't lose data. Reads user_version straight from the file header
+         * (bytes 60..63): no SQLite connection needed, and a stale header only means an extra copy.
+         */
+        private fun backupBeforeMigration(context: Context, target: Int) = runCatching {
+            val db = context.getDatabasePath("onlyflows.db")
+            if (!db.exists() || db.length() < 64) return@runCatching
+            val header = ByteArray(64).also { buf -> db.inputStream().use { it.read(buf) } }
+            val version = java.nio.ByteBuffer.wrap(header, 60, 4).int
+            if (version >= target) return@runCatching
+            val dir = java.io.File(context.filesDir, "db-backup-v$version")
+            context.filesDir.listFiles { f -> f.name.startsWith("db-backup-v") && f != dir }?.forEach { it.deleteRecursively() }
+            dir.mkdirs()
+            listOf("", "-wal", "-shm").map { java.io.File(db.path + it) }.filter { it.exists() }
+                .forEach { it.copyTo(java.io.File(dir, it.name), overwrite = true) }
         }
 
         fun closeInstance() {

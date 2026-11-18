@@ -5,6 +5,25 @@ Format inspiré de [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/).
 
 ---
 
+## [0.87.0] — 2026-11-18 · Synchronisation LAN chiffrée, données protégées
+
+### Sécurité
+
+- **La synchronisation LAN est chiffrée et réservée aux appareils appairés.** Jusqu'ici, n'importe quel appareil du même Wi-Fi pouvait lire toutes les données (`/delta`, `/attachment`) ou en écrire (`/apply`) sans code. À l'appairage, les deux appareils reçoivent désormais une clé AES-256 qui leur est propre. Chaque requête et chaque réponse est scellée avec elle (AES-GCM, chiffré et authentifié) sur un seul point d'entrée `/sync`, et une requête qui ne s'ouvre pas avec la clé d'un appareil appairé est refusée. Désappairer un appareil supprime sa clé : il est coupé immédiatement.
+- **Les appareils déjà appairés doivent être appairés à nouveau** : ils n'ont pas de clé. Les deux appareils doivent être en 0.87.0.
+- **L'interrupteur « LAN sync active » est respecté.** Le serveur, la découverte réseau et la synchronisation ne tournent que s'il est activé, et s'arrêtent dès qu'on le coupe. Générer un code ou appairer l'active.
+- **Le code d'appairage est invalidé après 5 essais faux**, et dès qu'il a servi.
+- **Le serveur limite** la taille des requêtes, le nombre de connexions simultanées et leur durée.
+- **Une requête venue d'une adresse inconnue ne prend plus la place du premier appareil appairé.**
+
+### Corrigé
+
+- **Une mise à jour ne peut plus effacer la base.** Le repli destructif de Room (`fallbackToDestructiveMigration`) est retiré : une migration manquante échoue au lieu de tout supprimer. Avant chaque changement de schéma, la base est copiée dans `files/db-backup-v<ancienne version>/`.
+- **L'envoi d'une modification vérifie la réponse de l'autre appareil** au lieu de la supposer réussie.
+- README : version de la base, transfert des pièces jointes et rafraîchissement du widget mis à jour.
+
+---
+
 ## [0.86.0] — 2026-11-02 · Listes en collections, terminées à la demande
 
 ### Modifié

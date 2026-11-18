@@ -1,5 +1,6 @@
 package com.onlyflows.data.local.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import java.time.LocalDateTime
@@ -11,4 +12,6 @@ data class PairedDeviceEntity(
     val lastKnownIp: String,
     val port: Int,
     val pairedAt: LocalDateTime,
+    // AES-256 key (Base64) agreed at pairing; every sync request is sealed with it (LanCrypto)
+    @ColumnInfo(defaultValue = "''") val secret: String = "",
 )

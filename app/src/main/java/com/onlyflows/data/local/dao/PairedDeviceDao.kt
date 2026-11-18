@@ -12,6 +12,9 @@ interface PairedDeviceDao {
     @Query("SELECT * FROM paired_devices")
     suspend fun getAll(): List<PairedDeviceEntity>
 
+    @Query("SELECT * FROM paired_devices WHERE id = :id")
+    suspend fun getById(id: String): PairedDeviceEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(device: PairedDeviceEntity)
 

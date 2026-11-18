@@ -59,7 +59,8 @@ class LanSyncViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setDeviceName(name: String) = viewModelScope.launch { prefs.setDeviceName(name) }
 
-    fun generateCode() { coordinator.generatePairingCode() }
+    // Pairing only works while the server runs, so it turns sync on
+    fun generateCode() = viewModelScope.launch { prefs.setEnabled(true); coordinator.generatePairingCode() }
 
     fun rescan() { coordinator.rescan() }
 
@@ -71,6 +72,7 @@ class LanSyncViewModel(app: Application) : AndroidViewModel(app) {
 
     fun pairWithPeer(ip: String, port: Int, code: String) {
         viewModelScope.launch {
+            prefs.setEnabled(true)
             val ok = coordinator.pairWithPeer(ip, port, code)
             // result surfaced via pairedDevices flow update
         }
